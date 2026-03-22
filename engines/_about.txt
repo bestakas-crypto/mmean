@@ -1,0 +1,135 @@
+================================================================================
+engines/ — FlowEngine 파이프라인 + 장중 LLM 분석 레이어
+================================================================================
+
+이 디렉토리는 MMEAN의 실시간 진입 판단 파이프라인을 구성하는 모듈 모음이다.
+크게 세 그룹으로 나뉜다:
+
+  ① FlowEngine 파이프라인  — 외국인 수급 → 사이즈 결정
+  ② LLM 진입 판단 레이어  — Sonnet 호출 → weight_adjust
+  ③ 장중 LLM 분석 레이어  — Haiku 분석 → 시장 구조 판단
+
+호출 순서 (매 틱, 0.5s):
+  regime_ticks 수신
+    → ForeignFlowEngine   : flow_score 계산
+    → RegimeEngine        : long/short weight 계산
+    → LLMGate             : LLM 호출 필요 여부 판단
+    → LLMInputBuilder     : 프롬프트 입력 데이터 구성
+    → LLMCaller           : Sonnet 호출 (백그라운드 스레드)
+      → LLMEmaFilter      : weight_adjust 평활화
+      → LLMTTLManager     : weight_adjust TTL 감쇠
+    → PositionEngine      : 최종 order_size 결정
+
+백그라운드 루프 (독립 스레드):
+  MarketAnalyst           : 3분마다 Haiku → market_view 갱신
+  CheckpointAnalyst       : 09:15 / 10:30 / 13:00 Haiku → 구조 판단 갱신
+  AdoptionViewAdapter     : provisional_regime → sim_adoptions 조회 → config 교체 (SHADOW_MODE)
+
+================================================================================
+파일별 설명
+================================================================================
+
+__init__.py
+  패키지 마커. 내용 없음.
+
+─── ① FlowEngine 파이프라인 ────────────────────────────────────────────────────
+
+foreign_flow_engine.py
+  ForeignFlowEngine — 외국인 순매수(foreign_buy)를 받아 flow_score(-2.0~+2.0) 계산.
+  누적값(40%) + 틱 변화량(60%) 합성 또는 delta_only 모드 선택 가능.
+  출력: flow_score, flow_regime_label, flow_long_weight, flow_short_weight
+
+regime_engine.py  (engines/ 버전)
+  RegimeEngine — flow_score를 sigmoid 변환하여 long_weight / short_weight 연속값 생성.
+  flow_regime_label은 모니터링 전용. 실행 if문에 사용 금지.
+
+position_engine.py
+  PositionEngine — base_size × regime_weight × llm_weight_adjust → 최종 order_size.
+  LLM weight_adjust는 ±20% 범위로 clamp. 방향·진입·청산 결정 절대 불가.
+
+─── ② LLM 진입 판단 레이어 ────────────────────────────────────────────────────
+
+llm_gate.py
+  LLMGate — LLM 호출 필요 여부 사전 판단.
+  |flow_score| >= 0.8 이면 LLM 호출 스킵 (방향 명확, 비용 절감).
+
+llm_input_builder.py
+  LLMInputBuilder — Sonnet 호출용 FlowMetrics + MarketContext 데이터 구성.
+  system_prompt + user_prompt 조립. RAG 컨텍스트 포함.
+
+llm_caller.py
+  LLMCaller — Sonnet 호출 오케스트레이터. 진입 신호 1회 호출 원칙.
+  call_once(system_prompt, user_prompt) → LLMResult(weight_adjust, confidence, risk_view).
+  내부에서 llm_chain 폴백 체인 (Claude → GPT → Gemini) 사용.
+
+llm_ema_filter.py
+  LLMEmaFilter — weight_adjust EMA 평활화. 급격한 사이즈 변동 방지.
+
+llm_ttl_manager.py
+  LLMTTLManager — weight_adjust TTL 감쇠. TTL 만료 후 0으로 선형 복귀.
+  state: flow_ttl_active, flow_ttl_remaining
+
+─── ③ 장중 LLM 분석 레이어 ────────────────────────────────────────────────────
+
+market_analyst.py
+  MarketAnalyst — 09:00 이후 3분마다 Haiku 호출. 미시 상태 감시 전용.
+  역할: 추격 금지 여부, size 축소 여부, HOLD 강화 판단 재료 제공.
+  출력 → state["market_view"]: {view, direction, confidence, reason}
+  view 라벨: TREND_UP | TREND_DOWN | VOLATILE | CHOPPY |
+             SPIKE_REVERSAL | REVERSAL_UP | REVERSAL_DOWN
+  ※ config 자동 교체 없음. 미시 실행 필터 전용.
+
+checkpoint_analyst.py
+  CheckpointAnalyst — 09:15 / 10:30 / 13:00 세 번만 Haiku 호출. 구조 판단 전용.
+  매일 1회씩만 발동. 30초 루프로 시각 도달 감지.
+
+  09:15 → state["opening_char"]
+    {char, size_filter, reason, ts}
+    char: opening_strength | opening_fade | initial_chop |
+          early_imbalance_up | early_imbalance_down
+    size_filter: normal | reduce | skip
+    용도: 아침장 추격 여부, 초반 size 보수화 근거
+
+  10:30 → state["provisional_regime"]
+    {regime, direction, confidence, reason, ts}
+    regime: trend_continuation | reversal | balance
+    용도: Sonnet 진입 판단 첫 번째 구조 컨텍스트 (10:30 이후부터 유효)
+
+  13:00 → state["afternoon_regime"]
+    {regime, late_bias, risk_adj, reason, ts}
+    regime: trend_alive | trend_dead | reversal | box
+    용도: 오후장 운용 방향 수정, 후반 risk 조정 근거
+
+adoption_view_adapter.py
+  AdoptionViewAdapter — provisional_regime 라벨 → sim_adoptions 조회 → config 교체.
+  SHADOW_MODE = True (기본): 실제 교체 없이 로그만 출력.
+  안전장치 (SHADOW_MODE=False 시):
+    - 동일 view 연속 2회 확인 후 교체
+    - confidence=HIGH 일 때만 교체
+    - 교체 후 30분 쿨다운
+    - 하루 최대 3회 교체
+    - UNSTABLE_VIEWS(VOLATILE, SPIKE_REVERSAL): config 교체 없이 size 축소만
+  adoption 없으면 현재 config 유지 (fallback).
+  장 종료 시: reset_to_default() → DEFAULT_CONFIG 복원.
+
+sim_profile_resolver.py
+  SimProfileResolver — Easy / Expert 모드 config 병합.
+  Easy 모드: selected_level(1~20) → level JSON + fixed JSON 병합 후 ConfigManager 적용.
+  Expert 모드: ConfigManager 개별 옵션 그대로 사용.
+
+================================================================================
+3층 분리 원칙 (변경 금지)
+================================================================================
+
+Layer 1  market_view           — 3분 미시 필터  (빠름, DB 연결 없음)
+Layer 2  opening_char          — 09:15 구조 판단
+         provisional_regime    — 10:30 잠정 레짐
+         afternoon_regime      — 13:00 오후 재평가
+Layer 3  session_pattern       — 장 종료 후 사후 확정 (sim/RAG 학습 재료)
+
+- Layer 1 라벨(VOLATILE, SPIKE_REVERSAL)과 Layer 3 라벨(day_pattern)은 다를 수 있다.
+  목적이 다르므로 충돌 없음.
+- adoption 자동 교체는 Layer 2 결과만 사용. Layer 1로 config 교체 금지.
+- session_pattern은 실시간 판단에 사용하지 않는다.
+
+================================================================================

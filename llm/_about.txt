@@ -1,0 +1,43 @@
+================================================================================
+  MMEAN / llm — LLM 관련 모듈
+================================================================================
+
+역할
+----
+Claude/GPT/Gemini API 호출, 프롬프트 관리, LLM 기반 시장 필터링을 담당한다.
+
+파일 목록
+---------
+llm_chain.py
+  - LLMChain: Claude/OpenAI/Gemini 멀티 공급자 추상화
+  - 일일 호출 한도 관리, 안전 통계
+  - 응답 파싱 → OpportunitySchema
+
+llm_controller.py
+  - LLMController: 장전 전략 분석 스케줄러
+  - should_run_now() → 호출 타이밍 결정
+  - [현재 비활성화] 대시보드 수동 옵션으로 대체 (2026-03-16~)
+
+llm_filter.py
+  - LLMFilter: 실시간 진입 신호 필터
+  - entry_signal이 LONG_READY/SHORT_READY일 때 LLM 호출
+  - TTL 기반 결과 캐싱 (중복 호출 방지)
+
+llm_schemas.py
+  - OpportunitySchema: LLM 응답 구조체
+  - Pydantic 모델 (direction, confidence, reasoning 등)
+
+prompt_manager.py
+  - PromptManager: 프롬프트 템플릿 관리
+  - DB(prompt_snapshots)에서 로드, 버전 관리
+  - VALID_NAMES: 사용 가능한 프롬프트 이름 목록
+
+의존 관계
+---------
+  llm → config(param_store, config_manager), logs
+  core → llm
+
+호출 흐름
+---------
+  engine_loop → llm_filter.update() → llm_chain.call() → OpportunitySchema 반환
+================================================================================

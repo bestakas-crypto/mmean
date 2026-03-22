@@ -1,0 +1,56 @@
+================================================================================
+  MMEAN / sim_opt — 시뮬레이션 / 최적화
+================================================================================
+
+역할
+----
+Optuna 기반 파라미터 최적화, 백테스트 시뮬레이션, AB 테스트를 담당한다.
+결과는 sim.db에 기록된다. 실거래 엔진과 완전히 분리된다.
+
+파일 목록
+---------
+sim_engine.py
+  - SimEngine: 틱 단위 가상 체결 시뮬레이터
+  - SimTrade: 개별 매매 기록 구조체
+  - app_bootstrap에서 실거래 엔진에도 연결됨 (시뮬 포지션 추적용)
+
+day_sim.py
+  - DaySimRunner: 주간장 Optuna 최적화 러너
+  - run_random_search(): 랜덤 파라미터 탐색
+  - run_bayes_opt(): 베이지안 최적화
+  - run_validation(): 검증 실행
+  - sim.db에 sim_runs / sim_trades / sim_observations 기록
+
+night_sim.py
+  - NightSimRunner: 야간장 전용 최적화 러너
+  - day_sim.py와 동일 구조, 야간 레짐 엔진 사용
+
+ab_sim_runner.py
+  - ABSimRunner: Champion vs Challenger 비교 시뮬레이션
+  - mmean.db의 ab_sim_* 테이블에 기록
+
+replay_sim.py
+  - 과거 틱 데이터 재생 시뮬레이션
+  - mmean.db의 replay_runs / replay_trades 기록
+
+experiment_runner.py
+  - 실험적 파라미터 조합 일괄 실행
+
+sim_report.py
+  - 시뮬레이션 결과 분석 리포트
+  - rep.bat에서 --watch 모드로 실행
+
+실행 방법
+---------
+  sim.bat             → 주간 최적화 (sim.py → DaySimRunner)
+  scripts/night.py    → 야간 최적화
+
+DB 구조 (sim.db)
+-----------------
+  sim_runs        : 실행별 파라미터 + 성과 요약
+  sim_trades      : 개별 체결 내역 (1,700만+ 행, 최대 크기)
+  sim_observations: Optuna trial 관측값
+  sim_run_summary : 실행 요약 통계
+  sim_run_sessions: 세션별 정보
+  sim_adoptions   : 실거래 채택 기록 (현재 비어있음)
+================================================================================

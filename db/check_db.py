@@ -1,0 +1,16 @@
+import sqlite3
+from pathlib import Path
+_MMEAN_DB = str(Path(__file__).resolve().parent.parent / "storage" / "mmean.db")
+c = sqlite3.connect(_MMEAN_DB)
+print("=== trades cols ===")
+print([r[1] for r in c.execute('PRAGMA table_info(trades)').fetchall()])
+print()
+print("=== sim_trades cols ===")
+print([r[1] for r in c.execute('PRAGMA table_info(sim_trades)').fetchall()])
+print()
+print("=== sim_trades rows ===", c.execute('SELECT COUNT(*) FROM sim_trades').fetchone()[0])
+print("=== trades rows ===",     c.execute('SELECT COUNT(*) FROM trades').fetchone()[0])
+print()
+print("=== sim_open_pos table exists? ===")
+t = c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='sim_open_pos'").fetchone()
+print(t)

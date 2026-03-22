@@ -1,0 +1,49 @@
+================================================================================
+  MMEAN / db — DB 설정 / 관리
+================================================================================
+
+역할
+----
+SQLite DB 스키마 생성/마이그레이션, 데이터 아카이브,
+개발용 경량 DB 추출을 담당한다.
+
+파일 목록
+---------
+db_setup.py
+  - setup_all(mmean_db): mmean.db 전체 스키마 초기화
+  - _MIGRATIONS: 컬럼 추가 마이그레이션 목록
+  - _create_pattern_tables(): pattern_docs 테이블 생성
+  - WAL 모드 활성화 (멀티프로세스 안전)
+  - analyzer_app.py 시작 시 자동 호출
+
+db_setup_sim.py
+  - setup_sim_db(sim_db): sim.db 스키마 초기화
+  - sim_runs / sim_trades / sim_observations 등 테이블 생성
+
+db_archive.py
+  - C드라이브(운영) → F드라이브(아카이브) 이전
+  - 최근 N일 데이터만 C드라이브에 유지
+  - VACUUM으로 용량 회수
+  - 실행: db_archive.bat (메뉴 방식)
+
+export_dev_db.py
+  - 개발용 경량 DB 추출 스크립트
+  - sim.db: sim_trades 최근 10,000건만 포함
+  - mmean.db: 불필요한 대용량 테이블 제외
+  - 출력: storage/dev_sim.db, storage/dev_mmean.db
+  - FileZilla로 개발 PC에 전송용
+
+check_db.py
+  - DB 상태 점검 유틸리티
+  - 테이블 행수, 인덱스, 무결성 확인
+
+DB 경로
+-------
+  storage/mmean.db  : 실거래 메인 DB (384MB)
+  storage/sim.db    : 최적화 전용 DB (3.7GB)
+
+WAL 모드
+--------
+  모든 DB는 WAL(Write-Ahead Logging) 모드로 운영
+  → 읽기/쓰기 동시 접근 가능 (실거래 중 아카이브 가능)
+================================================================================

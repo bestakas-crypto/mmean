@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>MMEAN AI 리포트</title>
+<style>
+body { background:#e9edf3; font-family:system-ui,sans-serif; margin:0; padding:0; }
+.report-container {
+    width:210mm; min-height:297mm;
+    margin:40px auto; background:white;
+    padding:40px; box-shadow:0 0 10px rgba(0,0,0,.15);
+}
+h1 { margin-top:0; font-size:26px; color:#0f172a; }
+.meta { color:#64748b; margin-bottom:8px; font-size:13px; }
+.controls { margin-bottom:20px; display:flex; gap:10px; }
+button { padding:8px 14px; cursor:pointer; border-radius:6px; border:1px solid #cbd5e1; background:#f8fafc; font-size:13px; }
+button:hover { background:#e2e8f0; }
+
+/* 로딩 상태 */
+.status-bar { background:#f1f5f9; border:1px solid #e2e8f0; border-radius:6px; padding:10px 14px; margin-bottom:16px; font-size:13px; color:#475569; display:none; }
+.status-bar.show { display:block; }
+
+/* 리포트 본문 */
+.report-text { line-height:1.75; font-size:14px; color:#111827; }
+.report-text h2 { margin:20px 0 8px; font-size:18px; color:#0f172a; border-left:4px solid #2563eb; padding-left:8px; }
+.report-text h3 { margin:14px 0 6px; font-size:15px; color:#1e293b; }
+.report-text p  { margin:0 0 10px; }
+.report-text ul { margin:8px 0 10px 18px; }
+.report-text li { margin:3px 0; }
+.report-text strong { color:#0f172a; }
+.report-text code { background:#f1f5f9; padding:1px 5px; border-radius:4px; font-family:monospace; font-size:12px; color:#7c3aed; }
+.report-text .pos { color:#047857; font-weight:600; }
+.report-text .neg { color:#b91c1c; font-weight:600; }
+.report-text hr { border:none; border-top:1px solid #e2e8f0; margin:16px 0; }
+
+/* KPI 요약 배너 */
+.kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:16px 0 20px; }
+.kpi-box { border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; background:#f8fafc; }
+.kpi-box .kl { font-size:10px; color:#64748b; text-transform:uppercase; letter-spacing:.06em; margin-bottom:4px; }
+.kpi-box .kv { font-family:monospace; font-size:17px; font-weight:700; color:#0f172a; }
+
+/* 오류/플레이스홀더 */
+.placeholder { color:#94a3b8; font-size:13px; font-family:monospace; }
+.err { color:#b91c1c; }
+
+@media print {
+    body { background:white; }
+    .controls, .status-bar { display:none !important; }
+    .report-container { box-shadow:none; margin:0; width:auto; }
+}
+</style>
+</head>
+<body>
+<div class="report-container">
+
+    <h1>MMEAN AI 리포트</h1>
+    <div class="meta">생성 시간: <span id="genTime"></span></div>
+    <div class="meta" id="metaInfo"></div>
+
+    <div class="controls">
+        <button onclick="window.print()">🖨 PDF 저장 / 인쇄</button>
+        <button onclick="copyText()">📋 텍스트 복사</button>
+        <button onclick="location.reload()">↺ 재생성</button>
+    </div>
+
+    <div class="status-bar show" id="statusBar">⏳ 데이터 로딩 중...</div>
+
+    <div id="kpiRow" class="kpi-row" style="display:none"></div>
+
+    <div id="report" class="report-text">
+        <div class="placeholder">리포트 생성 중입니다...</div>
+    </div>
+
+</div>
+
+<script>
+document.getElementById("genTime").innerText = new Date().toLocaleString("ko-KR");
+
+const params   = new URLSearchParams(window.location.search);
+const DATE     = params.get("date")    || "";
+const SESSION  = params.get("session") || "all";
+const SOURCE   = params.get("source")  || "sim";
+const RTYPE    = params.get("type")    || "daily";
+
+const sessionLabel = {all:"전체", day:"정규장(06-18시)", night:"야간장(18-06시)"}[SESSION] || SESSION;
+document.getElementById("metaInfo").textContent =
+    `날짜: ${DATE||"전체"}  |  세션: ${sessionLabel}  |  유형: ${RTYPE}`;
+
+const FMT_WON  = v => { if(v==null) return "-"; const n=Number(v); return (n>=0?"+":"")+n.toLocaleString("ko-KR")+"원"; };
+const FMT_TICK = v => v==null ? "-" : (Number(v)>=0?"+":"")+Number(v).toFixed(2);
+
+function setStatus(msg, isErr=false) {
+    const el = document.getElementById("statusBar");
+    el.className = "status-bar show";
+    el.style.color = isErr ? "#b91c1c" : "#475569";
+    el.textContent = msg;
+}
+function hideStatus() {
+    document.getElementById("statusBar").className = "status-bar";
+}
+
+function renderKPI(s) {
+    if(!s || !s.total) return;
+    const wr = s.total>0 ? ((s.wins/s.total)*100).toFixed(1)+"%" : "-";
+    const row = document.getElementById("kpiRow");
+    row.style.display = "grid";
+    row.innerHTML = [
+        ["총 거래",  (s.total||0)+"건"],
+        ["총 PnL",   FMT_WON(s.total_pnl)],
+        ["승률",     wr],
+        ["평균틱",   FMT_TICK(s.avg_ticks)+" pt"],
+    ].map(([l,v])=>`<div class="kpi-box"><div class="kl">${l}</div><div class="kv">${v}</div></div>`).join("");
+}
+
+function md2html(text) {
+    let h = text
+        .replace(/\r/g,"")
+        .replace(/^---+$/gm,"<hr>")
+        .replace(/^###\s+(.+)$/gm,"<h3>$1</h3>")
+        .replace(/^##\s+(.+)$/gm,"<h2>$1</h2>")
+        .replace(/^#\s+(.+)$/gm,"<h2>$1</h2>")
+        .replace(/^(\d+\.\s.+)$/gm,"<h3>$1</h3>")
+        .replace(/^\s*[-*]\s+(.+)$/gm,"<li>$1</li>")
+        .replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>")
+        .replace(/`(.+?)`/g,"<code>$1</code>")
+        .replace(/([+＋]\d[\d,.]*원)/g,'<span class="pos">$1</span>')
+        .replace(/([-－]\d[\d,.]*원)/g,'<span class="neg">$1</span>');
+
+    h = h.split(/\n{2,}/)
+        .map(b=>b.trim()).filter(Boolean)
+        .map(b=>{
+            if(b.startsWith("<h2")||b.startsWith("<h3")||b.startsWith("<hr")) return b;
+            if(b.includes("<li>")) return `<ul>${b}</ul>`;
+            return `<p>${b.replace(/\n/g,"<br>")}</p>`;
+        }).join("");
+
+    return h.replace(/<ul>\s*<\/ul>/g,"").replace(/<\/ul>\s*<ul>/g,"");
+}
+
+function buildPrompt(summary, trades, type) {
+    const s   = summary;
+    const wr  = s.total>0 ? (s.wins/s.total*100).toFixed(1) : 0;
+
+    const sample = trades.slice(0,20).map(t=>
+        `[${t.open_ts?t.open_ts.substr(11,5):"-"}] ${t.direction==1?"LONG":"SHORT"} `+
+        `${(t.entry_price||0).toFixed(2)}→${(t.exit_price||0).toFixed(2)} `+
+        `PnL:${FMT_TICK(t.pnl_ticks)}pt (${t.exit_reason||"-"})`
+    ).join("\n");
+
+    const hourlyStr = (s._hourly||[]).map(h=>`${h.hour}시:${h.cnt}건/${FMT_WON(h.pnl)}`).join(" | ");
+
+    const dataBlock =
+`=== MMEAN 거래 데이터 ===
+날짜: ${DATE||"전체"} | 세션: ${sessionLabel}
+총거래: ${s.total}건 | 승: ${s.wins} | 패: ${s.losses}
+총PnL: ${FMT_WON(s.total_pnl)} | 승률: ${wr}%
+평균틱: ${(s.avg_ticks||0).toFixed(2)}pt
+최대수익: ${(s.max_win_ticks||0).toFixed(2)}pt | 최대손실: ${(s.max_loss_ticks||0).toFixed(2)}pt
+청산: TP=${s.tp_cnt} SL=${s.sl_cnt} TRAIL=${s.ts_cnt} REVERSAL=${s.br_cnt}
+${hourlyStr ? "시간대: "+hourlyStr : ""}
+
+최근 거래 샘플:
+${sample||"(없음)"}`;
+
+    const prompts = {
+        daily:
+`당신은 선물 트레이딩 전문 분석가입니다. 아래 MMEAN 알고리즘 트레이딩 시스템의 하루 거래 데이터를 분석해 종합 리포트를 작성해주세요.
+
+${dataBlock}
+
+다음 순서로 한국어로 작성하세요:
+1. 오늘 거래 한 줄 요약
+2. 성과 분석 (PnL, 승률, 평균틱 평가)
+3. 잘된 점 (구체적 근거 포함)
+4. 아쉬운 점 (구체적 근거 포함)
+5. 내일을 위한 핵심 제언 1~3가지`,
+
+        risk:
+`당신은 트레이딩 리스크 관리 전문가입니다. 아래 데이터의 리스크를 진단해주세요.
+
+${dataBlock}
+
+다음을 분석해주세요:
+1. 리스크 점수 (0~100, 이유 포함)
+2. 가장 큰 손실 원인 분석
+3. 연속 손실 가능성 평가
+4. TP/SL 설정의 적절성 검토
+5. 즉시 개선해야 할 리스크 요소 우선순위`,
+
+        improve:
+`당신은 알고리즘 트레이딩 최적화 전문가입니다. 아래 데이터를 바탕으로 구체적인 개선 방안을 제시해주세요.
+
+${dataBlock}
+
+다음을 제안해주세요:
+1. 파라미터 조정 제안 (TP틱/SL틱/트레일링/진입점수 등 구체적 수치 포함)
+2. 진입 타이밍 개선 방향
+3. 청산 전략 개선 방향
+4. 운영 시간대 최적화 제안
+5. 전략 전반 개선 로드맵 (단기/중기)`,
+    };
+
+    return prompts[type] || prompts.daily;
+}
+
+async function run() {
+    const reportEl = document.getElementById("report");
+
+    // 1. 실제 데이터 fetch
+    setStatus("📊 거래 데이터 로딩 중...");
+    let summary, trades;
+    try {
+        const qs = `date=${DATE}&session=${SESSION}&source=${SOURCE}`;
+        const [summRes, tradeRes] = await Promise.all([
+            fetch(`/api/analytics/summary?${qs}`),
+            fetch(`/api/analytics/trades?${qs}&limit=500`),
+        ]);
+        if(!summRes.ok) throw new Error(`summary HTTP ${summRes.status}`);
+        if(!tradeRes.ok) throw new Error(`trades HTTP ${tradeRes.status}`);
+        const summAll = await summRes.json();
+        trades   = await tradeRes.json();
+        summary  = {...(summAll.summary||{}), _hourly: summAll.hourly||[]};
+        if(!Array.isArray(trades)) trades = [];
+    } catch(err) {
+        setStatus("❌ 데이터 로드 실패: "+err.message, true);
+        reportEl.innerHTML = `<div class="placeholder err">데이터를 불러오지 못했습니다: ${err.message}</div>`;
+        return;
+    }
+
+    if(!summary.total) {
+        hideStatus();
+        reportEl.innerHTML = `<div class="placeholder">선택한 날짜(${DATE||"전체"})에 거래 데이터가 없습니다.</div>`;
+        return;
+    }
+
+    // KPI 배너
+    renderKPI(summary);
+
+    // 2. 프롬프트 구성
+    const prompt = buildPrompt(summary, trades, RTYPE);
+
+    // 3. AI 리포트 요청 (SSE 스트리밍)
+    setStatus("🤖 AI 분석 중...");
+    reportEl.innerHTML = "";
+    let fullText = "";
+
+    try {
+        const res = await fetch("/api/analytics/report", {
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body: JSON.stringify({prompt}),
+        });
+        if(!res.ok) {
+            const errJson = await res.json().catch(()=>({error:"HTTP "+res.status}));
+            throw new Error(errJson.error||"HTTP "+res.status);
+        }
+        if(!res.body) throw new Error("응답 스트림 없음");
+
+        const reader  = res.body.getReader();
+        const decoder = new TextDecoder();
+        let sseBuffer = "";
+
+        outer: while(true) {
+            const {done, value} = await reader.read();
+            if(done) break;
+            sseBuffer += decoder.decode(value, {stream:true});
+            const lines = sseBuffer.split("\n");
+            sseBuffer = lines.pop();
+            for(const line of lines) {
+                if(!line.startsWith("data:")) continue;
+                const data = line.slice(5).trim();
+                if(data === "[DONE]") break outer;
+                try {
+                    const evt = JSON.parse(data);
+                    if(evt.error) throw new Error(evt.error);
+                    if(evt.text) {
+                        fullText += evt.text;
+                        reportEl.innerHTML = md2html(fullText);
+                    }
+                } catch(e) {
+                    if(e.message && !e.message.includes("JSON")) throw e;
+                }
+            }
+        }
+
+        reportEl.innerHTML = md2html(fullText);
+        hideStatus();
+
+    } catch(err) {
+        setStatus("❌ AI 분석 실패: "+err.message, true);
+        reportEl.innerHTML = `<div class="placeholder err">오류: ${err.message}</div>`;
+    }
+}
+
+function copyText() {
+    const text = document.getElementById("report").innerText;
+    navigator.clipboard.writeText(text).then(()=>alert("리포트 복사 완료")).catch(()=>alert("복사 실패"));
+}
+
+run();
+</script>
+</body>
+</html>

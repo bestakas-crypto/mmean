@@ -1,0 +1,1284 @@
+<!-- [Directory] MMEAN/templates -->
+<!-- [File] analytics.html -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>MMEAN Analytics</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"
+        onload="window._chartJsReady=true" onerror="window._chartFailed=true;console.warn('Chart.js CDN 로드 실패')"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+KR:wght@300;400;600&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#050a0f; --bg2:#0a1219; --bg3:#0f1e2d;
+  --border:#1a2d40; --border2:#24405c;
+  --text:#c8d8e8; --text2:#6a8aaa; --text3:#3a5a7a;
+  --green:#00e5a0; --red:#ff4d6a; --blue:#38bdf8;
+  --yellow:#fbbf24; --purple:#a78bfa;
+  --green-dim:#003d2b; --red-dim:#3d0f18;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:13px;line-height:1.5}
+
+/* ── 레이아웃 ── */
+.shell{display:grid;grid-template-columns:220px 1fr;grid-template-rows:48px 1fr;height:100vh;overflow:hidden}
+.topbar{grid-column:1/-1;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;padding:0 20px}
+.logo{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;color:var(--blue);letter-spacing:2px}
+.logo span{color:var(--green)}
+.topbar-right{margin-left:auto;display:flex;gap:10px;align-items:center}
+.pill{padding:2px 8px;border-radius:4px;font-size:11px;font-family:'JetBrains Mono',monospace;border:1px solid var(--border2)}
+.pill.live{border-color:var(--green);color:var(--green)}
+
+/* ── 사이드바 ── */
+.sidebar{background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;padding:12px 8px}
+.sidebar-section{margin-bottom:16px}
+.sidebar-section h3{font-size:10px;letter-spacing:2px;color:var(--text3);padding:4px 8px;margin-bottom:4px;text-transform:uppercase;font-family:'JetBrains Mono',monospace}
+.filter-row{display:flex;flex-direction:column;gap:4px;padding:0 4px;margin-bottom:8px}
+.filter-row label{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px}
+select,input[type=date]{width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:12px;font-family:'JetBrains Mono',monospace;outline:none}
+select:focus,input:focus{border-color:var(--blue)}
+.btn-apply{width:100%;background:var(--blue);color:#000;border:none;padding:7px;border-radius:4px;cursor:pointer;font-weight:700;font-size:12px;letter-spacing:1px;transition:.2s}
+.btn-apply:hover{background:var(--green);color:#000}
+.btn-sm{background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:4px 8px;border-radius:4px;cursor:pointer;font-size:11px;transition:.2s}
+.btn-sm:hover{border-color:var(--blue);color:var(--blue)}
+
+/* 날짜 캘린더 */
+.cal-item{display:flex;justify-content:space-between;align-items:center;padding:5px 8px;border-radius:4px;cursor:pointer;margin-bottom:2px;border:1px solid transparent;transition:.15s}
+.cal-item:hover{background:var(--bg3);border-color:var(--border)}
+.cal-item.active{background:var(--bg3);border-color:var(--blue)}
+.cal-date{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text)}
+.cal-pnl{font-family:'JetBrains Mono',monospace;font-size:11px}
+.cal-pnl.pos{color:var(--green)}.cal-pnl.neg{color:var(--red)}.cal-pnl.zero{color:var(--text2)}
+
+/* ── 메인 콘텐츠 ── */
+.main{overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:16px}
+
+/* 탭 */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);padding-bottom:0}
+.tab{padding:8px 16px;cursor:pointer;font-size:12px;letter-spacing:1px;color:var(--text2);border-bottom:2px solid transparent;transition:.15s;font-family:'JetBrains Mono',monospace}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+.tab-panel{display:none}.tab-panel.active{display:flex;flex-direction:column;gap:16px}
+
+/* KPI 카드 그리드 */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.kpi{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px}
+.kpi .kpi-label{font-size:10px;color:var(--text2);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;font-family:'JetBrains Mono',monospace}
+.kpi .kpi-val{font-size:20px;font-weight:700;font-family:'JetBrains Mono',monospace}
+.kpi .kpi-sub{font-size:10px;color:var(--text3);margin-top:2px}
+.kpi.pos .kpi-val{color:var(--green)}.kpi.neg .kpi-val{color:var(--red)}.kpi.neu .kpi-val{color:var(--blue)}
+
+/* 차트 카드 */
+.chart-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px}
+.chart-card h4{font-size:10px;letter-spacing:2px;color:var(--text2);margin-bottom:10px;text-transform:uppercase;font-family:'JetBrains Mono',monospace}
+.chart-wrap{position:relative;width:100%}
+.chart-wrap canvas{width:100%!important}
+.h200{height:200px}.h240{height:240px}.h160{height:160px}
+
+/* 2컬럼 그리드 */
+.col2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.col3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+
+/* 테이블 */
+.tbl-wrap{overflow-x:auto;max-height:420px;overflow-y:auto}
+table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:11px}
+thead th{background:var(--bg3);color:var(--text2);padding:6px 10px;text-align:left;position:sticky;top:0;border-bottom:1px solid var(--border);white-space:nowrap;letter-spacing:.5px}
+tbody tr{border-bottom:1px solid var(--border);transition:.1s}
+tbody tr:hover{background:var(--bg3)}
+td{padding:5px 10px;color:var(--text);white-space:nowrap}
+.td-pos{color:var(--green)}.td-neg{color:var(--red)}.td-neu{color:var(--text2)}
+.td-long{color:var(--blue)}.td-short{color:var(--purple)}
+.badge{padding:1px 6px;border-radius:3px;font-size:10px;letter-spacing:.5px}
+.badge-tp{background:#003d2b;color:var(--green)}.badge-sl{background:#3d0f18;color:var(--red)}
+.badge-ts{background:#1a2d00;color:#86efac}.badge-br{background:#1a1a3d;color:#a78bfa}
+.badge-long{background:#0a1e3d;color:var(--blue)}.badge-short{background:#1a0a3d;color:var(--purple)}
+
+/* 시간대 히트맵 */
+.heatmap{display:grid;grid-template-columns:repeat(24,1fr);gap:2px;margin-top:6px}
+.hm-cell{height:40px;border-radius:3px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:9px;font-family:'JetBrains Mono',monospace;cursor:pointer;transition:.2s;border:1px solid transparent}
+.hm-cell:hover{border-color:var(--blue);transform:scaleY(1.1)}
+.hm-cell .hm-h{color:var(--text3);font-size:8px}
+.hm-cell .hm-v{font-size:9px;font-weight:600}
+
+/* 스크롤바 */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* 로딩 */
+.loading{text-align:center;padding:40px;color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:2px}
+.spinner{width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* 레짐 이벤트 타임라인 */
+.timeline{display:flex;flex-direction:column;gap:4px;max-height:300px;overflow-y:auto}
+.tl-item{display:flex;gap:10px;padding:6px 10px;border-radius:4px;border-left:3px solid var(--border);background:var(--bg3);align-items:center;font-size:11px;font-family:'JetBrains Mono',monospace}
+.tl-item.long{border-left-color:var(--blue)}.tl-item.short{border-left-color:var(--purple)}.tl-item.neutral{border-left-color:var(--text3)}
+.tl-bias{width:60px;font-size:10px;font-weight:700}
+.tl-dur{color:var(--text2);width:55px}
+.tl-price{color:var(--text)}
+.tl-ts{color:var(--text3);flex:1;text-align:right;font-size:10px}
+
+/* config 히스토리 */
+.cfg-item{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 12px;display:flex;gap:12px;align-items:center;font-family:'JetBrains Mono',monospace;font-size:11px;margin-bottom:4px}
+.cfg-hash{color:var(--yellow);width:70px}.cfg-ts{color:var(--text2);flex:1}.cfg-action{color:var(--blue)}
+.cfg-changed{color:var(--text3);font-size:10px;margin-top:2px}
+
+/* 승률 게이지 */
+.gauge-wrap{display:flex;align-items:center;gap:8px;margin:6px 0}
+.gauge-bar{flex:1;height:8px;background:var(--bg3);border-radius:4px;overflow:hidden}
+.gauge-fill{height:100%;border-radius:4px;transition:width .8s ease}
+.gauge-label{font-size:11px;font-family:'JetBrains Mono',monospace;width:40px;text-align:right}
+
+/* empty state */
+.empty{text-align:center;padding:32px;color:var(--text3);font-size:12px;font-family:'JetBrains Mono',monospace}
+
+/* ── AI 리포트 패널 ── */
+.report-shell{display:grid;grid-template-columns:1fr 360px;gap:14px;min-height:0}
+.report-left{display:flex;flex-direction:column;gap:10px;overflow-y:auto;max-height:calc(100vh - 130px)}
+.report-right{display:flex;flex-direction:column;gap:10px;overflow-y:auto;max-height:calc(100vh - 130px)}
+.report-req-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px}
+.report-req-card h4{font-size:10px;letter-spacing:2px;color:var(--text2);margin-bottom:12px;text-transform:uppercase;font-family:'JetBrains Mono',monospace}
+.report-type-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px}
+.rtype-btn{background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:8px 10px;border-radius:6px;cursor:pointer;font-size:11px;text-align:left;transition:.15s;line-height:1.4}
+.rtype-btn:hover{border-color:var(--blue);color:var(--text)}
+.rtype-btn.selected{border-color:var(--green);color:var(--green);background:rgba(0,229,160,.06)}
+.rtype-btn .rtype-icon{font-size:14px;display:block;margin-bottom:3px}
+.rtype-btn .rtype-label{font-weight:600;display:block;font-size:11px}
+.rtype-btn .rtype-desc{font-size:9px;color:var(--text3);display:block;margin-top:2px}
+.report-extra{width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:6px;font-size:12px;font-family:'Noto Sans KR',sans-serif;resize:vertical;min-height:60px;outline:none;margin-bottom:10px}
+.report-extra:focus{border-color:var(--blue)}
+.report-extra::placeholder{color:var(--text3)}
+.btn-report{width:100%;padding:10px;border:none;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer;transition:.2s;letter-spacing:1px}
+.btn-report.idle{background:linear-gradient(135deg,var(--blue),var(--green));color:#000}
+.btn-report.loading{background:var(--bg3);border:1px solid var(--blue);color:var(--blue);cursor:not-allowed}
+.btn-report.idle:hover{opacity:.9}
+.report-output-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px;display:flex;flex-direction:column;min-height:300px}
+.report-output-card h4{font-size:10px;letter-spacing:2px;color:var(--text2);margin-bottom:10px;text-transform:uppercase;font-family:'JetBrains Mono',monospace;display:flex;align-items:center;gap:8px}
+.report-ts{font-size:9px;color:var(--text3);margin-left:auto;font-family:'JetBrains Mono',monospace}
+#reportOutput{flex:1;overflow:auto;padding:10px;background:linear-gradient(180deg,#08111a 0%, #09131d 100%);border-radius:10px;border:1px solid var(--border)}
+.report-toolbar{display:flex;gap:8px;align-items:center;margin-left:auto}
+.report-doc{width:min(210mm,100%);min-height:297mm;margin:0 auto;background:#fff;color:#111827;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.35);padding:18mm 16mm 18mm 16mm;font-family:'Noto Sans KR',sans-serif;line-height:1.75;word-break:keep-all}
+.report-doc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:14px;padding-bottom:12px;border-bottom:2px solid #0f172a}
+.report-doc-title{font-size:24px;font-weight:700;letter-spacing:-.02em;color:#0f172a}
+.report-doc-sub{margin-top:6px;font-size:11px;color:#475569}
+.report-doc-badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.report-doc-badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;background:#eef2ff;color:#3730a3;font-size:10px;font-weight:600}
+.report-doc-meta{font-size:11px;color:#64748b;text-align:right;white-space:nowrap}
+.report-doc-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0 18px}
+.report-doc-kpi{border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;background:#f8fafc}
+.report-doc-kpi-label{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
+.report-doc-kpi-val{font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;color:#0f172a}
+.report-doc-body{font-size:14px;color:#111827}
+.report-doc-body p{margin:0 0 10px}
+.report-doc-body h2{margin:20px 0 8px;font-size:18px;color:#0f172a;border-left:4px solid #2563eb;padding-left:8px}
+.report-doc-body h3{margin:14px 0 6px;font-size:15px;color:#1e293b}
+.report-doc-body ul{margin:8px 0 10px 18px}
+.report-doc-body li{margin:3px 0}
+.report-doc-body strong{color:#0f172a}
+.report-doc-body code{background:#f1f5f9;padding:1px 5px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#7c3aed}
+.report-doc-footer{margin-top:18px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:11px;color:#64748b;display:flex;justify-content:space-between;gap:8px}
+.report-doc-placeholder{color:var(--text3);font-size:12px;font-family:'JetBrains Mono',monospace}
+.report-doc .pos{color:#047857}.report-doc .neg{color:#b91c1c}
+@media (max-width: 1280px){.report-shell{grid-template-columns:1fr}.report-right{max-height:none}.report-left{max-height:none}.report-doc-summary{grid-template-columns:repeat(2,1fr)}}
+@media print{
+  body,html{background:#fff!important}
+  .topbar,.sidebar,.tabs,.report-req-card,.report-right,.btn-sm,.btn-report,.report-toolbar{display:none!important}
+  .shell{display:block;height:auto}
+  .main{padding:0;overflow:visible}
+  #tab-report{display:block!important}
+  .report-shell,.report-left{display:block;max-height:none;overflow:visible}
+  .report-output-card{background:#fff;border:none;padding:0}
+  #reportOutput{padding:0;background:#fff;border:none;overflow:visible}
+  .report-doc{width:100%;min-height:auto;margin:0;box-shadow:none;border-radius:0;padding:0;color:#000}
+}
+.cursor-blink{display:inline-block;width:8px;height:14px;background:var(--blue);margin-left:2px;animation:blink .7s step-end infinite;vertical-align:text-bottom}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+.snap-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px}
+.snap-card h4{font-size:10px;letter-spacing:2px;color:var(--text2);margin-bottom:10px;text-transform:uppercase;font-family:'JetBrains Mono',monospace}
+.snap-row{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid rgba(26,45,64,.5);font-size:11px;font-family:'JetBrains Mono',monospace}
+.snap-row:last-child{border-bottom:none}
+.snap-key{color:var(--text2)}.snap-val{font-weight:600}
+.snap-val.pos{color:var(--green)}.snap-val.neg{color:var(--red)}.snap-val.neu{color:var(--text)}
+.report-history-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px}
+.report-history-card h4{font-size:10px;letter-spacing:2px;color:var(--text2);margin-bottom:8px;text-transform:uppercase;font-family:'JetBrains Mono',monospace}
+.rh-item{padding:6px 8px;border-radius:4px;border:1px solid var(--border);margin-bottom:4px;cursor:pointer;transition:.15s}
+.rh-item:hover{border-color:var(--blue);background:var(--bg3)}
+.rh-meta{font-size:9px;color:var(--text3);font-family:'JetBrains Mono',monospace;margin-bottom:2px}
+.rh-preview{font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ── 상단바 ── -->
+<div class="topbar">
+  <div class="logo">MM<span>EAN</span> ANALYTICS</div>
+  <div class="pill live" id="pStatus">● READY</div>
+  <div class="topbar-right">
+    <span id="pDbPath" style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">mmean.db</span>
+    <a href="/" style="background:#1e3a5f;color:#38bdf8;border:1px solid #38bdf8;padding:5px 14px;border-radius:6px;text-decoration:none;font-size:12px;font-weight:600;letter-spacing:1px">← 대시보드</a>
+  </div>
+</div>
+
+<!-- ── 사이드바 ── -->
+<div class="sidebar">
+  <div class="sidebar-section">
+    <h3>필터</h3>
+    <div class="filter-row">
+      <label>날짜</label>
+      <input type="date" id="fDate"/>
+    </div>
+    <div class="filter-row">
+      <label>세션</label>
+      <select id="fSession">
+        <option value="all">전체</option>
+        <option value="day">정규장 (06–18)</option>
+        <option value="night">야간장 (18–06)</option>
+      </select>
+    </div>
+    <div class="filter-row">
+      <label>데이터 소스</label>
+      <select id="fSource">
+        <option value="sim" selected>시뮬레이션 (sim_trades)</option>
+        <option value="live">실거래 (trades)</option>
+      </select>
+    </div>
+    <div style="padding:0 4px">
+      <button class="btn-apply" onclick="applyFilter()">▶ 분석 실행</button>
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <h3>날짜별 손익</h3>
+    <div id="calList"><div class="loading"><div class="spinner"></div>로딩중</div></div>
+  </div>
+</div>
+
+<!-- ── 메인 ── -->
+<div class="main">
+  <!-- 탭 -->
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('overview')">OVERVIEW</div>
+    <div class="tab" onclick="switchTab('trades')">TRADES</div>
+    <div class="tab" onclick="switchTab('charts')">CHARTS</div>
+    <div class="tab" onclick="switchTab('regimes')">REGIMES</div>
+    <div class="tab" onclick="switchTab('config')">CONFIG 이력</div>
+    <div class="tab" onclick="switchTab('report')" style="color:var(--green);border-bottom:2px solid transparent">✦ AI 리포트</div>
+  </div>
+
+  <!-- ── OVERVIEW 탭 ── -->
+  <div class="tab-panel active" id="tab-overview">
+    <div id="kpiGrid" class="kpi-grid"></div>
+
+    <div class="col2">
+      <div class="chart-card">
+        <h4>누적 손익 커브</h4>
+        <div class="chart-wrap h240"><canvas id="cEquity"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h4>시간대별 PnL (원)</h4>
+        <div class="chart-wrap h240"><canvas id="cHourly"></canvas></div>
+      </div>
+    </div>
+
+    <div class="col3">
+      <div class="chart-card">
+        <h4>청산 사유 분포</h4>
+        <div class="chart-wrap h160"><canvas id="cExit"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h4>방향별 성과</h4>
+        <div class="chart-wrap h160"><canvas id="cDir"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h4>승 / 패 비율</h4>
+        <div id="winGauge" style="padding:8px 0"></div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <h4>시간대 히트맵 (PnL)</h4>
+      <div class="heatmap" id="heatmap"></div>
+    </div>
+  </div>
+
+  <!-- ── TRADES 탭 ── -->
+  <div class="tab-panel" id="tab-trades">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <span id="tradeCount" style="font-size:11px;color:var(--text2);font-family:'JetBrains Mono',monospace">0 trades</span>
+      <button class="btn-sm" onclick="exportCSV()">↓ CSV 내보내기</button>
+    </div>
+    <div class="tbl-wrap">
+      <table id="tradeTable">
+        <thead><tr>
+          <th>#</th><th>진입시각</th><th>청산시각</th>
+          <th>방향</th><th>진입가</th><th>청산가</th>
+          <th>PnL(틱)</th><th>PnL(원)</th>
+          <th>청산사유</th><th>진입bias</th>
+          <th>L점수</th><th>S점수</th><th>신뢰도</th>
+          <th>BASIS</th><th>SLOPE</th><th>VOL</th>
+          <th>최대유리</th><th>보유틱</th><th>누적PnL</th>
+          <th>CONFIG</th>
+        </tr></thead>
+        <tbody id="tradeTbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── CHARTS 탭 ── -->
+  <div class="tab-panel" id="tab-charts">
+    <div class="chart-card">
+      <h4>가격 + Bias 타임라인</h4>
+      <div class="chart-wrap h240"><canvas id="cPrice"></canvas></div>
+    </div>
+    <div class="col2">
+      <div class="chart-card">
+        <h4>Basis / Basis EMA</h4>
+        <div class="chart-wrap h200"><canvas id="cBasis"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h4>Long Score / Short Score</h4>
+        <div class="chart-wrap h200"><canvas id="cScore"></canvas></div>
+      </div>
+    </div>
+    <div class="col2">
+      <div class="chart-card">
+        <h4>Volume Burst</h4>
+        <div class="chart-wrap h200"><canvas id="cVolBurst"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h4>Confidence</h4>
+        <div class="chart-wrap h200"><canvas id="cConf"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── REGIMES 탭 ── -->
+  <div class="tab-panel" id="tab-regimes">
+    <div class="col2">
+      <div class="chart-card">
+        <h4>레짐 지속시간 분포 (sec)</h4>
+        <div class="chart-wrap h200"><canvas id="cRegimeDur"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h4>레짐별 건수</h4>
+        <div class="chart-wrap h200"><canvas id="cRegimeCnt"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h4>레짐 이벤트 타임라인</h4>
+      <div class="timeline" id="regimeTimeline"></div>
+    </div>
+  </div>
+
+  <!-- ── CONFIG 이력 탭 ── -->
+  <div class="tab-panel" id="tab-config">
+    <div id="cfgHistory"></div>
+  </div>
+
+  <!-- ── AI 리포트 탭 ── -->
+  <div class="tab-panel" id="tab-report">
+    <div class="report-shell">
+      <!-- 좌: 요청 + 출력 -->
+      <div class="report-left">
+        <div class="report-req-card">
+          <h4>리포트 유형 선택</h4>
+          <div class="report-type-grid">
+            <button class="rtype-btn selected" onclick="selectRtype(this,'daily')" data-type="daily">
+              <span class="rtype-icon">📊</span>
+              <span class="rtype-label">일일 종합 리포트</span>
+              <span class="rtype-desc">거래 요약·승패·PnL 전체 분석</span>
+            </button>
+            <button class="rtype-btn" onclick="selectRtype(this,'pattern')" data-type="pattern">
+              <span class="rtype-icon">🔍</span>
+              <span class="rtype-label">패턴 분석</span>
+              <span class="rtype-desc">반복 패턴·시간대·진입 조건</span>
+            </button>
+            <button class="rtype-btn" onclick="selectRtype(this,'risk')" data-type="risk">
+              <span class="rtype-icon">⚠️</span>
+              <span class="rtype-label">리스크 진단</span>
+              <span class="rtype-desc">손실 원인·연속손실·리스크 점수</span>
+            </button>
+            <button class="rtype-btn" onclick="selectRtype(this,'improve')" data-type="improve">
+              <span class="rtype-icon">🎯</span>
+              <span class="rtype-label">개선 제안</span>
+              <span class="rtype-desc">파라미터·전략 최적화 방향 제시</span>
+            </button>
+            <button class="rtype-btn" onclick="selectRtype(this,'night')" data-type="night">
+              <span class="rtype-icon">🌙</span>
+              <span class="rtype-label">야간장 특화 분석</span>
+              <span class="rtype-desc">야간 신호·ORB·MA이격 집중 분석</span>
+            </button>
+            <button class="rtype-btn" onclick="selectRtype(this,'custom')" data-type="custom">
+              <span class="rtype-icon">✏️</span>
+              <span class="rtype-label">직접 질문</span>
+              <span class="rtype-desc">아래 텍스트박스에 자유 입력</span>
+            </button>
+          </div>
+          <textarea class="report-extra" id="reportExtra" placeholder="추가 요청사항이나 직접 질문을 입력하세요 (선택사항)"></textarea>
+          <button class="btn-report idle" id="btnReport" onclick="requestReport()">✦ 분석 리포트 생성</button>
+        </div>
+
+        <div class="report-output-card">
+          <h4 style="display:flex;align-items:center;gap:8px">
+            <span>분석 결과</span>
+            <span id="reportTypeLabel" style="color:var(--green);font-size:9px">일일 종합 리포트</span>
+            <span class="report-ts" id="reportGenTs"></span>
+            <div class="report-toolbar">
+              <button onclick="openAIReport()" class="btn-ai-report">✨ AI 리포트 생성</button>
+              <button class="btn-sm" onclick="printReportDoc()">🖨 인쇄 / PDF 저장</button>
+              <button class="btn-sm" onclick="copyReportText()">⧉ 텍스트 복사</button>
+            </div>
+          </h4>
+          <div id="reportOutput"><div class="report-doc-placeholder">리포트 유형을 선택하고 ✦ 버튼을 누르세요.</div></div>
+        </div>
+      </div>
+
+      <!-- 우: 데이터 스냅샷 + 히스토리 -->
+      <div class="report-right">
+        <div class="snap-card">
+          <h4>분석 대상 데이터 스냅샷</h4>
+          <div id="reportSnap"><div class="empty">필터를 적용하면 표시됩니다</div></div>
+        </div>
+        <div class="report-history-card">
+          <h4>리포트 히스토리</h4>
+          <div id="reportHistory"><div class="empty">아직 생성된 리포트 없음</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+</div><!-- /shell -->
+
+<script>
+// ================================================================
+// 전역 상태
+// ================================================================
+let gTrades = [], gSummary = null, gTicks = [], gRegimes = [], gCfgHistory = [];
+let charts = {};
+const FMT_WON = v => {
+  if(v==null) return '-';
+  const n=Number(v);
+  return (n>=0?'+':'')+n.toLocaleString('ko-KR')+'원';
+};
+const FMT_TICK = v => v==null?'-':(Number(v)>=0?'+':'')+Number(v).toFixed(2);
+const CLR_PNL  = v => Number(v)>0?'td-pos':Number(v)<0?'td-neg':'td-neu';
+
+// ================================================================
+// 탭 전환
+// ================================================================
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i)=>{
+    const names=['overview','trades','charts','regimes','config','report'];
+    t.classList.toggle('active', names[i]===name);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  if(name==='report') renderReportSnap();
+}
+
+// ================================================================
+// 날짜 목록 로드
+// ================================================================
+async function loadDates() {
+  const el = document.getElementById('calList');
+  try {
+    const source = document.getElementById('fSource')?.value || 'sim';
+    const res = await fetch(`/api/analytics/dates?source=${source}`);
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const rows = await res.json();
+    if(rows.error) throw new Error(rows.error);
+    if(!rows.length){el.innerHTML='<div class="empty">거래 데이터 없음</div>';return;}
+    el.innerHTML = rows.map(r=>{
+      const pnl=r.total_pnl||0;
+      const cls=pnl>0?'pos':pnl<0?'neg':'zero';
+      return `<div class="cal-item" onclick="selectDate('${r.date}')">
+        <div>
+          <div class="cal-date">${r.date}</div>
+          <div style="font-size:9px;color:var(--text3)">${r.cnt}건 / 야간${r.night_cnt}</div>
+        </div>
+        <div class="cal-pnl ${cls}">${FMT_WON(pnl)}</div>
+      </div>`;
+    }).join('');
+  } catch(err) {
+    console.error('loadDates 오류:', err);
+    el.innerHTML = `<div class="empty" style="color:var(--red)">오류: ${err.message}</div>`;
+  }
+}
+
+function selectDate(d) {
+  document.getElementById('fDate').value = d;
+  document.querySelectorAll('.cal-item').forEach(el=>{
+    el.classList.toggle('active', el.textContent.includes(d));
+  });
+  applyFilter();
+}
+
+// ================================================================
+// 필터 적용 → 전체 데이터 fetch
+// ================================================================
+async function applyFilter() {
+  const date    = document.getElementById('fDate').value;
+  const session = document.getElementById('fSession').value;
+  const source  = document.getElementById('fSource').value;
+  const qs      = `date=${date}&session=${session}&source=${source}`;
+
+  document.getElementById('pStatus').textContent = '● LOADING';
+  document.getElementById('pStatus').style.color = 'var(--yellow)';
+
+  try {
+    const fetchWithTimeout = (url, ms=8000) => {
+      const ctrl = new AbortController();
+      const tid = setTimeout(() => ctrl.abort(), ms);
+      return fetch(url, {signal: ctrl.signal}).finally(() => clearTimeout(tid));
+    };
+    const [tradeRes, summRes, tickRes, regimeRes, cfgRes] = await Promise.all([
+      fetchWithTimeout(`/api/analytics/trades?${qs}&limit=1000`),
+      fetchWithTimeout(`/api/analytics/summary?${qs}`),
+      fetchWithTimeout(`/api/analytics/ticks?${qs}&limit=3000`),
+      fetchWithTimeout(`/api/analytics/regimes?date=${date}&limit=300`),
+      fetchWithTimeout('/api/analytics/config_history'),
+    ]);
+
+    // 각 응답 상태 체크
+    for(const [res, name] of [[tradeRes,'trades'],[summRes,'summary'],[tickRes,'ticks'],[regimeRes,'regimes'],[cfgRes,'config']]){
+      if(!res.ok) throw new Error(`/api/analytics/${name} → HTTP ${res.status}`);
+    }
+    document.getElementById('pStatus').textContent = '● JSON 파싱 중...';
+    gTrades     = await tradeRes.json();
+    const sumAll= await summRes.json();
+    gSummary    = {...(sumAll.summary||{}), _hourly: sumAll.hourly||[]};
+    gTicks      = await tickRes.json();
+    gRegimes    = await regimeRes.json();
+    gCfgHistory = await cfgRes.json();
+
+    // 배열 타입 방어
+    if(!Array.isArray(gTrades))   gTrades = [];
+    if(!Array.isArray(gTicks))    gTicks = [];
+    if(!Array.isArray(gRegimes))  gRegimes = [];
+    if(!Array.isArray(gCfgHistory)) gCfgHistory = [];
+
+    const equity= sumAll.equity || [];
+    const hourly= sumAll.hourly || [];
+    const byExit= sumAll.by_exit|| [];
+    const byDir = sumAll.by_dir || [];
+
+    document.getElementById('pStatus').textContent = '● 렌더링 중...';
+    renderKPI(gSummary);
+    renderEquityChart(equity);
+    renderHourlyChart(hourly);
+    renderExitChart(byExit);
+    renderDirChart(byDir);
+    renderWinGauge(gSummary);
+    renderHeatmap(hourly);
+    renderTradeTable(gTrades);
+    renderTickCharts(gTicks, gTrades);
+    renderRegimes(gRegimes);
+    renderCfgHistory(gCfgHistory);
+
+    const statusEl = document.getElementById('pStatus');
+    statusEl.textContent = `● ${gTrades.length}건 로드됨`;
+    statusEl.style.color = gTrades.length > 0 ? 'var(--green)' : 'var(--yellow)';
+
+  } catch(err) {
+    console.error('applyFilter 오류:', err);
+    const statusEl = document.getElementById('pStatus');
+    statusEl.textContent = '● 로드 실패';
+    statusEl.style.color = 'var(--red)';
+    document.getElementById('kpiGrid').innerHTML =
+      `<div style="grid-column:1/-1;color:var(--red);font-family:JetBrains Mono,monospace;font-size:12px;padding:16px">
+        오류: ${err.message}<br>
+        <span style="color:var(--text3)">브라우저 콘솔(F12)에서 자세한 내용을 확인하세요.</span>
+      </div>`;
+  }
+}
+
+// ================================================================
+// KPI 카드
+// ================================================================
+function renderKPI(s) {
+  if(!s){document.getElementById('kpiGrid').innerHTML='<div class="empty">데이터 없음</div>';return;}
+  const wr = s.total>0 ? ((s.wins/s.total)*100).toFixed(1)+'%' : '-';
+  const pf  = s.losses!=0 ? Math.abs(s.wins*s.avg_ticks / (s.losses*s.avg_ticks+0.001)).toFixed(2) : '∞';
+  document.getElementById('kpiGrid').innerHTML = [
+    {l:'총 거래',  v:s.total||0, u:'건', c:'neu'},
+    {l:'총 PnL',   v:FMT_WON(s.total_pnl), u:'', c:(s.total_pnl||0)>0?'pos':'neg'},
+    {l:'승률',     v:wr, u:'', c:(parseFloat(wr)||0)>=50?'pos':'neg'},
+    {l:'평균틱',   v:FMT_TICK(s.avg_ticks), u:'pt', c:(s.avg_ticks||0)>0?'pos':'neg'},
+    {l:'최대수익', v:FMT_TICK(s.max_win_ticks), u:'pt', c:'pos'},
+    {l:'최대손실', v:FMT_TICK(s.max_loss_ticks), u:'pt', c:'neg'},
+    {l:'TP',       v:s.tp_cnt||0, u:'건', c:'pos'},
+    {l:'SL',       v:s.sl_cnt||0, u:'건', c:'neg'},
+    {l:'TRAIL',    v:s.ts_cnt||0, u:'건', c:'pos'},
+    {l:'REVERSAL', v:s.br_cnt||0, u:'건', c:'neg'},
+  ].map(k=>`
+    <div class="kpi ${k.c}">
+      <div class="kpi-label">${k.l}</div>
+      <div class="kpi-val">${k.v}</div>
+      <div class="kpi-sub">${k.u}</div>
+    </div>
+  `).join('');
+}
+
+// ================================================================
+// 차트 유틸
+// ================================================================
+function mkChart(id, type, data, options={}) {
+  if(typeof Chart === "undefined" || window._chartFailed) return;
+  if(charts[id]) charts[id].destroy();
+  const ctx = document.getElementById(id);
+  if(!ctx) return;
+  charts[id] = new Chart(ctx, {type, data, options:{
+    responsive:true, maintainAspectRatio:false,
+    plugins:{legend:{labels:{color:'#6a8aaa',font:{size:10,family:'JetBrains Mono'}}}},
+    scales:{
+      x:{ticks:{color:'#3a5a7a',font:{size:9,family:'JetBrains Mono'}},grid:{color:'#0f1e2d'}},
+      y:{ticks:{color:'#3a5a7a',font:{size:9,family:'JetBrains Mono'}},grid:{color:'#0f1e2d'}}
+    },
+    ...options
+  }});
+}
+
+// ================================================================
+// 누적 equity
+// ================================================================
+function renderEquityChart(equity) {
+  if(!equity.length){mkChart('cEquity','line',{labels:[],datasets:[]});return;}
+  const step = Math.max(1, Math.floor(equity.length/300));
+  const sampled = equity.filter((_,i)=>i%step===0 || i===equity.length-1);
+  mkChart('cEquity','line',{
+    labels: sampled.map(e=>e.ts.substr(11,5)),
+    datasets:[{
+      label:'누적PnL',data:sampled.map(e=>e.cum),
+      borderColor:'#00e5a0',backgroundColor:'rgba(0,229,160,.08)',
+      borderWidth:1.5,pointRadius:0,fill:true,tension:.3
+    }]
+  },{plugins:{legend:{display:false}}});
+}
+
+// ================================================================
+// 시간대별 PnL 막대
+// ================================================================
+function renderHourlyChart(hourly) {
+  const hours = Array.from({length:24},(_,i)=>i);
+  const pnlMap = {};
+  hourly.forEach(h=>{ pnlMap[h.hour]=h.pnl||0; });
+  mkChart('cHourly','bar',{
+    labels: hours.map(h=>h+'h'),
+    datasets:[{
+      label:'PnL(원)',
+      data: hours.map(h=>pnlMap[h]||0),
+      backgroundColor: hours.map(h=>(pnlMap[h]||0)>=0?'rgba(0,229,160,.6)':'rgba(255,77,106,.6)'),
+      borderWidth:0
+    }]
+  },{plugins:{legend:{display:false}}});
+}
+
+// ================================================================
+// 청산사유 도넛
+// ================================================================
+function renderExitChart(byExit) {
+  const colors={'TAKE_PROFIT':'#00e5a0','STOP_LOSS':'#ff4d6a','TRAILING_STOP':'#86efac','BIAS_REVERSAL':'#a78bfa','NEUTRAL_EXIT':'#fbbf24','FORCE_EXIT':'#f97316'};
+  mkChart('cExit','doughnut',{
+    labels: byExit.map(e=>e.exit_reason||'?'),
+    datasets:[{data:byExit.map(e=>e.cnt),backgroundColor:byExit.map(e=>colors[e.exit_reason]||'#38bdf8'),borderWidth:0}]
+  },{plugins:{legend:{position:'bottom',labels:{font:{size:9}}}}});
+}
+
+// ================================================================
+// 방향별 막대
+// ================================================================
+function renderDirChart(byDir) {
+  mkChart('cDir','bar',{
+    labels: byDir.map(d=>d.direction==1?'LONG':'SHORT'),
+    datasets:[
+      {label:'건수',data:byDir.map(d=>d.cnt),backgroundColor:['rgba(56,189,248,.7)','rgba(167,139,250,.7)'],yAxisID:'y'},
+      {label:'평균틱',data:byDir.map(d=>+(d.avg_ticks||0).toFixed(2)),backgroundColor:['rgba(0,229,160,.4)','rgba(255,77,106,.4)'],yAxisID:'y1'},
+    ]
+  },{scales:{
+    x:{ticks:{color:'#3a5a7a'},grid:{color:'#0f1e2d'}},
+    y:{ticks:{color:'#3a5a7a'},grid:{color:'#0f1e2d'}},
+    y1:{position:'right',ticks:{color:'#3a5a7a'},grid:{drawOnChartArea:false}}
+  }});
+}
+
+// ================================================================
+// 승률 게이지
+// ================================================================
+function renderWinGauge(s) {
+  if(!s||!s.total){document.getElementById('winGauge').innerHTML='<div class="empty">-</div>';return;}
+  const wr = s.total>0?(s.wins/s.total*100):0;
+  const tp_r = s.total>0?(s.tp_cnt/s.total*100):0;
+  const sl_r = s.total>0?(s.sl_cnt/s.total*100):0;
+  const ts_r = s.total>0?(s.ts_cnt/s.total*100):0;
+  document.getElementById('winGauge').innerHTML = `
+    <div style="font-size:28px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${wr>=50?'var(--green)':'var(--red)'};margin-bottom:12px">${wr.toFixed(1)}%</div>
+    ${[
+      {l:'WIN',  v:wr,  c:'var(--green)'},
+      {l:'TP',   v:tp_r,c:'var(--green)'},
+      {l:'TRAIL',v:ts_r,c:'#86efac'},
+      {l:'SL',   v:sl_r,c:'var(--red)'},
+    ].map(g=>`
+      <div class="gauge-wrap">
+        <div style="font-size:9px;font-family:'JetBrains Mono',monospace;color:var(--text2);width:36px">${g.l}</div>
+        <div class="gauge-bar"><div class="gauge-fill" style="width:${g.v.toFixed(1)}%;background:${g.c}"></div></div>
+        <div class="gauge-label" style="color:${g.c}">${g.v.toFixed(0)}%</div>
+      </div>`).join('')}`;
+}
+
+// ================================================================
+// 히트맵
+// ================================================================
+function renderHeatmap(hourly) {
+  const map={};
+  hourly.forEach(h=>{map[h.hour]={pnl:h.pnl||0,cnt:h.cnt||0};});
+  const maxAbs = Math.max(...Object.values(map).map(v=>Math.abs(v.pnl)),1);
+  const el = document.getElementById('heatmap');
+  el.innerHTML = Array.from({length:24},(_,h)=>{
+    const d=map[h]||{pnl:0,cnt:0};
+    const intensity=Math.abs(d.pnl)/maxAbs;
+    const bg=d.pnl>0?`rgba(0,229,160,${.15+intensity*.6})`
+             :d.pnl<0?`rgba(255,77,106,${.15+intensity*.6})`
+             :'rgba(30,50,70,.4)';
+    const vc=d.pnl>0?'var(--green)':d.pnl<0?'var(--red)':'var(--text3)';
+    const short=d.pnl===0?'':d.pnl>0?'+'+Math.round(d.pnl/10000)+'만':'-'+Math.round(Math.abs(d.pnl)/10000)+'만';
+    return `<div class="hm-cell" style="background:${bg}" title="${h}시: ${d.cnt}건 ${FMT_WON(d.pnl)}">
+      <div class="hm-h">${h}h</div>
+      <div class="hm-v" style="color:${vc}">${short||'-'}</div>
+    </div>`;
+  }).join('');
+}
+
+// ================================================================
+// 거래 테이블
+// ================================================================
+function renderTradeTable(trades) {
+  document.getElementById('tradeCount').textContent = trades.length+'건';
+  const DIR = d=>d==1?'<span class="badge badge-long">LONG</span>':'<span class="badge badge-short">SHORT</span>';
+  const EXIT = r=>{
+    const m={'TAKE_PROFIT':'badge-tp','STOP_LOSS':'badge-sl','TRAILING_STOP':'badge-ts','BIAS_REVERSAL':'badge-br'};
+    return `<span class="badge ${m[r]||''}">${r||'-'}</span>`;
+  };
+  document.getElementById('tradeTbody').innerHTML = trades.map((t,i)=>`
+    <tr>
+      <td class="td-neu">${t.id}</td>
+      <td>${t.open_ts?t.open_ts.substr(0,19):'-'}</td>
+      <td>${t.close_ts?t.close_ts.substr(0,19):'-'}</td>
+      <td>${DIR(t.direction)}</td>
+      <td>${(t.entry_price||0).toFixed(2)}</td>
+      <td>${(t.exit_price||0).toFixed(2)}</td>
+      <td class="${CLR_PNL(t.pnl_ticks)}">${FMT_TICK(t.pnl_ticks)}</td>
+      <td class="${CLR_PNL(t.pnl_won)}">${FMT_WON(t.pnl_won)}</td>
+      <td>${EXIT(t.exit_reason)}</td>
+      <td class="td-neu">${t.entry_bias||'-'}</td>
+      <td>${(t.entry_long_score||0).toFixed(1)}</td>
+      <td>${(t.entry_short_score||0).toFixed(1)}</td>
+      <td>${(t.entry_confidence||0).toFixed(0)}%</td>
+      <td>${(t.entry_basis||0).toFixed(4)}</td>
+      <td>${(t.entry_slope||0).toFixed(5)}</td>
+      <td>${(t.entry_vol_burst||0).toFixed(2)}</td>
+      <td class="${CLR_PNL(t.max_favorable_pt)}">${t.max_favorable_pt!=null?'+'+Number(t.max_favorable_pt).toFixed(2)+'pt':'-'}</td>
+      <td class="td-neu">${t.hold_ticks||'-'}</td>
+      <td class="${CLR_PNL(t.cum_equity)}">${t.cum_equity!=null?FMT_WON(t.cum_equity):'-'}</td>
+      <td class="td-neu" style="font-size:9px">${t.config_hash||'-'}</td>
+    </tr>`).join('');
+}
+
+// ================================================================
+// 틱 차트들
+// ================================================================
+function renderTickCharts(ticks, trades) {
+  if(!ticks.length) return;
+  const step = Math.max(1,Math.floor(ticks.length/400));
+  const s = ticks.filter((_,i)=>i%step===0);
+  const labels = s.map(t=>t.ts.substr(11,5));
+
+  if(charts['cPrice']) { try{charts['cPrice'].destroy();}catch(e){} }
+  const pCtx = document.getElementById('cPrice');
+  if(pCtx && window._chartJsReady && typeof Chart !== 'undefined') charts['cPrice'] = new Chart(pCtx,{
+    type:'line',
+    data:{labels, datasets:[
+      {type:'line',label:'가격',data:s.map(t=>t.futures_price),borderColor:'#c8d8e8',borderWidth:1.2,pointRadius:0,tension:.2,yAxisID:'y'},
+      {type:'line',label:'신뢰도',data:s.map(t=>t.confidence),borderColor:'rgba(56,189,248,.4)',borderWidth:1,pointRadius:0,tension:.3,yAxisID:'y1'},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#6a8aaa',font:{size:10,family:'JetBrains Mono'}}}},
+      scales:{
+        x:{ticks:{color:'#3a5a7a',font:{size:9,family:'JetBrains Mono'},maxTicksLimit:12},grid:{color:'#0f1e2d'}},
+        y:{ticks:{color:'#3a5a7a',font:{size:9,family:'JetBrains Mono'}},grid:{color:'#0f1e2d'}},
+        y1:{position:'right',min:0,max:100,ticks:{color:'#3a5a7a',font:{size:9}},grid:{drawOnChartArea:false}}
+      }
+    }
+  });
+
+  mkChart('cBasis','line',{
+    labels,
+    datasets:[
+      {label:'Basis',data:s.map(t=>t.basis),borderColor:'#00e5a0',borderWidth:1.5,pointRadius:0,tension:.3},
+      {label:'Basis EMA',data:s.map(t=>t.basis_ema),borderColor:'#fbbf24',borderWidth:1,pointRadius:0,tension:.3},
+    ]
+  },{plugins:{legend:{labels:{color:'#6a8aaa',font:{size:10,family:'JetBrains Mono'}}}}});
+
+  mkChart('cScore','line',{
+    labels,
+    datasets:[
+      {label:'Long',data:s.map(t=>t.long_score),borderColor:'#38bdf8',borderWidth:1.5,pointRadius:0,tension:.2},
+      {label:'Short',data:s.map(t=>t.short_score),borderColor:'#a78bfa',borderWidth:1.5,pointRadius:0,tension:.2},
+    ]
+  },{plugins:{legend:{labels:{color:'#6a8aaa',font:{size:10,family:'JetBrains Mono'}}}}});
+
+  mkChart('cVolBurst','line',{
+    labels,
+    datasets:[{label:'Vol Burst',data:s.map(t=>t.volume_burst),borderColor:'#fbbf24',borderWidth:1.5,pointRadius:0,tension:.2,fill:true,backgroundColor:'rgba(251,191,36,.07)'}]
+  },{plugins:{legend:{display:false}}});
+
+  mkChart('cConf','line',{
+    labels,
+    datasets:[{label:'Confidence',data:s.map(t=>t.confidence),borderColor:'#38bdf8',borderWidth:1.5,pointRadius:0,tension:.3,fill:true,backgroundColor:'rgba(56,189,248,.07)'}]
+  },{plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#3a5a7a',font:{size:9},maxTicksLimit:12},grid:{color:'#0f1e2d'}},y:{min:0,max:100,ticks:{color:'#3a5a7a',font:{size:9}},grid:{color:'#0f1e2d'}}}});
+}
+
+// ================================================================
+// 레짐 이벤트
+// ================================================================
+function renderRegimes(regimes) {
+  // 지속시간 히스토그램
+  const durs = regimes.filter(r=>r.duration_sec>0).map(r=>r.duration_sec);
+  const bins = [0,30,60,120,300,600,1800,3600,Infinity];
+  const binLabels=['<30s','30-1m','1-2m','2-5m','5-10m','10-30m','30-60m','>60m'];
+  const counts = Array(8).fill(0);
+  durs.forEach(d=>{ for(let i=0;i<bins.length-1;i++) if(d>=bins[i]&&d<bins[i+1]){counts[i]++;break;} });
+  mkChart('cRegimeDur','bar',{
+    labels:binLabels,
+    datasets:[{label:'건수',data:counts,backgroundColor:'rgba(56,189,248,.6)',borderWidth:0}]
+  },{plugins:{legend:{display:false}}});
+
+  // 레짐별 건수
+  const cnt={LONG_BIAS:0,SHORT_BIAS:0,NEUTRAL:0};
+  regimes.forEach(r=>{ if(cnt[r.bias]!==undefined) cnt[r.bias]++; });
+  mkChart('cRegimeCnt','doughnut',{
+    labels:['LONG','SHORT','NEUTRAL'],
+    datasets:[{data:[cnt.LONG_BIAS,cnt.SHORT_BIAS,cnt.NEUTRAL],backgroundColor:['rgba(56,189,248,.8)','rgba(167,139,250,.8)','rgba(251,191,36,.6)'],borderWidth:0}]
+  },{plugins:{legend:{position:'bottom',labels:{color:'#6a8aaa',font:{size:10,family:'JetBrains Mono'}}}}});
+
+  // 타임라인
+  const tl = document.getElementById('regimeTimeline');
+  if(!regimes.length){tl.innerHTML='<div class="empty">데이터 없음</div>';return;}
+  tl.innerHTML = regimes.slice(0,80).map(r=>{
+    const cls=r.bias==='LONG_BIAS'?'long':r.bias==='SHORT_BIAS'?'short':'neutral';
+    const dur=r.duration_sec?Math.round(r.duration_sec)+'s':'-';
+    const bias_short=r.bias==='LONG_BIAS'?'LONG':r.bias==='SHORT_BIAS'?'SHORT':'NTRL';
+    return `<div class="tl-item ${cls}">
+      <div class="tl-bias" style="color:${cls==='long'?'var(--blue)':cls==='short'?'var(--purple)':'var(--text2)'}">${bias_short}</div>
+      <div class="tl-dur">${dur}</div>
+      <div class="tl-price">${(r.start_price||0).toFixed(2)} → ${(r.end_price||0).toFixed(2)}</div>
+      <div class="tl-ts">${r.start_ts?r.start_ts.substr(0,19):'-'}</div>
+    </div>`;
+  }).join('');
+}
+
+// ================================================================
+// CONFIG 이력
+// ================================================================
+function renderCfgHistory(rows) {
+  const el = document.getElementById('cfgHistory');
+  if(!rows.length){el.innerHTML='<div class="empty">변경 이력 없음</div>';return;}
+  el.innerHTML = rows.map(r=>`
+    <div class="cfg-item">
+      <div class="cfg-hash">#${r.hash}</div>
+      <div>
+        <div class="cfg-ts">${r.ts||'-'}</div>
+        <div class="cfg-changed">${r.changed||''}</div>
+      </div>
+      <div class="cfg-action">${r.action||'-'}</div>
+    </div>`).join('');
+}
+
+// ================================================================
+// CSV 내보내기
+// ================================================================
+function exportCSV() {
+  if(!gTrades.length) return;
+  const cols = ['id','open_ts','close_ts','direction','entry_price','exit_price','pnl_ticks','pnl_won','exit_reason','entry_bias','entry_long_score','entry_short_score','entry_confidence','config_hash'];
+  const csv = [cols.join(','), ...gTrades.map(t=>cols.map(c=>JSON.stringify(t[c]??'')).join(','))].join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
+  a.download=`mmean_trades_${document.getElementById('fDate').value||'all'}.csv`;
+  a.click();
+}
+
+// ================================================================
+// 초기화
+// ================================================================
+
+// ================================================================
+// AI 리포트 기능
+// ================================================================
+let gReportType = 'daily';
+let gReportHistory = [];  // {ts, type, text}
+
+function openAIReport() {
+    const date    = document.getElementById("fDate").value    || "";
+    const session = document.getElementById("fSession").value || "all";
+    const source  = document.getElementById("fSource").value  || "sim";
+    const url = `/analytics/ai-report?date=${date}&session=${session}&source=${source}`;
+    window.open(url, "_blank");
+}
+
+function selectRtype(btn, type) {
+  document.querySelectorAll('.rtype-btn').forEach(b=>b.classList.remove('selected'));
+  btn.classList.add('selected');
+  gReportType = type;
+  const labels = {
+    daily:'일일 종합 리포트', pattern:'패턴 분석',
+    risk:'리스크 진단', improve:'개선 제안',
+    night:'야간장 특화 분석', custom:'직접 질문'
+  };
+  document.getElementById('reportTypeLabel').textContent = labels[type]||type;
+  if(type==='custom') document.getElementById('reportExtra').focus();
+}
+
+function renderReportSnap() {
+  const el = document.getElementById('reportSnap');
+  if(!gSummary){ el.innerHTML='<div class="empty">분석 실행 후 사용 가능합니다</div>'; return; }
+  const s = gSummary;
+  const date = document.getElementById('fDate').value || '전체';
+  const session = document.getElementById('fSession').value;
+  const sessionLabel = {all:'전체',day:'정규장',night:'야간장'}[session]||session;
+  const wr = s.total>0 ? (s.wins/s.total*100).toFixed(1)+'%' : '-';
+  const rows = [
+    ['날짜', date],['세션', sessionLabel],
+    ['총 거래', (s.total||0)+'건'],
+    ['총 PnL', FMT_WON(s.total_pnl)],
+    ['승률', wr],['평균틱', FMT_TICK(s.avg_ticks)+'pt'],
+    ['최대수익', FMT_TICK(s.max_win_ticks)+'pt'],
+    ['최대손실', FMT_TICK(s.max_loss_ticks)+'pt'],
+    ['TP건수', (s.tp_cnt||0)+'건'],['SL건수', (s.sl_cnt||0)+'건'],
+    ['트레일링', (s.ts_cnt||0)+'건'],['역전청산', (s.br_cnt||0)+'건'],
+  ];
+  el.innerHTML = rows.map(([k,v])=>{
+    const cls = String(v).includes('+')&&!String(v).includes('건') ? 'pos'
+              : String(v).includes('-')&&!String(v).includes('건') ? 'neg' : 'neu';
+    return `<div class="snap-row"><span class="snap-key">${k}</span><span class="snap-val ${cls}">${v}</span></div>`;
+  }).join('');
+}
+
+function buildPrompt(type, extra) {
+  if(!gSummary) return null;
+  const s = gSummary;
+  const date = document.getElementById('fDate').value || '전체';
+  const session = {all:'전체',day:'정규장(06-18시)',night:'야간장(18-06시)'}[document.getElementById('fSession').value]||'전체';
+  const wr = s.total>0?(s.wins/s.total*100).toFixed(1):0;
+
+  // 거래 샘플 (최근 20건)
+  const sample = gTrades.slice(0,20).map(t=>
+    `[${t.open_ts?t.open_ts.substr(11,5):'-'}] ${t.direction==1?'LONG':'SHORT'} ${(t.entry_price||0).toFixed(2)}→${(t.exit_price||0).toFixed(2)} PnL:${FMT_TICK(t.pnl_ticks)}pt (${t.exit_reason||'-'})`
+  ).join('\n');
+
+  // 시간대별 요약
+  const hourlyStr = (gSummary._hourly||[]).map(h=>`${h.hour}시:${h.cnt}건/${FMT_WON(h.pnl)}`).join(' | ');
+
+  const dataBlock = `
+=== MMEAN 거래 데이터 ===
+날짜: ${date} | 세션: ${session}
+총거래: ${s.total}건 | 승: ${s.wins} | 패: ${s.losses}
+총PnL: ${FMT_WON(s.total_pnl)} | 승률: ${wr}%
+평균틱: ${(s.avg_ticks||0).toFixed(2)}pt
+최대수익: ${(s.max_win_ticks||0).toFixed(2)}pt | 최대손실: ${(s.max_loss_ticks||0).toFixed(2)}pt
+청산: TP=${s.tp_cnt} SL=${s.sl_cnt} TRAIL=${s.ts_cnt} REVERSAL=${s.br_cnt}
+${hourlyStr?'시간대: '+hourlyStr:''}
+
+최근 거래 샘플:
+${sample||'(없음)'}
+`;
+
+  const prompts = {
+    daily: `당신은 선물 트레이딩 전문 분석가입니다. 아래 MMEAN 알고리즘 트레이딩 시스템의 하루 거래 데이터를 분석해 종합 리포트를 작성해주세요.
+
+${dataBlock}
+
+다음 순서로 한국어로 작성하세요:
+1. 오늘 거래 한 줄 요약
+2. 성과 분석 (PnL, 승률, 평균틱 평가)
+3. 잘된 점 (구체적 근거 포함)
+4. 아쉬운 점 (구체적 근거 포함)
+5. 내일을 위한 핵심 제언 1~3가지
+${extra?'\n추가 요청: '+extra:''}`,
+
+    pattern: `당신은 선물 트레이딩 패턴 분석 전문가입니다. 아래 데이터에서 반복 패턴을 찾아주세요.
+
+${dataBlock}
+
+다음을 분석해주세요:
+1. 수익이 집중된 시간대와 특징
+2. 손실이 집중된 시간대와 특징
+3. 청산 사유별 패턴 (TP/SL/TRAILING/REVERSAL 분포 해석)
+4. 진입 방향(LONG/SHORT)별 성과 차이
+5. 반복되는 패턴 요약 및 활용 방안
+${extra?'\n추가 요청: '+extra:''}`,
+
+    risk: `당신은 트레이딩 리스크 관리 전문가입니다. 아래 데이터의 리스크를 진단해주세요.
+
+${dataBlock}
+
+다음을 분석해주세요:
+1. 리스크 점수 (0~100, 이유 포함)
+2. 가장 큰 손실 원인 분석
+3. 연속 손실 가능성 평가
+4. TP/SL 설정의 적절성 검토
+5. 즉시 개선해야 할 리스크 요소 우선순위
+${extra?'\n추가 요청: '+extra:''}`,
+
+    improve: `당신은 알고리즘 트레이딩 최적화 전문가입니다. 아래 데이터를 바탕으로 구체적인 개선 방안을 제시해주세요.
+
+${dataBlock}
+
+다음을 제안해주세요:
+1. 파라미터 조정 제안 (TP틱/SL틱/트레일링/진입점수 등 구체적 수치 포함)
+2. 진입 타이밍 개선 방향
+3. 청산 전략 개선 방향
+4. 운영 시간대 최적화 제안
+5. 전략 전반 개선 로드맵 (단기/중기)
+${extra?'\n추가 요청: '+extra:''}`,
+
+    night: `당신은 야간 선물 시장 전문 분석가입니다. 아래 야간장 데이터를 심층 분석해주세요.
+
+${dataBlock}
+
+다음을 분석해주세요:
+1. 야간장 특성 진단 (유동성, 변동성 패턴)
+2. MA이격 기반 신호의 적중률 평가
+3. ORB(개장범위 돌파) 신호 효과성
+4. 야간 거래량 비율이 성과에 미친 영향
+5. 야간 전용 파라미터(MA_GAP/VOL_HIGH/SCORE) 조정 제언
+${extra?'\n추가 요청: '+extra:''}`,
+
+    custom: `당신은 선물 트레이딩 전문 분석가입니다. 아래 MMEAN 시스템 거래 데이터를 참고하여 사용자 질문에 답해주세요.
+
+${dataBlock}
+
+사용자 질문: ${extra||'전반적인 오늘 거래에 대해 분석해주세요.'}`,
+  };
+
+  return prompts[type] || prompts.daily;
+}
+
+async function requestReport() {
+  const btn = document.getElementById('btnReport');
+  if(btn.classList.contains('loading')) return;
+
+  if(!gSummary || !gSummary.total) {
+    document.getElementById('reportOutput').innerHTML =
+      '<div class="report-doc-placeholder" style="color:var(--red)">먼저 날짜를 선택하고 ▶ 분석 실행을 눌러주세요.</div>';
+    return;
+  }
+
+  const extra = document.getElementById('reportExtra').value.trim();
+  const prompt = buildPrompt(gReportType, extra);
+  if(!prompt) return;
+
+  btn.classList.remove('idle'); btn.classList.add('loading');
+  btn.textContent = '⟳ 분석 중...';
+
+  const outEl = document.getElementById('reportOutput');
+  outEl.innerHTML = '<div class="report-doc-placeholder">리포트 생성 중...</div><span class="cursor-blink"></span>';
+  document.getElementById('reportGenTs').textContent = new Date().toLocaleTimeString('ko-KR');
+
+  let fullText = '';
+  try {
+    const res = await fetch('/api/analytics/report', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({prompt})
+    });
+
+    if(!res.ok) {
+      const errJson = await res.json().catch(() => ({error: 'HTTP ' + res.status}));
+      throw new Error(errJson.error || 'HTTP ' + res.status);
+    }
+
+    if(!res.body) throw new Error('응답 스트림 없음 (res.body is null)');
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    outEl.innerHTML = '';
+    let sseBuffer = '';
+
+    outer: while(true) {
+      const {done, value} = await reader.read();
+      if(done) break;
+      sseBuffer += decoder.decode(value, {stream: true});
+      const lines = sseBuffer.split('\n');
+      // 마지막 줄은 잘렸을 수 있으므로 버퍼에 남겨둠
+      sseBuffer = lines.pop();
+      for(const line of lines) {
+        if(!line.startsWith('data:')) continue;
+        const data = line.slice(5).trim();
+        if(data === '[DONE]') break outer;
+        try {
+          const evt = JSON.parse(data);
+          if(evt.text) {
+            fullText += evt.text;
+            outEl.innerHTML = formatReport(fullText) + '<span class="cursor-blink"></span>';
+            outEl.scrollTop = outEl.scrollHeight;
+          } else if(evt.error) {
+            throw new Error(evt.error);
+          }
+        } catch(e) {
+          if(e.message && !e.message.includes('JSON')) throw e;
+        }
+      }
+    }
+    outEl.innerHTML = formatReport(fullText);
+
+    // 히스토리에 저장
+    const typeLabels = {daily:'일일 종합',pattern:'패턴 분석',risk:'리스크',improve:'개선 제안',night:'야간 분석',custom:'직접 질문'};
+    gReportHistory.unshift({
+      ts: new Date().toLocaleString('ko-KR'),
+      type: typeLabels[gReportType]||gReportType,
+      date: document.getElementById('fDate').value||'전체',
+      text: fullText
+    });
+    if(gReportHistory.length > 10) gReportHistory.pop();
+    renderReportHistory();
+
+  } catch(err) {
+    outEl.innerHTML = `<div class="report-doc-placeholder" style="color:var(--red)">오류: ${err.message}</div>`;
+  }
+
+  btn.classList.remove('loading'); btn.classList.add('idle');
+  btn.textContent = '✦ 분석 리포트 생성';
+}
+
+function formatReport(text) {
+  const date = document.getElementById('fDate').value || '전체';
+  const sessionValue = document.getElementById('fSession').value;
+  const sessionLabel = {all:'전체',day:'정규장',night:'야간장'}[sessionValue] || sessionValue;
+  const typeLabel = document.getElementById('reportTypeLabel').textContent || 'AI 리포트';
+  const genTs = document.getElementById('reportGenTs').textContent || new Date().toLocaleString('ko-KR');
+  const s = gSummary || {};
+  const summaryCards = [
+    ['총 거래', `${s.total || 0}건`],
+    ['총 PnL', FMT_WON(s.total_pnl || 0)],
+    ['승률', s.total ? `${((s.wins / s.total) * 100).toFixed(1)}%` : '-'],
+    ['평균틱', s.avg_ticks != null ? `${FMT_TICK(s.avg_ticks)} pt` : '-'],
+  ];
+
+  let bodyHtml = text
+    .replace(/\r/g, '')
+    .replace(/^###\s+(.+)$/gm, '<h3>$1</h3>')
+    .replace(/^##\s+(.+)$/gm, '<h2>$1</h2>')
+    .replace(/^#\s+(.+)$/gm, '<h2>$1</h2>')
+    .replace(/^(\d+\.\s.+)$/gm, '<h3>$1</h3>')
+    .replace(/^\s*-\s+(.+)$/gm, '<li>$1</li>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`(.+?)`/g, '<code>$1</code>')
+    .replace(/([+＋]\d[\d,\.]*원)/g, '<span class="pos">$1</span>')
+    .replace(/([-－]\d[\d,\.]*원)/g, '<span class="neg">$1</span>');
+
+  bodyHtml = bodyHtml
+    .split(/\n{2,}/)
+    .map(block => block.trim())
+    .filter(Boolean)
+    .map(block => {
+      if (block.startsWith('<h2') || block.startsWith('<h3')) return block;
+      if (block.includes('<li>')) return `<ul>${block}</ul>`;
+      return `<p>${block.replace(/\n/g, '<br>')}</p>`;
+    })
+    .join('');
+
+  bodyHtml = bodyHtml.replace(/<ul>\s*<\/ul>/g, '').replace(/<\/ul>\s*<ul>/g, '');
+
+  return `
+    <article class="report-doc" id="printableReportDoc">
+      <header class="report-doc-head">
+        <div>
+          <div class="report-doc-title">MMEAN AI 리포트</div>
+          <div class="report-doc-sub">Gemini 분석 결과를 PDF 스타일 문서 레이아웃으로 표시합니다.</div>
+          <div class="report-doc-badges">
+            <span class="report-doc-badge">${typeLabel}</span>
+            <span class="report-doc-badge">${date}</span>
+            <span class="report-doc-badge">${sessionLabel}</span>
+          </div>
+        </div>
+        <div class="report-doc-meta">
+          <div>생성 시각</div>
+          <div>${genTs}</div>
+        </div>
+      </header>
+
+      <section class="report-doc-summary">
+        ${summaryCards.map(([label,val]) => `
+          <div class="report-doc-kpi">
+            <div class="report-doc-kpi-label">${label}</div>
+            <div class="report-doc-kpi-val">${val}</div>
+          </div>
+        `).join('')}
+      </section>
+
+      <section class="report-doc-body">${bodyHtml}</section>
+
+      <footer class="report-doc-footer">
+        <span>MMEAN Analytics · AI Report</span>
+        <span>브라우저 인쇄 기능으로 PDF 저장 가능</span>
+      </footer>
+    </article>
+  `;
+}
+
+function printReportDoc() {
+  const docEl = document.getElementById('printableReportDoc');
+  if (!docEl) {
+    alert('먼저 리포트를 생성해주세요.');
+    return;
+  }
+  window.print();
+}
+
+async function copyReportText() {
+  const docEl = document.getElementById('printableReportDoc');
+  if (!docEl) {
+    alert('먼저 리포트를 생성해주세요.');
+    return;
+  }
+  const plain = docEl.innerText.trim();
+  try {
+    await navigator.clipboard.writeText(plain);
+    alert('리포트 텍스트를 복사했습니다.');
+  } catch (e) {
+    console.error('copyReportText 오류:', e);
+    alert('복사에 실패했습니다.');
+  }
+}
+
+function renderReportHistory() {
+  const el = document.getElementById('reportHistory');
+  if(!gReportHistory.length){ el.innerHTML='<div class="empty">아직 생성된 리포트 없음</div>'; return; }
+  el.innerHTML = gReportHistory.map((r,i)=>`
+    <div class="rh-item" onclick="loadReportHistory(${i})">
+      <div class="rh-meta">${r.ts} · ${r.type} · ${r.date}</div>
+      <div class="rh-preview">${r.text.slice(0,80)}...</div>
+    </div>`).join('');
+}
+
+function loadReportHistory(i) {
+  const r = gReportHistory[i];
+  if(!r) return;
+  document.getElementById('reportOutput').innerHTML = formatReport(r.text);
+  document.getElementById('reportGenTs').textContent = r.ts;
+  document.getElementById('reportTypeLabel').textContent = r.type;
+}
+
+window.onload = async () => {
+  const today = new Date().toISOString().substr(0,10);
+  document.getElementById('fDate').value = today;
+
+  // loadDates와 applyFilter를 병렬 실행 — 한쪽 실패가 다른쪽 막지 않음
+  loadDates().catch(e => console.error('loadDates:', e));
+  applyFilter().catch(e => console.error('applyFilter:', e));
+};
+</script>
+</body>
+</html>

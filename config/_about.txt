@@ -1,0 +1,41 @@
+================================================================================
+  MMEAN / config — 설정 / 파라미터 관리
+================================================================================
+
+역할
+----
+엔진 파라미터 기본값 정의, 실시간 파라미터 동기화,
+Champion vs Challenger 파라미터 평가를 담당한다.
+
+파일 목록
+---------
+config_manager.py
+  - ConfigManager: 파라미터 설정 관리자
+  - DEFAULT_CONFIG: 모든 엔진 파라미터 기본값 dict
+    (enter_score, sl_ticks, tp_ticks, trend_weight_long 등)
+  - mmean.db의 config_snapshots 테이블과 연동
+  - Optuna 최적화 결과 → config_snapshots에 저장
+  - 대시보드 /api/config/update → 실시간 반영
+
+param_store.py
+  - ParamStore: 파라미터 영속화 저장소
+  - ParamSnapshot: 스냅샷 구조체
+  - get_param_store(): 싱글톤 접근자
+  - 엔진 루프에서 매 틱 resolved_config 기준으로 동기화
+
+promotion_evaluator.py
+  - PromotionEvaluator: Champion/Challenger 파라미터 비교 평가
+  - ABSimRunner와 연동하여 통계적 우위 판정
+  - promotion_batches / promotion_decisions 테이블 관리
+
+의존 관계
+---------
+  config → db(db_setup)
+  core, llm, sim_opt → config
+
+파라미터 흐름
+------------
+  DEFAULT_CONFIG → Optuna 최적화 → config_snapshots
+  → resolved_config → engine_loop 적용
+  → param_store 동기화 → 대시보드 표시
+================================================================================

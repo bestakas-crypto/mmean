@@ -1,0 +1,44 @@
+================================================================================
+  MMEAN / core — 실행 코어
+================================================================================
+
+역할
+----
+실거래 엔진의 핵심 구성요소. 프로그램 시작부터 메인 루프까지를 담당한다.
+
+파일 목록
+---------
+app_bootstrap.py
+  - Flask 앱 초기화 및 런타임 빌드
+  - .env.public / .env.secrets 로드
+  - 모든 엔진(regime/llm/sim) 인스턴스 생성 및 조립
+  - detect_session() 호출 → MMEAN_SESSION 자동 결정
+
+app_state.py
+  - AppRuntime dataclass: 엔진들의 공유 상태 컨테이너
+  - state dict (실시간 지표값), settings dict (설정값)
+  - 스레드 간 데이터 공유 지점
+
+engine_runtime.py
+  - 메인 엔진 루프 (engine_loop): 매 틱 데이터 처리
+  - KISRealtimeClient: 웹소켓 실시간 시세 수신
+  - ErrorTracker / 서킷브레이커 / 하드스톱
+  - session_watchdog_loop: 장 종료 시간 감시 → 자동 종료
+    - 데이장: 15:45 자동 종료
+    - 야간장: 06:00 자동 종료
+
+session_detect.py
+  - detect_session() → "day" / "night" 반환
+  - 시스템 시계 기반 세션 자동 판별
+    - 08:44~15:45 → day
+    - 18:00~06:00 → night
+  - 장외 시간 진입 시 경고 출력
+
+의존 관계
+---------
+  core → llm, regime, engines, config, db, logs
+
+진입점
+------
+  analyzer_app.py (루트) → app_bootstrap.build_runtime() → start_runtime()
+================================================================================

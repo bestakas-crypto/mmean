@@ -1,0 +1,223 @@
+================================================================================
+MMEAN 프로젝트 인수인계서
+작성일: 2026-03-21
+================================================================================
+
+■ 프로젝트 개요
+────────────────────────────────────────────────────────────────────────────────
+KOSPI 200 선물 자동매매 시스템.
+LLM 신호(레짐 판단) + Bayesian 파라미터 최적화 + RAG 기반 전략 선택 구조.
+
+실행 환경 : Windows 10, Python 3.x (conda env: mmean)
+주 저장소  : C:\mme\mmean\
+DB 위치    : C:\mme\mmean\storage\
+  mmean.db — 시장 데이터 (regime_ticks, session_patterns 등) [읽기전용]
+  sim.db   — 시뮬레이션 결과 (sim_runs, sim_adoptions 등) [읽기쓰기]
+
+================================================================================
+■ 핵심 파일 구조
+================================================================================
+
+[루트]
+  analyzer_app.py     — Flask 웹 앱 메인 (대시보드, 실행 게이트)
+  sim.py              — 시뮬레이션 런처 (메뉴 UI, validation 흐름)
+  day_pattern.py      — 일별 장세 패턴 분류기 (session_patterns 저장)
+  day_sim.bat         — 정규장 시뮬레이션 배치 런처
+  sim.bat             — sim.py 실행 배치
+  day_pattern.bat     — day_pattern.py 배치 (5개 메뉴)
+  purge_sim_trades.bat— sim_trades 정리 배치 (6개 메뉴)
+  배치파일사용법.txt   — 전체 배치 파일 사용법 문서
+  _about.txt          — 프로젝트 파일 구조 전체 설명
+  인수인계서.txt       — 본 파일
+
+[sim_opt/]
+  day_sim.py          — 정규장 시뮬레이션 엔진 (random/bayes/validation/adopt)
+  night_sim.py        — 야간장 시뮬레이션 엔진
+
+[scripts/]
+  day_auto_run.py     — 정규장 자동 루프 (random → bayes → validate → adopt)
+  night_auto_run.py   — 야간장 자동 루프
+
+[config/]
+  config_manager.py   — DEFAULT_CONFIG + apply_runtime_config()
+
+[db/]
+  db_setup_sim.py     — sim.db 스키마 생성 + 마이그레이션
+  purge_sim_trades.py — 검증완료 sim_trades 삭제 도구
+
+[rag/]
+  sim_rag_builder.py  — sim_adoptions → RAG 문서 빌드
+  rag_retriever.py    — 레짐 기반 파라미터 검색
+
+[core/]
+  app_bootstrap.py    — 런타임 객체 초기화 (게이트 전 side-effect 없음)
+  app_state.py        — 전역 상태 관리
+  engine_runtime.py   — 실시간 엔진 구동
+
+[engines/]
+  FlowEngine 등 — 실전 매매 신호 파이프라인
+
+
+================================================================================
+■ 이번 세션 주요 변경사항 (2026-03-21)
+================================================================================
+
+1. config/config_manager.py
+   - DEFAULT_CONFIG에 야간 엔진 6개 키 추가
+     (night_ma_gap_strong/weak, night_vol_high/low, night_score_bull/bear)
+   - 원인: apply_runtime_config()에서 KeyError 발생하던 버그 수정
+
+2. sim.py — validation 시스템 전면 개선
+   - fetch_trading_days_in_range(start, end, mode)
+     mmean.db regime_ticks에서 실제 거래일 목록 자동 조회
+   - fetch_date_pattern(date, mode)
+     session_patterns에서 특정 날짜의 장세 패턴 조회
+   - fetch_same_pattern_dates(pattern, dates, mode)
+     날짜 목록 중 같은 레짐 날짜만 필터링
+   - fetch_all_trained_dates(train_date, mode)
+     sim.db에서 해당 study의 모든 훈련 사용 날짜 수집
+   - ask_range_valid_dates(train_dates, mode) — 통합 UX:
+     ① 훈련날짜 레짐 자동 조회 (session_patterns)
+     ② 범위 입력 → 같은 레짐 날짜만 필터
+     ③ 기존 훈련일 전부 자동 제외
+     ④ 확인 후 반환
+   - 메뉴 [6r]  범위 기반 validation (레짐 필터 + 훈련일 자동 제외)
+   - 메뉴 [6ar] 범위 기반 validation + 자동채택
+
+3. db/db_setup_sim.py + sim.db 마이그레이션
+   - sim_adoptions에 컬럼 추가:
+     train_pattern  TEXT  — 훈련날짜의 장세 패턴 (TREND_UP 등)
+     valid_patterns TEXT  — 검증날짜별 패턴 JSON {"날짜": "패턴"}
+   - _MIGRATIONS 리스트에 등록 → 기존 DB 자동 ALTER TABLE
+   - 실제 sim.db에 마이그레이션 적용 완료
+
+4. sim_opt/day_sim.py + sim_opt/night_sim.py — adopt_best() 개선
+   - 채택 시 mmean.db session_patterns 조회
+   - train_pattern / valid_patterns를 INSERT에 포함해 저장
+
+5. db/purge_sim_trades.py + purge_sim_trades.bat (신설)
+   - 검증 완료 후 용량만 잡아먹는 sim_trades 정리 도구
+   - 옵션: --status / --dry-run / --keep-days N / --run-type / --run-ids
+
+6. day_pattern.bat (신설)
+   - day_pattern.py 5개 메뉴 배치 실행기
+
+7. app_bootstrap.py + analyzer_app.py — 시작 게이트 순서 버그 수정
+   - build_runtime(): fill_ws.start() 제거 → 객체 생성만
+   - _post_gate_live_init(): 비밀번호 게이트 통과 후에만 WS 시작 + 포지션 동기화
+   - 순서 확정: build_runtime → _startup_live_gate → _post_gate_live_init
+
+8. engine_runtime.py — ImportError 수정
+   - get_balance import 경로: core/kis_order_api → order/kis_order_api
+
+
+================================================================================
+■ 설계 원칙 (왜 이렇게 만들었나)
+================================================================================
+
+[Validation 원칙]
+  훈련 날짜 ≠ 검증 날짜 (data leakage 방지)
+  같은 레짐끼리만 검증 — 다른 장세에서의 실패는 파라미터 문제가 아님
+  예: TREND_UP으로 훈련한 파라미터를 CHOPPY 날짜로 검증하면 의미없음
+
+[레짐 기반 파라미터 라이브러리]
+  sim_adoptions.train_pattern = 이 파라미터가 어떤 장세에서 검증됐는가
+  실전에서: 오늘 레짐 판단 → 같은 레짐의 채택 파라미터 RAG 검색 → 적용
+
+[데이터 충분성]
+  현재 3일치 데이터 (2026-03-18~20) — 레짐별 1회씩뿐
+  유의미한 RAG 선택을 위해서는 각 레짐당 3~5개 이상의 검증 통과 파라미터 필요
+  목표: 6개월~1년치 (레짐이 여러 번 반복되어야 통계적 의미 생김)
+
+[DB 분리 원칙]
+  mmean.db — 시장 원본 데이터 (읽기전용, 절대 쓰지 않음)
+  sim.db   — 시뮬레이션 결과 (쓰기, 정기 정리 가능)
+
+
+================================================================================
+■ 현재 데이터 상태
+================================================================================
+
+  sim.db (2026-03-21 기준)
+  - validation 데이터: 0건 (순환검증 데이터 전량 삭제 후 재시작)
+  - 훈련 데이터: 3일치 (2026-03-18 / 2026-03-19 / 2026-03-20)
+  - sim_adoptions: 0건 (채택된 파라미터 없음)
+
+  mmean.db
+  - session_patterns: 3일치 패턴 등록 필요 (day_pattern.bat [1] 실행)
+    2026-03-18 → TREND_UP (우상향)
+    2026-03-19 → 변동장 (패턴 미확정)
+    2026-03-20 → RANGE_TIGHT 또는 CHOPPY (횡보)
+
+
+================================================================================
+■ 다음 작업 순서 (권장 워크플로우)
+================================================================================
+
+STEP 1. 패턴 등록
+  → day_pattern.bat [1] 실행
+    3일치 session_patterns 자동 생성
+
+STEP 2. 올바른 검증 실행
+  → sim.bat 실행 → [6r] 선택
+    훈련날짜: 2026-03-18 (TREND_UP)
+    범위: 가능한 TREND_UP 날짜가 포함된 범위 지정
+    (현재 3일 중 TREND_UP = 3/18뿐 → 더 많은 데이터 필요)
+
+STEP 3. 데이터 축적 자동화
+  → day_auto_run.py 매일 실행 (sim.bat [A] 또는 스케줄러)
+    random → bayes → validate([6r] 동일 로직) → adopt 자동 루프
+    매일 1개 날짜씩 레짐별 파라미터 라이브러리에 쌓임
+
+STEP 4. 채택 파라미터가 쌓이면
+  → rag/sim_rag_builder.py 실행 → RAG 문서 빌드
+  → 실전 매매 시 오늘 레짐 → RAG 검색 → LLM 파라미터 선택
+
+STEP 5. sim_trades 정리 (주 1회 권장)
+  → purge_sim_trades.bat [4] (3일 이전 trades 삭제)
+
+
+================================================================================
+■ 주의사항
+================================================================================
+
+1. day_pattern.py를 실행하지 않으면 [6r]에서 레짐 필터가 작동하지 않음
+   → session_patterns에 데이터 없을 시 경고 후 전체 날짜 사용 (fallback)
+
+2. sim_adoptions.train_pattern은 채택 시점에 session_patterns가 있어야 채워짐
+   → 패턴 미등록 날짜의 파라미터는 train_pattern = NULL로 저장됨
+   → 나중에 backfill 쿼리로 채울 수 있음:
+      UPDATE sim_adoptions SET train_pattern = (
+        SELECT p.pattern_type FROM session_patterns p
+        WHERE p.date = substr(study_name, 5) AND p.session_mode = 'day'
+      ) WHERE train_pattern IS NULL
+
+3. validation 통과 기준 (_VALID_CRITERIA in day_sim.py):
+   min_objective > 0, min_trade_count >= 5,
+   max_drawdown >= -20틱, min_session_pos_ratio >= 0.50, min_robustness >= 0.40
+
+4. 실전 매매 전 체크리스트 (모의거래 먼저):
+   .env.public: KIS_ORDER_ENV=virtual, MMEAN_EXECUTION_ENABLED=true
+   비밀번호 게이트 통과 후에만 WS 연결 + 포지션 동기화 실행됨
+
+
+================================================================================
+■ 배치 파일 목록 요약
+================================================================================
+
+  sim.bat              시뮬레이션 메인 (훈련/검증/채택)
+  day_sim.bat          정규장 시뮬레이션 직접 실행
+  night_sim.bat        야간장 시뮬레이션 직접 실행
+  day_auto.bat         정규장 자동 루프
+  night_auto.bat       야간장 자동 루프
+  day_pattern.bat      일별 장세 패턴 분류 (5개 메뉴)
+  purge_sim_trades.bat sim_trades 정리 (6개 메뉴)
+  build_rag.bat        RAG 문서 빌드
+  show_adoptions.bat   채택 파라미터 현황 출력
+  run_server.bat       웹 대시보드 서버 시작
+  check_db.bat         DB 상태 점검
+
+  → 자세한 사용법: 배치파일사용법.txt
+
+
+================================================================================

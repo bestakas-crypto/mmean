@@ -1,0 +1,100 @@
+소스 파악이 끝났습니다. 매매(진입·청산·방향·리스크)에 직접 영향을 주는 옵션만 선별해서 정리합니다.
+▶ 진입 점수 · 조건 (config / 대시보드 실시간 변경 가능)
+옵션명                  변수명                    설명
+────────────────────────────────────────────────────────────────────────
+외국인 강세 기준         foreign_strong            순매수 ≥ 이 값 → 강한 LONG 점수 가산
+외국인 중세 기준         foreign_mid               순매수 ≥ 이 값 → 중간 LONG 점수 가산
+외국인 약세 기준         foreign_weak              순매수 ≥ 이 값 → 약한 LONG 점수 가산
+미결제 증가(강)          oi_strong                 OI 증감 ≥ 이 값 → 강한 LONG 점수 가산
+미결제 증가(중)          oi_mid                    OI 증감 ≥ 이 값 → 중간 LONG 점수 가산
+미결제 감소(강)          oi_negative_strong        OI 증감 ≤ 이 값 → 강한 SHORT 점수 가산
+미결제 감소(중)          oi_negative_mid           OI 증감 ≤ 이 값 → 중간 SHORT 점수 가산
+베이시스 강세 기준       basis_strong              베이시스 ≥ 이 값 → 강한 LONG 점수 가산
+베이시스 중세 기준       basis_mid                 베이시스 ≥ 이 값 → 중간 LONG 점수 가산
+베이시스 약세 기준       basis_weak                베이시스 ≥ 이 값 → 약한 LONG 점수 가산
+EMA 차이 기준           ema_delta_strong           EMA 차이 ≥ 이 값 → LONG 추가 점수
+롱 진입 기울기 기준      slope_long_ready          베이시스 기울기 ≥ 이 값이면 LONG 진입 조건 충족
+숏 진입 기울기 기준      slope_short_ready         베이시스 기울기 ≤ 이 값이면 SHORT 진입 조건 충족
+거래량 급증 기준         volume_burst_ready        volume_burst ≥ 이 값이면 진입 조건 충족
+체결강도 강세 기준       trade_strength_strong     체결강도 ≥ 이 값 → 강한 점수 가산
+체결강도 중세 기준       trade_strength_mid        체결강도 ≥ 이 값 → 중간 점수 가산
+진입 점수 기준           enter_score               long_score 또는 short_score ≥ 이 값이어야 진입
+진입 점수 차이 기준      enter_gap                 |long_score - short_score| ≥ 이 값이어야 진입 (방향 확실성)
+진입 사전확인 틱수       enter_confirm_count       진입 전 조건 유지 필요 연속 틱 수
+진입 확정 틱수           entry_confirm_count       진입 신호 확정까지 필요한 연속 틱 수
+보유 유지 점수           hold_score                포지션 유지에 필요한 최소 점수
+보유 유지 갭             hold_gap                  포지션 유지에 필요한 점수 갭
+청산 실패 허용 횟수      exit_fail_count           청산 조건 불충족 허용 틱 수 (초과 시 강제 청산)
+▶ EMA 추세 점수 (config / 대시보드 실시간 변경 가능)
+옵션명                  변수명                    설명
+────────────────────────────────────────────────────────────────────────
+단기 EMA 기간           trend_ema_period_fast     장중 추세 단기 EMA 기간 (틱 수)
+장기 EMA 기간           trend_ema_period_slow     장중 추세 장기 EMA 기간 (틱 수)
+slope 계산 윈도우       trend_ema_slope_window    EMA 기울기 계산에 사용하는 틱 수
+slope 유효 기준         trend_ema_slope_threshold 이 미만의 기울기는 추세 없음으로 판단
+EMA 정배열 점수         trend_ema_align_score     정배열(fast>slow) 시 가산되는 기본 점수
+EMA slope 점수          trend_ema_slope_score     slope가 유효할 때 가산되는 보조 점수
+LONG 추세 가중치        trend_weight_long         추세 점수를 long_score에 반영하는 배수 (0=비활성)
+SHORT 추세 가중치       trend_weight_short        추세 점수를 short_score에 반영하는 배수
+추세 최소 변경폭        trend_min_delta           이하 변화는 추세 갱신 무시
+▶ 시뮬 청산 조건 (config / 대시보드 실시간 변경 가능)
+옵션명                  변수명                    설명
+────────────────────────────────────────────────────────────────────────
+익절 틱수               sim_tp_ticks              진입가 대비 +N틱 도달 시 익절 (0=비활성)
+손절 틱수               sim_sl_ticks              진입가 대비 -N틱 도달 시 손절
+트레일링 스탑 틱수      sim_trailing_ticks        최고점(최저점) 대비 N틱 되돌림 시 청산
+트레일링 활성화 틱수    sim_trailing_activate     진입가 대비 N틱 수익 이상일 때 트레일링 활성
+중립 청산 틱수          sim_neutral_exit_ticks    레짐이 중립으로 N틱 유지 시 청산
+수익보호 틱수           sim_profit_protect        수익이 N틱 이상이었다가 본전 근접 시 청산
+슬리피지 틱수           sim_slippage_ticks        진입/청산 체결가 불리 보정 (각 방향 N틱)
+▶ 강제 청산 시각 (.env 전용, 재시작 필요)
+옵션명                  변수명                    설명
+────────────────────────────────────────────────────────────────────────
+강제청산 시(hour)        MMEAN_SIM_FORCE_EXIT_HOUR 이 시각에 강제 청산 (기본 14시)
+강제청산 분(min)         MMEAN_SIM_FORCE_EXIT_MIN  이 분에 강제 청산 (기본 45분 → 14:45)
+▶ 외국인 수급 신호 합성 (.env 전용, 재시작 필요)
+옵션명                  변수명                    설명
+────────────────────────────────────────────────────────────────────────
+외국인 스케일 기준       MMEAN_FOREIGN_SCALE_DIV   누적값을 이 값으로 나눠 정규화 (기본 10.0)
+누적 가중치             MMEAN_FOREIGN_CUM_WEIGHT  composite 모드: 정규화 누적값 가중치 (기본 0.4)
+틱변화 가중치           MMEAN_FOREIGN_DELTA_WEIGHT composite 모드: 틱 변화량 가중치 (기본 0.6)
+외국인 신호 모드         MMEAN_FOREIGN_SIGNAL_MODE 기동 시 초기값: composite / delta_only
+▶ 대시보드 런타임 전환 옵션 (재시작 불필요, 다음 틱 즉시 반영)
+옵션명                  변수명                    설명
+────────────────────────────────────────────────────────────────────────
+엔진 민감도 모드         mode                      smooth(표준) / tight(민감) — 점수 평활화 정도
+외국인 신호 모드         foreign_signal_mode       composite(누적+틱 합성) / delta_only(틱 변화량만)
+장전 수동 옵션           premarket_manual_mode     MANIA_2/MANIA_1/NORMAL/FEAR_1/FEAR_2
+→ LONG/SHORT 가중치 및 사이즈 미세 보정
+장중 LLM 영향도          llm_intraday_influence    LOW(×0.5) / MID(×1.0) / HIGH(×1.5)
+→ LLM weight_adjust 반영 배수
+▶ LLM 진입 판단 조정 (.env 전용, 재시작 필요)
+옵션명                  변수명                    설명
+────────────────────────────────────────────────────────────────────────
+LLM 호출 활성 여부       LLM_APPLY_ENABLED         1=장전 전략 LLM 활성 (기본 0)
+LLM 필터 활성 여부       LLM_FILTER_ENABLED        1=장중 기회 필터 LLM 활성 (기본 0)
+LLM 게이트 임계값        FLOW_SCORE_GATE_THR       |flow_score| ≥ 이 값이면 LLM 스킵(추세 강함, 코드상 0.8)
+LLM TTL 유효시간         DEFAULT_TTL_SEC           LLM 판단의 유효시간(초). 초과 또는 1회 진입 시 소멸 (코드상 240초)
+LLM EMA span            DEFAULT_SPAN               weight_adjust 안정화 EMA span (코드상 3, 빠른반응)
+LLM weight 상한          WEIGHT_ADJ_MAX            LLM이 사이즈를 늘릴 수 있는 최대 배율 +0.20 고정
+LLM weight 하한          WEIGHT_ADJ_MIN            LLM이 사이즈를 줄일 수 있는 최대 배율 -0.20 고정
+LLM 신뢰도 최소값        CONFIDENCE_MIN            이 미만 confidence → LLM 무시(fallback, 코드상 0.55)
+LLM 일일 최대 호출수     LLM_DAILY_MAX_CALLS       하루 최대 LLM 호출 횟수 (기본 144)
+LLM 최소 호출 간격       LLM_MIN_INTERVAL_SEC      연속 호출 사이 최소 대기 시간(초, 기본 60)
+LLM 호출 타임아웃        LLM_TIMEOUT_SEC           응답 대기 최대 시간(초, 기본 2)
+일일 손실 한도           LLM_DAILY_LOSS_LIMIT      이 손실 초과 시 진입 불가 (기본 -1,000,000원)
+▶ 야간 레짐 (config / 대시보드 실시간 변경 가능)
+옵션명                  변수명                    설명
+────────────────────────────────────────────────────────────────────────
+야간 MA갭 강세 기준      night_ma_gap_strong       EMA20/EMA60 갭 ≥ 이 값 → 강한 방향
+야간 MA갭 약세 기준      night_ma_gap_weak         EMA20/EMA60 갭 ≥ 이 값 → 약한 방향
+야간 거래량 고비율       night_vol_high            당일거래량/5일평균 ≥ 이 값 → 거래량 활발 판정
+야간 거래량 저비율       night_vol_low             당일거래량/5일평균 ≤ 이 값 → 거래량 저조 판정
+야간 BULL 점수 기준      night_score_bull          야간 레짐이 BULL이 되는 점수 임계값
+야간 BEAR 점수 기준      night_score_bear          야간 레짐이 BEAR이 되는 점수 임계값
+야간 평균 거래량(5일)    MMEAN_NIGHT_AVG_VOL_5D    야간 vol_ratio 계산 기준 거래량 (.env, 재시작 필요)
+변경 범위 요약:
+config + 대시보드 → 서버 재시작 없이 즉시 반영
+state (런타임 전환) → 다음 틱부터 반영
+.env → 서버 재시작 필요
+코드상 상수 (FLOW_SCORE_GATE_THR, CONFIDENCE_MIN 등) → 코드 수정 후 재시작 필요

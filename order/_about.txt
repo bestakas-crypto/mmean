@@ -1,0 +1,68 @@
+order/ — KIS 주문 실행 레이어
+=============================================================
+MMEAN 주문 실행 전담 디렉토리.
+데이터 계좌(실계좌)와 완전히 분리된 주문 계좌 전용 모듈.
+
+파일 구성
+---------
+kis_tr_catalog.py   KIS Open API TR 코드 전체 레지스트리
+                    TR ID / REST URL / WS 여부 / 설명을 한 곳에서 관리
+                    엔진·API 코드에 TR 하드코딩 금지
+
+kis_auth_order.py   주문 계좌 전용 인증
+                    - get_order_token()         액세스 토큰 (캐싱, 자동갱신)
+                    - get_order_approval_key()  WS-2 구독용 approval_key
+                    - make_order_headers()      REST 공통 헤더 생성
+                    - aes_decrypt()             체결통보 AES-CBC 복호화
+
+kis_order_api.py    주문 REST 함수
+                    - place_order()             주문 전송 → 주문번호 반환
+                    - cancel_order()            취소 전송 (타임아웃 시만 호출)
+                    - get_balance()             잔고 조회 (시작1회 + WS재연결후)
+                    - get_fill_history_today()  체결내역 (예외/디버그용)
+
+order_state.py      OrderStateManager — in-memory 포지션 관리
+                    - WS 체결통보 → 포지션 자동 업데이트 (REST 0회)
+                    - wait_fill()        체결 대기 bool 반환
+                    - wait_fill_detail() 체결 대기 (filled,price,qty,cancelled,refused)
+                    - sync_from_balance() 시작 시 REST 잔고로 초기화
+
+order_executor.py   주문 실행 엔진 — 엔진/라우트/서비스 계층 유일 진입점
+                    - execute_entry(runtime, side, qty, price, timeout)
+                    - execute_exit(runtime, qty, price, timeout)
+                    - ExecuteResult 데이터클래스 반환
+                    내부 흐름: place_order_and_track() → wait_fill_detail()
+                               타임아웃 → cancel_order() + remove_pending()
+
+kis_fill_ws.py      체결통보 WebSocket 클라이언트 (WS-2)
+                    - 실전: H0IFCNI0 / ws://ops.koreainvestment.com:21000
+                    - 모의: H0IFCNI9 / ws://ops.koreainvestment.com:31000
+                    - tr_key = HTS ID (종목코드 아님!)
+                    - AES-CBC 복호화 후 OrderStateManager.on_fill_notice() 전달
+                    - 지수 백오프 재연결, KIS PINGPONG 에코 처리
+
+REST 호출 정책
+--------------
+정상 거래 1사이클: REST 2회 (주문1 + 취소0~1)
+  - 체결 확인  → WS 체결통보 (REST 0회)
+  - 포지션 확인 → in-memory  (REST 0회)
+  - 잔고 조회  → 시작 시 1회 + WS 재연결 후만
+
+코드 규칙 (위반 금지)
+---------------------
+엔진·라우트·서비스 계층에서 place_order() 직접 import·호출 금지.
+주문은 반드시 order_executor 경유.
+
+  ❌  from order.kis_order_api import place_order
+  ❌  place_order(runtime, ...)
+
+  ✅  from order.order_executor import execute_entry, execute_exit
+  ✅  result = execute_entry(runtime, side="LONG", qty=1)
+
+규칙 위반 검사:
+  python scripts/check_order_imports.py
+
+실거래 전환
+-----------
+.env.public: KIS_ORDER_ENV=virtual → live
+나머지 코드 변경 없음

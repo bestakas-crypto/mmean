@@ -1,0 +1,1692 @@
+<!-- [Directory] MMEAN/templates -->
+<!-- [File] dashboard.html -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MMEAN 대시보드</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 18px;
+            background: #f8f8f6;
+            color: #1e293b;
+            font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+        }
+        h1 {
+            margin: 0 0 14px 0;
+            font-size: 24px;
+        }
+        .topbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 16px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .btn {
+            background: #f1f5f9;
+            color: #334155;
+            border: 1px solid #cbd5e1;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .btn.active {
+            border-color: #22c55e;
+            box-shadow: 0 0 0 1px #22c55e inset;
+        }
+        .status-line {
+            color: #64748b;
+            font-size: 13px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(180px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 14px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .card .label {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+        .card .value {
+            font-size: 22px;
+            font-weight: 700;
+            color: #1e293b;
+        }
+        .bias-long { color: #ef4444; }
+        .bias-short { color: #3b82f6; }
+        .bias-neutral { color: #fbbf24; }
+
+        .entry-long { color: #ef4444; }
+        .entry-short { color: #3b82f6; }
+        .entry-wait { color: #fbbf24; }
+
+        .charts {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+        .reason-box {
+            margin-top: 16px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 14px;
+            line-height: 1.6;
+            color: #334155;
+            font-size: 13px;
+        }
+        .error-box {
+            margin-top: 10px;
+            color: #ef4444;
+            font-size: 12px;
+            min-height: 18px;
+        }
+
+        /* ── 장전/LLM 옵션 패널 ──────────────────────────────────────── */
+        .opt-panel {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+        }
+        .opt-group {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 10px 14px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        }
+        .opt-group-title {
+            font-size: 11px;
+            color: #475569;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .opt-group-hint {
+            font-size: 10px;
+            color: #94a3b8;
+            margin-bottom: 8px;
+        }
+        .opt-btns {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .opt-btn {
+            background: #f8fafc;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+            padding: 6px 11px;
+            border-radius: 7px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: border-color 0.15s, color 0.15s;
+        }
+        .opt-btn:hover { border-color: #94a3b8; color: #334155; }
+        .opt-btn.opt-btn-active { border-color: #38bdf8; color: #7dd3fc; box-shadow: 0 0 0 1px #38bdf8 inset; }
+        .opt-btn.active-mania  { border-color: #ef4444; color: #fca5a5; box-shadow: 0 0 0 1px #ef4444 inset; }
+        .opt-btn.active-normal { border-color: #22c55e; color: #86efac; box-shadow: 0 0 0 1px #22c55e inset; }
+        .opt-btn.active-fear   { border-color: #3b82f6; color: #93c5fd; box-shadow: 0 0 0 1px #3b82f6 inset; }
+        .opt-btn.active-llm-low  { border-color: #64748b; color: #94a3b8; box-shadow: 0 0 0 1px #64748b inset; }
+        .opt-btn.active-llm-mid  { border-color: #22c55e; color: #86efac; box-shadow: 0 0 0 1px #22c55e inset; }
+        .opt-btn.active-llm-high { border-color: #f59e0b; color: #fcd34d; box-shadow: 0 0 0 1px #f59e0b inset; }
+        .opt-btn.active-exec-off     { border-color: #475569; color: #94a3b8; box-shadow: 0 0 0 1px #475569 inset; }
+        .opt-btn.active-exec-virtual { border-color: #38bdf8; color: #7dd3fc; box-shadow: 0 0 0 1px #38bdf8 inset; }
+        .opt-btn.active-exec-live    { border-color: #f87171; color: #fca5a5; box-shadow: 0 0 0 2px #f87171 inset; font-weight:700; }
+
+        /* ── LLM 5개 신호 상태 배지 ─────────────────────────────────── */
+        .llm-sig-5 { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 5px; }
+        .llm-5-badge {
+            font-size: 10px; padding: 2px 6px; border-radius: 4px;
+            border: 1px solid #e2e8f0; color: #94a3b8; background: #f8fafc;
+            transition: border-color 0.15s, color 0.15s, background 0.15s;
+            white-space: nowrap;
+        }
+        .llm-5-buy-active      { border-color: #ef4444; color: #fca5a5; background: #1c1917; }
+        .llm-5-sell-active     { border-color: #3b82f6; color: #93c5fd; background: #172033; }
+        .llm-5-buy-cls-active  { border-color: #f97316; color: #fdba74; background: #1c1917; }
+        .llm-5-sel-cls-active  { border-color: #60a5fa; color: #bfdbfe; background: #172033; }
+        .llm-5-nothing-active  { border-color: #64748b; color: #94a3b8; background: #1e293b; }
+
+        /* ── 구버전 히스토리 칩 CSS (호환 유지) ─────────────────────── */
+        .llm-sig-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+        .llm-sig-chip {
+            display: inline-flex; flex-direction: column; align-items: center;
+            padding: 3px 7px; border-radius: 6px; font-size: 11px; line-height: 1.3;
+            border: 1px solid transparent; min-width: 46px;
+        }
+        .llm-sig-chip .chip-action { font-weight: bold; }
+        .llm-sig-chip .chip-meta   { font-size: 10px; opacity: 0.7; }
+        .llm-sig-buy     { background: #fff1f2; border-color: #ef4444; color: #dc2626; }
+        .llm-sig-sell    { background: #eff6ff; border-color: #3b82f6; color: #2563eb; }
+        .llm-sig-buy-cls { background: #fff7ed; border-color: #f97316; color: #c2410c; }
+        .llm-sig-sel-cls { background: #eff6ff; border-color: #60a5fa; color: #3b82f6; }
+        .llm-sig-nothing { background: #f8fafc; border-color: #cbd5e1; color: #64748b; }
+        .llm-sig-err     { background: #fefce8; border-color: #fbbf24; color: #a16207; }
+        .llm-model-badge {
+            display: inline-block; font-size: 10px; padding: 1px 6px;
+            border-radius: 4px; background: #f1f5f9; border: 1px solid #cbd5e1;
+            color: #64748b; margin-left: 4px; vertical-align: middle;
+        }
+        /* ── Warning Signal Gate 패널 ─────────────────────────────────── */
+        .gate-panel {
+            margin: 12px 0;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 12px 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .gate-panel-title {
+            font-size: 11px;
+            color: #475569;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+        .gate-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 6px;
+        }
+        .gate-label {
+            font-size: 11px;
+            color: #94a3b8;
+            min-width: 110px;
+            font-family: 'Segoe UI Mono', 'Consolas', monospace;
+        }
+        .gate-badge {
+            display: inline-block;
+            font-size: 12px;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 5px;
+            font-family: 'Segoe UI Mono', 'Consolas', monospace;
+            letter-spacing: 0.5px;
+        }
+        .gate-allow  { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+        .gate-half   { background: #fef9c3; color: #a16207; border: 1px solid #fde047; }
+        .gate-reject { background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; }
+        .gate-none   { background: #f8fafc; color: #94a3b8; border: 1px solid #e2e8f0; }
+        .gate-caution { background: #fef9c3; color: #a16207; border: 1px solid #fde047; }
+        .gate-warning { background: #ffedd5; color: #c2410c; border: 1px solid #fdba74; }
+        .gate-danger  { background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; }
+        .gate-forbidden { background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; }
+        .gate-failure   { background: #ffedd5; color: #c2410c; border: 1px solid #fdba74; }
+        .wa-bar-wrap {
+            display: flex; align-items: center; gap: 8px; margin-top: 2px;
+        }
+        .wa-bar-bg {
+            width: 120px; height: 8px; background: #e2e8f0; border-radius: 4px;
+            position: relative; overflow: hidden;
+        }
+        .wa-bar-fill {
+            position: absolute; top: 0; height: 100%; border-radius: 4px;
+            transition: width 0.3s, left 0.3s;
+        }
+        .wa-val {
+            font-size: 12px; font-weight: 700;
+            font-family: 'Segoe UI Mono', 'Consolas', monospace;
+            min-width: 52px;
+        }
+        .wa-tag {
+            font-size: 10px; color: #94a3b8;
+        }
+        /* ── 서브라벨 (코드값 한글 해설) ────────────────────────────────── */
+        .card .sublabel {
+            font-size: 10px;
+            color: #94a3b8;
+            margin-top: 3px;
+            font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+        }
+        /* ── LLM 레짐 패널 ──────────────────────────────────────────────── */
+        .llm-regime-panel {
+            margin: 0 0 12px 0;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 12px 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .llm-regime-title {
+            font-size: 11px;
+            color: #475569;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+        .llm-regime-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .llm-regime-cell {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 7px 10px;
+        }
+        .llm-regime-cell .rc-label {
+            font-size: 9px;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            margin-bottom: 3px;
+        }
+        .llm-regime-cell .rc-value {
+            font-size: 13px;
+            font-weight: 700;
+            color: #1e293b;
+        }
+        .llm-regime-cell .rc-sub {
+            font-size: 9px;
+            color: #94a3b8;
+            margin-top: 2px;
+        }
+        .reason-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 6px;
+        }
+        .reason-cell {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 7px 10px;
+        }
+        .reason-cell .rc-label {
+            font-size: 9px;
+            color: #94a3b8;
+            text-transform: uppercase;
+            margin-bottom: 3px;
+        }
+        .reason-cell .rc-text {
+            font-size: 11px;
+            color: #334155;
+            line-height: 1.5;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <h1>MMEAN 시장 판단 시스템</h1>
+
+    <div class="topbar">
+        <div id="sourceText"  class="status-line">소스: -</div>
+        <div id="envText"     class="status-line">환경: -</div>
+        <div id="wsText"      class="status-line">웹소켓: -</div>
+        <div id="sessionText" class="status-line">세션: -</div>
+        <div id="dataQuality" class="status-line" style="padding:2px 8px;border-radius:4px;border:1px solid #cbd5e1;font-size:12px">데이터: -</div>
+        <a href="/prompts"  style="background:#f0fdf4;color:#16a34a;border:1px solid #86efac;padding:6px 14px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;letter-spacing:0.5px">📋 프롬프트 보드</a>
+        <a href="/analytics" style="margin-left:4px;background:#eff6ff;color:#2563eb;border:1px solid #93c5fd;padding:6px 14px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;letter-spacing:0.5px">📊 분석 리포트</a>
+    </div>
+
+    <!-- ── LLM 레짐 판단 패널 ─────────────────────────────────────────── -->
+    <div class="llm-regime-panel">
+        <div class="llm-regime-title">LLM 레짐 판단 — 현재 시장 패턴</div>
+        <div class="llm-regime-grid">
+
+            <!-- 레짐 레이블 -->
+            <div class="llm-regime-cell">
+                <div class="rc-label">레짐 레이블</div>
+                <div id="regimeLabel" class="rc-value">-</div>
+                <div class="rc-sub">FlowEngine 종합 판단</div>
+            </div>
+
+            <!-- LLM 위험관점 -->
+            <div class="llm-regime-cell">
+                <div class="rc-label">LLM 위험관점</div>
+                <div id="llmRiskView" class="rc-value">-</div>
+                <div class="rc-sub">positive / neutral / negative</div>
+            </div>
+
+            <!-- flow_score -->
+            <div class="llm-regime-cell">
+                <div class="rc-label">흐름 점수</div>
+                <div id="flowScore" class="rc-value">-</div>
+                <div class="rc-sub">-2(강매도) ~ +2(강매수)</div>
+            </div>
+
+            <!-- LLM 신뢰도 -->
+            <div class="llm-regime-cell">
+                <div class="rc-label">LLM 신뢰도</div>
+                <div id="llmConfRegime" class="rc-value">-</div>
+                <div class="rc-sub">0.55 미만 시 weight=0</div>
+            </div>
+
+        </div>
+
+        <!-- 판단 근거 2열 -->
+        <div class="reason-row">
+            <div class="reason-cell">
+                <div class="rc-label">📌 진입 근거 (reason_main)</div>
+                <div id="llmReasonMain" class="rc-text">-</div>
+            </div>
+            <div class="reason-cell">
+                <div class="rc-label">⚠️ 반론 / 리스크 (reason_against)</div>
+                <div id="llmReasonAgainst" class="rc-text">-</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Warning Signal Entry Gate (Caution/Ambiguous) ──────────────── -->
+    <div class="gate-panel">
+        <div class="gate-panel-title">Warning Signal Entry Gate</div>
+
+        <!-- Row 1: entry_gate -->
+        <div class="gate-row">
+            <span class="gate-label">entry_gate</span>
+            <span id="gateEntryBadge" class="gate-badge gate-none">ALLOW</span>
+            <span id="gateFinalReason" style="font-size:11px;font-family:monospace;color:#64748b;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:4px;padding:2px 7px;">allowed</span>
+            <span style="font-size:10px;color:#94a3b8;">ALLOW=정상진입 / HALF=최대축소(≈80%) / REJECT=진입차단</span>
+        </div>
+
+        <!-- Row 2: Caution (pattern_memory.warning_level) -->
+        <div class="gate-row">
+            <span class="gate-label">caution_level</span>
+            <span id="gateCautionBadge" class="gate-badge gate-none">none</span>
+            <span style="font-size:10px;color:#94a3b8;">pattern_memory (basis/vol/time)</span>
+        </div>
+
+        <!-- Row 3: Ambiguous (failure_patterns) -->
+        <div class="gate-row">
+            <span class="gate-label">ambiguous</span>
+            <span id="gateFacTypeBadge" class="gate-badge gate-none">none</span>
+            <span id="gateFacConfBadge" style="font-size:10px;color:#94a3b8;font-family:monospace;">—</span>
+            <span style="font-size:10px;color:#94a3b8;">failure_patterns proxy v1</span>
+        </div>
+
+        <!-- Row 4: REJECT / HALF 누적 카운터 -->
+        <div class="gate-row" style="margin-top:6px;padding-top:8px;border-top:1px solid #f1f5f9;">
+            <span class="gate-label">누적 발동</span>
+            <span style="font-size:11px;color:#64748b;">REJECT</span>
+            <span id="gateRejectCount" style="font-size:15px;font-weight:700;color:#dc2626;font-family:monospace;min-width:32px;text-align:right;">0</span>
+            <span style="font-size:11px;color:#64748b;margin-left:10px;">HALF</span>
+            <span id="gateHalfCount"   style="font-size:15px;font-weight:700;color:#a16207;font-family:monospace;min-width:32px;text-align:right;">0</span>
+            <span style="font-size:10px;color:#94a3b8;margin-left:6px;">세션 시작 이후 누적 횟수</span>
+        </div>
+
+        <!-- Row 5: weight_adjust raw vs final -->
+        <div class="gate-row" style="margin-top:4px;">
+            <span class="gate-label">weight_adjust</span>
+            <div>
+                <div class="wa-bar-wrap">
+                    <span class="wa-tag" style="min-width:36px;">raw</span>
+                    <div class="wa-bar-bg"><div id="waRawBar" class="wa-bar-fill" style="width:50%;left:50%;background:#94a3b8;"></div></div>
+                    <span id="waRawVal" class="wa-val" style="color:#64748b;">0.00</span>
+                </div>
+                <div class="wa-bar-wrap" style="margin-top:4px;">
+                    <span class="wa-tag" style="min-width:36px;">final</span>
+                    <div class="wa-bar-bg"><div id="waFinalBar" class="wa-bar-fill" style="width:50%;left:50%;background:#94a3b8;"></div></div>
+                    <span id="waFinalVal" class="wa-val" style="color:#64748b;">0.00</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Row 6: 최근 발동 이력 (인메모리, 최근 10건) -->
+        <div id="gateLogSection" style="margin-top:8px;padding-top:8px;border-top:1px solid #f1f5f9;display:none;">
+            <div style="font-size:10px;color:#94a3b8;margin-bottom:4px;">📋 발동 이력 (최근 10건)</div>
+            <table id="gateLogTable" style="width:100%;border-collapse:collapse;font-size:11px;font-family:monospace;">
+                <thead>
+                    <tr style="color:#94a3b8;text-align:left;">
+                        <th style="padding:2px 6px;width:60px;">시각</th>
+                        <th style="padding:2px 6px;width:52px;">Gate</th>
+                        <th style="padding:2px 6px;width:70px;">caution</th>
+                        <th style="padding:2px 6px;">ambiguous</th>
+                    </tr>
+                </thead>
+                <tbody id="gateLogBody">
+                    <tr><td colspan="4" style="color:#94a3b8;padding:4px 6px;font-size:10px;">발동 이력 없음</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ── RAG Prep 헬스 패널 ──────────────────────────────────────── -->
+    <div style="margin-bottom:12px;background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 16px;box-shadow:0 1px 3px rgba(0,0,0,0.06);display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+        <span style="font-size:11px;color:#475569;font-weight:600;letter-spacing:0.4px;text-transform:uppercase;white-space:nowrap;">RAG Prep</span>
+        <span id="ragPrepStatus" style="font-size:12px;font-weight:700;font-family:monospace;padding:2px 9px;border-radius:4px;background:#f1f5f9;color:#94a3b8;border:1px solid #e2e8f0;">idle</span>
+        <span style="font-size:10px;color:#94a3b8;white-space:nowrap;">pattern_memory</span>
+        <span id="ragPmCount"   style="font-size:13px;font-weight:700;font-family:monospace;color:#1e293b;">-</span>
+        <span style="font-size:10px;color:#94a3b8;white-space:nowrap;">failure_patterns</span>
+        <span id="ragFpCount"   style="font-size:13px;font-weight:700;font-family:monospace;color:#1e293b;">-</span>
+        <span style="font-size:10px;color:#94a3b8;white-space:nowrap;margin-left:4px;">마지막 성공</span>
+        <span id="ragLastSuccess" style="font-size:11px;font-family:monospace;color:#64748b;">-</span>
+        <span style="font-size:10px;color:#94a3b8;white-space:nowrap;">실행 시각</span>
+        <span id="ragLastRun"   style="font-size:11px;font-family:monospace;color:#64748b;">-</span>
+        <span id="ragPrepError" style="font-size:10px;color:#dc2626;font-family:monospace;display:none;"></span>
+    </div>
+
+    <!-- ── 장전 수동 옵션 + 장중 LLM 영향도 패널 ─────────────────────── -->
+    <div class="opt-panel">
+
+        <!-- 장전 수동 옵션 -->
+        <div class="opt-group">
+            <div class="opt-group-title">장전 옵션</div>
+            <div class="opt-group-hint">특수상황(금리충격·전쟁 등)에만 변경. 평소에는 옵션없음.</div>
+            <div class="opt-btns">
+                <button id="pmBtn_MANIA_2" class="opt-btn" onclick="setPremarketMode('MANIA_2')">광기 x2</button>
+                <button id="pmBtn_MANIA_1" class="opt-btn" onclick="setPremarketMode('MANIA_1')">광기 x1</button>
+                <button id="pmBtn_NORMAL"  class="opt-btn" onclick="setPremarketMode('NORMAL')">옵션없음</button>
+                <button id="pmBtn_FEAR_1"  class="opt-btn" onclick="setPremarketMode('FEAR_1')">공포 x1</button>
+                <button id="pmBtn_FEAR_2"  class="opt-btn" onclick="setPremarketMode('FEAR_2')">공포 x2</button>
+            </div>
+        </div>
+
+        <!-- 장중 LLM 영향도 -->
+        <div class="opt-group">
+            <div class="opt-group-title">장중 LLM 영향도</div>
+            <div class="opt-group-hint">weight_adjust 반영 계수만 조정. 방향 결정권 없음.</div>
+            <div class="opt-btns">
+                <button id="infBtn_LOW"  class="opt-btn" onclick="setLlmInfluence('LOW')">낮음 ×0.5</button>
+                <button id="infBtn_MID"  class="opt-btn" onclick="setLlmInfluence('MID')">보통 ×1.0</button>
+                <button id="infBtn_HIGH" class="opt-btn" onclick="setLlmInfluence('HIGH')">높음 ×1.5</button>
+            </div>
+        </div>
+
+        <!-- 외국인 신호 모드 -->
+        <div class="opt-group">
+            <div class="opt-group-title">외국인 신호 모드</div>
+            <div class="opt-group-hint">composite: 누적+틱 합성 / delta_only: 틱 변화량만. DB 거래기록에 저장됨.</div>
+            <div class="opt-btns">
+                <button id="fsgBtn_composite"  class="opt-btn" onclick="setForeignSignalMode('composite')">Composite</button>
+                <button id="fsgBtn_delta_only" class="opt-btn" onclick="setForeignSignalMode('delta_only')">Delta Only</button>
+            </div>
+        </div>
+
+        <!-- 시뮬레이션 모드 (Easy / Expert) -->
+        <div class="opt-group">
+            <div class="opt-group-title">시뮬레이션 모드</div>
+            <div class="opt-group-hint">Easy: 레벨(1~20) 기반 자동 설정 / Expert: 개별 옵션 직접 설정.</div>
+            <div class="opt-btns" style="flex-wrap:wrap;gap:4px">
+                <button id="simModeBtn_expert" class="opt-btn" onclick="setSimMode('expert')">Expert</button>
+                <button id="simModeBtn_easy"   class="opt-btn" onclick="setSimMode('easy')">Easy</button>
+            </div>
+            <!-- Easy 모드 레벨 선택 (레벨 1~20) -->
+            <div id="simLevelPanel" style="display:none;margin-top:6px">
+                <div class="opt-group-hint" id="simLevelDesc" style="margin-bottom:4px;color:#94a3b8;font-style:italic"></div>
+                <div class="opt-btns" style="flex-wrap:wrap;gap:3px" id="simLevelBtns">
+                    <!-- JS로 동적 생성 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 실행 모드 (시뮬레이션 모드 옆) -->
+        <div class="opt-group">
+            <div class="opt-group-title">실행 모드</div>
+            <div class="opt-group-hint">
+                <span id="execModeStatus" style="font-weight:600">OFF</span>
+                &nbsp;·&nbsp;데이터수집=항상ON · 모의=KIS모의계좌 · 실전=비밀번호필요
+            </div>
+            <div class="opt-btns">
+                <button id="execBtn_OFF"     class="opt-btn" onclick="setExecMode('OFF')">데이터 수집</button>
+                <button id="execBtn_VIRTUAL" class="opt-btn" onclick="setExecMode('VIRTUAL')">내부 시뮬</button>
+                <button id="execBtn_PAPER"   class="opt-btn" onclick="setExecMode('PAPER')">모의 거래</button>
+                <button id="execBtn_LIVE"    class="opt-btn" onclick="setExecMode('LIVE')">실전 매매</button>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <div class="label">시장 방향</div>
+            <div id="bias" class="value bias-neutral">중립</div>
+            <div id="biasSub" class="sublabel">LONG_BIAS=상승우세 / SHORT_BIAS=하락우세</div>
+        </div>
+        <div class="card">
+            <div class="label">진입 신호</div>
+            <div id="entrySignal" class="value entry-wait">대기</div>
+            <div id="entrySignalSub" class="sublabel">LONG_READY=매수 / SHORT_READY=매도 / WAIT=대기</div>
+        </div>
+        <div class="card">
+            <div class="label">신뢰도</div>
+            <div id="confidence" class="value">0.0</div>
+            <div class="sublabel">LLM 신호 신뢰도 — 0.55 미만 시 weight=0</div>
+        </div>
+        <div class="card">
+            <div class="label">마지막 업데이트</div>
+            <div id="timestamp" class="value">-</div>
+        </div>
+
+        <div class="card">
+            <div class="label">선물 가격</div>
+            <div id="futuresPrice" class="value">0</div>
+            <div class="sublabel">KOSPI200 지수선물 현재가</div>
+        </div>
+        <div class="card">
+            <div class="label">현물 가격</div>
+            <div id="spotPrice" class="value">0</div>
+        </div>
+        <div class="card">
+            <div class="label">베이시스</div>
+            <div id="basis" class="value">0</div>
+            <div class="sublabel">선물가 - 현물가 스프레드</div>
+        </div>
+        <div class="card">
+            <div class="label">베이시스 EMA</div>
+            <div id="basisEma" class="value">0</div>
+            <div class="sublabel">베이시스 지수이동평균 (추세 확인)</div>
+        </div>
+
+        <div class="card">
+            <div class="label">베이시스 기울기</div>
+            <div id="basisSlope" class="value">0</div>
+            <div class="sublabel">양수=확대추세 / 음수=축소추세</div>
+        </div>
+        <div class="card">
+            <div class="label">외국인 순매수</div>
+            <div id="foreignBuy" class="value">0</div>
+            <div class="sublabel">양수=순매수(매수우위) / 음수=순매도</div>
+        </div>
+        <div class="card">
+            <div class="label">미결제약정</div>
+            <div id="oiValue" class="value">0</div>
+            <div class="sublabel">Open Interest — 시장 참여 강도</div>
+        </div>
+        <div class="card">
+            <div class="label">미결제약정 증감</div>
+            <div id="oiDelta" class="value">0</div>
+            <div class="sublabel">양수=신규진입 증가 / 음수=청산 증가</div>
+        </div>
+
+        <div class="card">
+            <div class="label">누적 거래량</div>
+            <div id="cumVolume" class="value">0</div>
+        </div>
+        <div class="card">
+            <div class="label">거래량 변화</div>
+            <div id="volumeDelta" class="value">0</div>
+        </div>
+        <div class="card">
+            <div class="label">거래량 급증</div>
+            <div id="volumeBurst" class="value">0</div>
+            <div class="sublabel">현재거래량/평균거래량 배수 — 1.0=평균</div>
+        </div>
+        <div class="card">
+            <div class="label">체결 수량</div>
+            <div id="tradeQty" class="value">0</div>
+        </div>
+
+        <div class="card">
+            <div class="label">최우선 매도호가</div>
+            <div id="bestAsk" class="value">0</div>
+        </div>
+        <div class="card">
+            <div class="label">최우선 매수호가</div>
+            <div id="bestBid" class="value">0</div>
+        </div>
+        <div class="card">
+            <div class="label">상승 점수</div>
+            <div id="longScore" class="value">0</div>
+            <div class="sublabel">enter_score 이상이면 LONG_READY 조건 충족</div>
+        </div>
+        <div class="card">
+            <div class="label">하락 점수</div>
+            <div id="shortScore" class="value">0</div>
+            <div class="sublabel">enter_score 이상이면 SHORT_READY 조건 충족</div>
+        </div>
+
+        <div class="card">
+            <div class="label">EMA 차이</div>
+            <div id="basisEmaDelta" class="value">0</div>
+        </div>
+        <div class="card">
+            <div class="label">체결 강도</div>
+            <div id="tradeStrength" class="value">0</div>
+            <div class="sublabel">매수체결/전체체결 비율 — 1.0 이상=강매수</div>
+        </div>
+
+        <!-- ── LLM 5개 신호 상태 배지 카드 ── -->
+        <div class="card">
+            <div class="label">LLM 신호 <span id="llmModelBadge" class="llm-model-badge">-</span></div>
+            <div id="llmSig5" class="llm-sig-5">
+                <span id="llmSig_buy"       class="llm-5-badge">매수</span>
+                <span id="llmSig_buy_exit"  class="llm-5-badge">매수청산</span>
+                <span id="llmSig_nothing"   class="llm-5-badge">관망</span>
+                <span id="llmSig_sell_exit" class="llm-5-badge">매도청산</span>
+                <span id="llmSig_sell"      class="llm-5-badge">매도</span>
+            </div>
+            <div id="llmSigConf" style="font-size:10px;color:#64748b;margin-top:3px;">-</div>
+            <div class="sublabel" style="margin-top:4px;">매수=SIZE_UP 방향 / 관망=weight=0 / 매도=SIZE_DOWN</div>
+        </div>
+
+        <div class="card">
+            <div class="label">마지막 오류</div>
+            <div id="lastError" class="value" style="font-size:12px;font-weight:normal;color:#fca5a5;">-</div>
+        </div>
+    </div>
+
+    <!-- ── 장중 LLM 분석 패널 (MarketAnalyst + CheckpointAnalyst) ── -->
+    <div style="margin:12px 0;background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;padding:12px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+        <div style="font-size:11px;color:#475569;margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">장중 LLM 분석</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;">
+
+            <!-- 3분 시장 상태 (MarketAnalyst) -->
+            <div style="background:#f8fafc;border-radius:6px;padding:8px;border:1px solid #e2e8f0;">
+                <div style="font-size:9px;color:#94a3b8;margin-bottom:4px;">3분 시장 상태</div>
+                <div id="mvView" style="font-size:13px;font-weight:700;color:#1e293b;">-</div>
+                <div id="mvDir"  style="font-size:10px;color:#64748b;margin-top:2px;">-</div>
+                <div id="mvTs"   style="font-size:9px;color:#94a3b8;margin-top:2px;">-</div>
+            </div>
+
+            <!-- 09:15 아침장 (CheckpointAnalyst) -->
+            <div style="background:#f8fafc;border-radius:6px;padding:8px;border:1px solid #e2e8f0;">
+                <div style="font-size:9px;color:#94a3b8;margin-bottom:4px;">09:15 아침장</div>
+                <div id="ocChar"   style="font-size:11px;font-weight:600;color:#1e293b;">-</div>
+                <div id="ocFilter" style="font-size:10px;color:#64748b;margin-top:2px;">-</div>
+                <div id="ocReason" style="font-size:9px;color:#94a3b8;margin-top:2px;word-break:break-all;">-</div>
+            </div>
+
+            <!-- 10:30 잠정레짐 (CheckpointAnalyst) -->
+            <div style="background:#f8fafc;border-radius:6px;padding:8px;border:1px solid #e2e8f0;">
+                <div style="font-size:9px;color:#94a3b8;margin-bottom:4px;">10:30 잠정레짐</div>
+                <div id="prRegime" style="font-size:11px;font-weight:600;color:#1e293b;">-</div>
+                <div id="prDir"    style="font-size:10px;color:#64748b;margin-top:2px;">-</div>
+                <div id="prConf"   style="font-size:9px;color:#94a3b8;margin-top:2px;">-</div>
+            </div>
+
+            <!-- 13:00 오후재평가 (CheckpointAnalyst) -->
+            <div style="background:#f8fafc;border-radius:6px;padding:8px;border:1px solid #e2e8f0;">
+                <div style="font-size:9px;color:#94a3b8;margin-bottom:4px;">13:00 오후재평가</div>
+                <div id="arRegime" style="font-size:11px;font-weight:600;color:#1e293b;">-</div>
+                <div id="arBias"   style="font-size:10px;color:#64748b;margin-top:2px;">-</div>
+                <div id="arRisk"   style="font-size:9px;color:#94a3b8;margin-top:2px;">-</div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="reason-box">
+        <strong style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#475569;">판정 사유</strong><br />
+        <span id="reasonText">-</span>
+    </div>
+
+    <!-- error-box: 네트워크/fetch 오류 전용 (서버 last_error 중복 제거) -->
+    <div class="error-box" id="errorBox"></div>
+
+    <!-- ── 전략 파라미터 설정 패널 ── -->
+    <div id="configPanel" style="margin-top:20px;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+            <strong style="font-size:14px;">⚙ 전략 파라미터 설정</strong>
+            <span id="cfgHash" style="font-size:11px;color:#94a3b8;font-family:monospace;">hash: -</span>
+            <button class="btn" style="margin-left:auto;padding:5px 10px;font-size:12px;" onclick="toggleConfigPanel()">접기 ▲</button>
+        </div>
+        <div id="configBody">
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;">
+                <fieldset style="border:1px solid #334155;border-radius:8px;padding:10px;grid-column:span 2">
+                    <legend style="font-size:11px;color:#94a3b8;padding:0 4px;">시장 상태 · 외국인 / 미결제약정</legend>
+                    <div class="cfg-row"><label><b>foreign_strong</b> <span class="cfg-desc">: 외국인 강한 순매수 임계값 — 이상이면 HIGH 등급</span></label><input id="c_foreign_strong" type="number" step="any"></div>
+                    <div class="cfg-row"><label><b>foreign_mid</b> <span class="cfg-desc">: 외국인 중간 순매수 임계값 — 이상이면 MID 등급</span></label><input id="c_foreign_mid" type="number" step="any"></div>
+                    <div class="cfg-row"><label><b>foreign_weak</b> <span class="cfg-desc">: 외국인 약한 순매수 임계값 — 이상이면 LOW 등급</span></label><input id="c_foreign_weak" type="number" step="any"></div>
+                    <div class="cfg-row"><label><b>oi_strong</b> <span class="cfg-desc">: 미결제약정 강한 증가 임계값 — 방향성 강도 HIGH</span></label><input id="c_oi_strong" type="number" step="any"></div>
+                    <div class="cfg-row"><label><b>oi_mid</b> <span class="cfg-desc">: 미결제약정 중간 증가 임계값 — 방향성 강도 MID</span></label><input id="c_oi_mid" type="number" step="any"></div>
+                    <div class="cfg-row"><label><b>oi_negative_strong</b> <span class="cfg-desc">: 미결제약정 강한 감소 임계값 — 청산 압력 HIGH</span></label><input id="c_oi_negative_strong" type="number" step="any"></div>
+                    <div class="cfg-row"><label><b>oi_negative_mid</b> <span class="cfg-desc">: 미결제약정 중간 감소 임계값 — 청산 압력 MID</span></label><input id="c_oi_negative_mid" type="number" step="any"></div>
+                </fieldset>
+
+                <fieldset style="border:1px solid #334155;border-radius:8px;padding:10px;grid-column:span 2">
+                    <legend style="font-size:11px;color:#94a3b8;padding:0 4px;">베이시스 · 점수 · 진입</legend>
+                    <div class="cfg-row"><label><b>basis_strong</b> <span class="cfg-desc">: 베이시스 강한 콘탱고/백워데이션 임계값 — STRONG 등급</span></label><input id="c_basis_strong" type="number" step="any"></div>
+                    <div class="cfg-row"><label><b>basis_mid</b> <span class="cfg-desc">: 베이시스 중간 임계값 — MID 등급 경계</span></label><input id="c_basis_mid" type="number" step="any"></div>
+                    <div class="cfg-row"><label><b>basis_weak</b> <span class="cfg-desc">: 베이시스 약한 임계값 — WEAK 등급 경계</span></label><input id="c_basis_weak" type="number" step="any"></div>
+                    <div class="cfg-row"><label><b>ema_delta_strong</b> <span class="cfg-desc">: EMA 단·장기 차이 강한 임계값 — 추세 강도 기준</span></label><input id="c_ema_delta_strong" type="number" step="any"></div>
+                    <div class="cfg-row"><label><b>slope_long_ready</b> <span class="cfg-desc">: LONG 진입 준비 기울기 임계값 — 이상이면 상승 추세</span></label><input id="c_slope_long_ready" type="number" step="any"></div>
+                    <div class="cfg-row"><label><b>slope_short_ready</b> <span class="cfg-desc">: SHORT 진입 준비 기울기 임계값 — 이하이면 하락 추세</span></label><input id="c_slope_short_ready" type="number" step="any"></div>
+                    <div class="cfg-row"><label><b>volume_burst_ready</b> <span class="cfg-desc">: 거래량 폭발 임계 배수 — 평균 대비 이 배수 이상이면 burst</span></label><input id="c_volume_burst_ready" type="number" step="any"></div>
+                    <div class="cfg-row"><label><b>trade_strength_strong</b> <span class="cfg-desc">: 체결강도 강한 임계값 — 매수 우위 STRONG 기준</span></label><input id="c_trade_strength_strong" type="number" step="any"></div>
+                    <div class="cfg-row"><label><b>trade_strength_mid</b> <span class="cfg-desc">: 체결강도 중간 임계값 — 매수 우위 MID 기준</span></label><input id="c_trade_strength_mid" type="number" step="any"></div>
+                </fieldset>
+
+                <fieldset style="border:1px solid #334155;border-radius:8px;padding:10px;grid-column:span 2">
+                    <legend style="font-size:11px;color:#94a3b8;padding:0 4px;">진입 / 보유 / 청산</legend>
+                    <div class="cfg-row"><label><b>enter_score</b> <span class="cfg-desc">: 진입 최소 점수 — 이 이상이면 진입 신호 생성</span></label><input id="c_enter_score" type="number" step="any"></div>
+                    <div class="cfg-row"><label><b>enter_gap</b> <span class="cfg-desc">: 진입 점수 여유분 — enter_score 초과 필요 마진</span></label><input id="c_enter_gap" type="number" step="any"></div>
+                    <div class="cfg-row"><label><b>enter_confirm_count</b> <span class="cfg-desc">: 진입 확인 캔들 수 — 연속 N회 신호 시 진입 허용</span></label><input id="c_enter_confirm_count" type="number" step="1"></div>
+                    <div class="cfg-row"><label><b>hold_score</b> <span class="cfg-desc">: 보유 유지 최소 점수 — 이하이면 청산 검토</span></label><input id="c_hold_score" type="number" step="any"></div>
+                    <div class="cfg-row"><label><b>hold_gap</b> <span class="cfg-desc">: 보유 점수 여유분 — hold_score 하한 허용 마진</span></label><input id="c_hold_gap" type="number" step="any"></div>
+                    <div class="cfg-row"><label><b>exit_fail_count</b> <span class="cfg-desc">: 연속 실패 신호 횟수 — N회 반전 신호 시 강제 청산</span></label><input id="c_exit_fail_count" type="number" step="1"></div>
+                    <div class="cfg-row"><label><b>entry_confirm_count</b> <span class="cfg-desc">: 최종 진입 확정 횟수 — LLM 게이트 통과 후 추가 확인</span></label><input id="c_entry_confirm_count" type="number" step="1"></div>
+                </fieldset>
+
+                <fieldset style="border:1px solid #334155;border-radius:8px;padding:10px;grid-column:span 2">
+                    <legend style="font-size:11px;color:#94a3b8;padding:0 4px;">추세 EMA</legend>
+                    <div class="cfg-row"><label><b>trend_ema_period_fast</b> <span class="cfg-desc">: 단기 EMA 기간 (봉 수)</span></label><input id="c_trend_ema_period_fast" type="number" step="1"></div>
+                    <div class="cfg-row"><label><b>trend_ema_period_slow</b> <span class="cfg-desc">: 장기 EMA 기간 (봉 수)</span></label><input id="c_trend_ema_period_slow" type="number" step="1"></div>
+                    <div class="cfg-row"><label><b>trend_ema_slope_window</b> <span class="cfg-desc">: EMA 기울기 계산 윈도우 크기</span></label><input id="c_trend_ema_slope_window" type="number" step="1"></div>
+                    <div class="cfg-row"><label><b>trend_ema_slope_threshold</b> <span class="cfg-desc">: 기울기 유효 임계값 — 이상이면 추세 있음 판정</span></label><input id="c_trend_ema_slope_threshold" type="number" step="any"></div>
+                    <div class="cfg-row"><label><b>trend_ema_align_score</b> <span class="cfg-desc">: EMA 정렬(단기>장기) 달성 시 부여 점수</span></label><input id="c_trend_ema_align_score" type="number" step="any"></div>
+                    <div class="cfg-row"><label><b>trend_ema_slope_score</b> <span class="cfg-desc">: EMA 기울기 조건 충족 시 부여 점수</span></label><input id="c_trend_ema_slope_score" type="number" step="any"></div>
+                    <div class="cfg-row"><label><b>trend_weight_long</b> <span class="cfg-desc">: LONG 방향 추세 가중치 — 최종 점수 반영 비율</span></label><input id="c_trend_weight_long" type="number" step="any"></div>
+                    <div class="cfg-row"><label><b>trend_weight_short</b> <span class="cfg-desc">: SHORT 방향 추세 가중치 — 최종 점수 반영 비율</span></label><input id="c_trend_weight_short" type="number" step="any"></div>
+                    <div class="cfg-row"><label><b>trend_min_delta</b> <span class="cfg-desc">: 추세 최소 델타 — EMA 단·장기 간격 하한선</span></label><input id="c_trend_min_delta" type="number" step="any"></div>
+                </fieldset>
+
+                <fieldset style="border:1px solid #334155;border-radius:8px;padding:10px;grid-column:span 2">
+                    <legend style="font-size:11px;color:#94a3b8;padding:0 4px;">야간 레짐</legend>
+                    <div class="cfg-row"><label><b>night_ma_gap_strong</b> <span class="cfg-desc">: 야간 이동평균 갭 강한 임계값 — 강세/약세 판정</span></label><input id="c_night_ma_gap_strong" type="number" step="any"></div>
+                    <div class="cfg-row"><label><b>night_ma_gap_weak</b> <span class="cfg-desc">: 야간 이동평균 갭 약한 임계값 — 중립 경계</span></label><input id="c_night_ma_gap_weak" type="number" step="any"></div>
+                    <div class="cfg-row"><label><b>night_vol_high</b> <span class="cfg-desc">: 야간 거래량 높음 임계값 — 활성 레짐 기준</span></label><input id="c_night_vol_high" type="number" step="any"></div>
+                    <div class="cfg-row"><label><b>night_vol_low</b> <span class="cfg-desc">: 야간 거래량 낮음 임계값 — 비활성 레짐 기준</span></label><input id="c_night_vol_low" type="number" step="any"></div>
+                    <div class="cfg-row"><label><b>night_score_bull</b> <span class="cfg-desc">: 야간 BULL 레짐 가산점 — 장 시작 초기 점수 반영</span></label><input id="c_night_score_bull" type="number" step="any"></div>
+                    <div class="cfg-row"><label><b>night_score_bear</b> <span class="cfg-desc">: 야간 BEAR 레짐 감산점 — 장 시작 초기 점수 반영</span></label><input id="c_night_score_bear" type="number" step="any"></div>
+                </fieldset>
+
+                <fieldset style="border:1px solid #334155;border-radius:8px;padding:10px;grid-column:span 2">
+                    <legend style="font-size:11px;color:#94a3b8;padding:0 4px;">시뮬레이션 엔진 (틱)</legend>
+                    <div class="cfg-row"><label><b>sim_tp_ticks</b> <span class="cfg-desc">: 목표가 틱 수 (Take Profit 거리)</span></label><input id="c_sim_tp_ticks" type="number" step="1"></div>
+                    <div class="cfg-row"><label><b>sim_sl_ticks</b> <span class="cfg-desc">: 손절가 틱 수 (Stop Loss 거리)</span></label><input id="c_sim_sl_ticks" type="number" step="1"></div>
+                    <div class="cfg-row"><label><b>sim_trailing_ticks</b> <span class="cfg-desc">: 트레일링 스탑 폭 (틱 단위)</span></label><input id="c_sim_trailing_ticks" type="number" step="1"></div>
+                    <div class="cfg-row"><label><b>sim_trailing_activate</b> <span class="cfg-desc">: 트레일링 발동 기준 — 이익 N틱 초과 시 활성화</span></label><input id="c_sim_trailing_activate" type="number" step="1"></div>
+                    <div class="cfg-row"><label><b>sim_neutral_exit_ticks</b> <span class="cfg-desc">: 중립 보호 청산 틱 — 방향성 없을 때 N틱 손실 시 청산</span></label><input id="c_sim_neutral_exit_ticks" type="number" step="1"></div>
+                    <div class="cfg-row"><label><b>sim_profit_protect</b> <span class="cfg-desc">: 이익 보호 청산 틱 — 이익이 N틱 이상일 때 보호 발동</span></label><input id="c_sim_profit_protect" type="number" step="1"></div>
+                    <div class="cfg-row"><label><b>sim_slippage_ticks</b> <span class="cfg-desc">: 슬리피지 가정 틱 수 — 체결 불리함 시뮬레이션 반영</span></label><input id="c_sim_slippage_ticks" type="number" step="1"></div>
+                </fieldset>
+
+                <!-- ── LLM 파라미터 ── -->
+                <fieldset style="border:1px solid #334155;border-radius:8px;padding:10px;grid-column:span 2">
+                    <legend style="font-size:11px;color:#94a3b8;padding:0 4px;">LLM 파라미터</legend>
+                    <div class="cfg-row"><label><b>LLM_APPLY_ENABLED</b> <span class="cfg-desc">: LLM weight_adjust 적용 여부 (1=활성 / 0=비활성)</span></label><input id="c_LLM_APPLY_ENABLED" type="number" step="1" min="0" max="1"></div>
+                    <div class="cfg-row"><label><b>LLM_FILTER_ENABLED</b> <span class="cfg-desc">: LLM 필터링 기능 여부 (1=활성 / 0=비활성)</span></label><input id="c_LLM_FILTER_ENABLED" type="number" step="1" min="0" max="1"></div>
+                    <div class="cfg-row"><label><b>FLOW_SCORE_GATE_THR</b> <span class="cfg-desc">: LLM 호출 최소 flow_score 임계값 — 미달 시 LLM 스킵</span></label><input id="c_FLOW_SCORE_GATE_THR" type="number" step="any"></div>
+                    <div class="cfg-row"><label><b>DEFAULT_TTL_SEC</b> <span class="cfg-desc">: LLM 결과 유효 시간 (초) — 초과 시 재호출</span></label><input id="c_DEFAULT_TTL_SEC" type="number" step="1"></div>
+                    <div class="cfg-row"><label><b>DEFAULT_SPAN</b> <span class="cfg-desc">: LLM 분석 기본 조회 기간 (분 단위)</span></label><input id="c_DEFAULT_SPAN" type="number" step="1"></div>
+                    <div class="cfg-row"><label><b>WEIGHT_ADJ_MAX</b> <span class="cfg-desc">: LLM weight_adjust 상한 — SIZE_UP 최대 +0.10</span></label><input id="c_WEIGHT_ADJ_MAX" type="number" step="any"></div>
+                    <div class="cfg-row"><label><b>WEIGHT_ADJ_MIN</b> <span class="cfg-desc">: LLM weight_adjust 하한 — SIZE_DOWN 최대 -0.20</span></label><input id="c_WEIGHT_ADJ_MIN" type="number" step="any"></div>
+                    <div class="cfg-row"><label><b>CONFIDENCE_MIN</b> <span class="cfg-desc">: LLM 신뢰도 최소값 — 미달 시 weight_adjust 무시</span></label><input id="c_CONFIDENCE_MIN" type="number" step="any"></div>
+                </fieldset>
+            </div>
+
+            <div style="display:flex;gap:10px;align-items:center;">
+                <button class="btn" style="background:#dcfce7;border-color:#16a34a;color:#15803d;" onclick="saveConfig()">💾 저장 (서버 즉시 반영)</button>
+                <button class="btn" style="background:#fff7ed;border-color:#ea580c;color:#c2410c;" onclick="resetConfig()">↺ 기본값 복원</button>
+                <span id="cfgSaveStatus" style="font-size:12px;color:#94a3b8;"></span>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .cfg-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; gap:8px; }
+        .cfg-row label { font-size:11px; color:#64748b; flex:1; line-height:1.5; }
+        .cfg-row label b { color:#475569; font-weight:600; }
+        .cfg-row label .cfg-desc { color:#94a3b8; font-weight:400; }
+        .cfg-row input { width:80px; flex-shrink:0; background:#f1f5f9; border:1px solid #cbd5e1; color:#1e293b; border-radius:4px; padding:3px 6px; font-size:12px; font-family:monospace; text-align:right; }
+        .cfg-row input:focus { outline:none; border-color:#3b82f6; }
+        .cfg-row input:focus { outline:none; border-color:#22c55e; }
+    </style>
+
+    <script>
+        const CFG_KEYS = [
+            "foreign_strong","foreign_mid","foreign_weak",
+            "oi_strong","oi_mid","oi_negative_strong","oi_negative_mid",
+            "basis_strong","basis_mid","basis_weak","ema_delta_strong",
+            "slope_long_ready","slope_short_ready","volume_burst_ready",
+            "trade_strength_strong","trade_strength_mid",
+            "enter_score","enter_gap","enter_confirm_count",
+            "hold_score","hold_gap","exit_fail_count","entry_confirm_count",
+            "trend_ema_period_fast","trend_ema_period_slow","trend_ema_slope_window",
+            "trend_ema_slope_threshold","trend_ema_align_score","trend_ema_slope_score",
+            "trend_weight_long","trend_weight_short","trend_min_delta",
+            "night_ma_gap_strong","night_ma_gap_weak","night_vol_high","night_vol_low",
+            "night_score_bull","night_score_bear",
+            "sim_tp_ticks","sim_sl_ticks","sim_trailing_ticks","sim_trailing_activate",
+            "sim_neutral_exit_ticks","sim_profit_protect","sim_slippage_ticks",
+            "LLM_APPLY_ENABLED","LLM_FILTER_ENABLED",
+            "FLOW_SCORE_GATE_THR","DEFAULT_TTL_SEC","DEFAULT_SPAN",
+            "WEIGHT_ADJ_MAX","WEIGHT_ADJ_MIN","CONFIDENCE_MIN"
+        ];
+
+        let _cfgPanelOpen = true;
+
+        function toggleConfigPanel() {
+            _cfgPanelOpen = !_cfgPanelOpen;
+            document.getElementById("configBody").style.display = _cfgPanelOpen ? "" : "none";
+            document.querySelector("#configPanel button[onclick='toggleConfigPanel()']").textContent =
+                _cfgPanelOpen ? "접기 ▲" : "펼치기 ▼";
+        }
+
+        async function loadConfig() {
+            try {
+                const res  = await fetch("/api/config");
+                const data = await res.json();
+                if (!data.ok) return;
+                document.getElementById("cfgHash").textContent = "hash: " + (data.hash || "-");
+                const cfg = data.config || {};
+                CFG_KEYS.forEach(k => {
+                    const el = document.getElementById("c_" + k);
+                    if (el && cfg[k] !== undefined) el.value = cfg[k];
+                });
+            } catch (err) {
+                console.error("loadConfig 오류:", err);
+            }
+        }
+
+        async function saveConfig() {
+            const patch = {};
+            CFG_KEYS.forEach(k => {
+                const el = document.getElementById("c_" + k);
+                if (el && el.value !== "") patch[k] = el.value;
+            });
+            const statusEl = document.getElementById("cfgSaveStatus");
+            statusEl.textContent = "저장 중...";
+            try {
+                const res  = await fetch("/api/config", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify(patch)
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    document.getElementById("cfgHash").textContent = "hash: " + (data.hash || "-");
+                    statusEl.style.color   = "#22c55e";
+                    statusEl.textContent   = "✓ 저장 완료 — 서버에 즉시 반영됨";
+                } else {
+                    statusEl.style.color   = "#f87171";
+                    statusEl.textContent   = "오류: " + (data.error || "저장 실패");
+                }
+            } catch (err) {
+                statusEl.style.color = "#f87171";
+                statusEl.textContent = "오류: " + err.message;
+            }
+            setTimeout(() => { statusEl.textContent = ""; }, 4000);
+        }
+
+        async function resetConfig() {
+            if (!confirm("모든 파라미터를 기본값으로 되돌리시겠습니까?")) return;
+            const statusEl = document.getElementById("cfgSaveStatus");
+            statusEl.textContent = "초기화 중...";
+            try {
+                const res  = await fetch("/api/config/reset", {method: "POST"});
+                const data = await res.json();
+                if (data.ok) {
+                    document.getElementById("cfgHash").textContent = "hash: " + (data.hash || "-");
+                    const cfg = data.config || {};
+                    CFG_KEYS.forEach(k => {
+                        const el = document.getElementById("c_" + k);
+                        if (el && cfg[k] !== undefined) el.value = cfg[k];
+                    });
+                    statusEl.style.color = "#22c55e";
+                    statusEl.textContent = "✓ 기본값 복원 완료";
+                } else {
+                    statusEl.style.color = "#f87171";
+                    statusEl.textContent = "오류: " + (data.error || "실패");
+                }
+            } catch (err) {
+                statusEl.style.color = "#f87171";
+                statusEl.textContent = "오류: " + err.message;
+            }
+            setTimeout(() => { statusEl.textContent = ""; }, 4000);
+        }
+
+        loadConfig();
+
+        // ── 유틸 ─────────────────────────────────────────────────────────
+        function formatNum(v, digits = 2) {
+            if (v === null || v === undefined || Number.isNaN(v)) return "-";
+            return Number(v).toFixed(digits);
+        }
+
+        function toKoreanBias(bias) {
+            if (bias === "LONG_BIAS")  return "상승 우세";
+            if (bias === "SHORT_BIAS") return "하락 우세";
+            if (bias === "NEUTRAL")    return "중립";
+            return bias || "-";
+        }
+
+        function toKoreanEntry(entrySignal) {
+            if (entrySignal === "LONG_READY")  return "매수 준비";
+            if (entrySignal === "SHORT_READY") return "매도 준비";
+            if (entrySignal === "WAIT")        return "대기";
+            return entrySignal || "-";
+        }
+
+        function toKoreanSession(sessionType) {
+            if (sessionType === "day")   return "주간";
+            if (sessionType === "night") return "야간";
+            return sessionType || "-";
+        }
+
+        function toKoreanDataQuality(dq) {
+            if (dq === "live")          return "정상";
+            if (dq === "stale")         return "지연";
+            if (dq === "simulated")     return "시뮬레이션";
+            if (dq === "price_blocked") return "가격 차단";
+            return dq || "-";
+        }
+
+        /** LLM 모델명 → 간략 표시 */
+        function abbreviateModel(m) {
+            if (!m) return "-";
+            const lower = m.toLowerCase();
+            if (lower.includes("claude"))  return "Claude";
+            if (lower.includes("gpt"))     return "GPT";
+            if (lower.includes("gemini"))  return "Gemini";
+            if (lower.includes("llama"))   return "Llama";
+            if (lower.includes("mistral")) return "Mistral";
+            return m.slice(0, 10);
+        }
+
+        function setBiasStyle(bias) {
+            const el = document.getElementById("bias");
+            el.classList.remove("bias-long", "bias-short", "bias-neutral");
+            if (bias === "LONG_BIAS")       el.classList.add("bias-long");
+            else if (bias === "SHORT_BIAS") el.classList.add("bias-short");
+            else                            el.classList.add("bias-neutral");
+        }
+
+        function setEntryStyle(entrySignal) {
+            const el = document.getElementById("entrySignal");
+            el.classList.remove("entry-long", "entry-short", "entry-wait");
+            if (entrySignal === "LONG_READY")       el.classList.add("entry-long");
+            else if (entrySignal === "SHORT_READY") el.classList.add("entry-short");
+            else                                    el.classList.add("entry-wait");
+        }
+
+        // ── 메인 상태 폴링 (1초) ─────────────────────────────────────────
+        async function fetchStatus() {
+            try {
+                const res  = await fetch("/api/status");
+                const data = await res.json();
+
+                if (data.foreign_signal_mode)    updateFsgButtons(data.foreign_signal_mode);
+                if (data.premarket_manual_mode)  updatePremarketButtons(data.premarket_manual_mode);
+                if (data.llm_intraday_influence) updateInfluenceButtons(data.llm_intraday_influence);
+                if (data.simulation_mode)        updateSimModeButtons(data.simulation_mode);
+                if (data.selected_level != null) updateSimLevelButtons(data.selected_level);
+
+                document.getElementById("sourceText").innerText  = `데이터 소스: ${data.data_source}`;
+                document.getElementById("envText").innerText     = `실행 환경: ${data.env}`;
+                document.getElementById("wsText").innerText      = `웹소켓: ${data.ws_connected}`;
+                document.getElementById("sessionText").innerText = `세션: ${toKoreanSession(data.session_type)}`;
+
+                document.getElementById("bias").innerText         = toKoreanBias(data.bias);
+                document.getElementById("entrySignal").innerText  = toKoreanEntry(data.entry_signal);
+                setBiasStyle(data.bias);
+                setEntryStyle(data.entry_signal);
+
+                document.getElementById("confidence").innerText    = formatNum(data.confidence, 1);
+                document.getElementById("timestamp").innerText     = data.timestamp || "-";
+                document.getElementById("futuresPrice").innerText  = formatNum(data.futures_price, 4);
+                document.getElementById("spotPrice").innerText     = formatNum(data.spot_price, 4);
+                document.getElementById("basis").innerText         = formatNum(data.basis, 4);
+                document.getElementById("basisEma").innerText      = formatNum(data.basis_ema, 4);
+                document.getElementById("basisSlope").innerText    = formatNum(data.basis_slope, 5);
+                document.getElementById("foreignBuy").innerText    = formatNum(data.foreign_buy, 2);
+                document.getElementById("oiValue").innerText       = formatNum(data.oi_value, 2);
+                document.getElementById("oiDelta").innerText       = formatNum(data.oi_delta, 2);
+                document.getElementById("cumVolume").innerText     = formatNum(data.cum_volume, 2);
+                document.getElementById("volumeDelta").innerText   = formatNum(data.volume_delta, 2);
+                document.getElementById("volumeBurst").innerText   = formatNum(data.volume_burst, 3);
+                document.getElementById("tradeQty").innerText      = formatNum(data.trade_qty, 2);
+                document.getElementById("bestAsk").innerText       = formatNum(data.best_ask, 4);
+                document.getElementById("bestBid").innerText       = formatNum(data.best_bid, 4);
+                document.getElementById("longScore").innerText     = formatNum(data.long_score, 2);
+                document.getElementById("shortScore").innerText    = formatNum(data.short_score, 2);
+                document.getElementById("basisEmaDelta").innerText = formatNum(data.basis_ema_delta, 4);
+                document.getElementById("tradeStrength").innerText = formatNum(data.last_trade_strength, 2);
+                document.getElementById("reasonText").innerText    = data.reason || "-";
+                document.getElementById("lastError").innerText     = data.last_error || "-";
+
+                const dq   = data.data_quality || "-";
+                const dqEl = document.getElementById("dataQuality");
+                dqEl.innerText         = "데이터 상태: " + toKoreanDataQuality(dq);
+                dqEl.style.borderColor = dq === "live" ? "#22c55e" : dq === "stale" ? "#f59e0b" : "#ef4444";
+                dqEl.style.color       = dq === "live" ? "#22c55e" : dq === "stale" ? "#f59e0b" : "#ef4444";
+
+                // ── LLM 5개 신호 배지 업데이트 ──────────────────────────
+                updateLlmSig5(
+                    data.llm_signal_history || [],
+                    data.llm_last_model     || ""
+                );
+
+                // ── 장중 LLM 분석 패널 업데이트 ─────────────────────────
+                // MarketAnalyst (3분 미시)
+                const mv = data.market_view;
+                if (mv) {
+                    const mvEl = document.getElementById("mvView");
+                    mvEl.innerText = mv.view || "-";
+                    mvEl.style.color = (mv.view||"").includes("UP")   ? "#22c55e" :
+                                       (mv.view||"").includes("DOWN") ? "#ef4444" : "#fbbf24";
+                    document.getElementById("mvDir").innerText = mv.direction || "-";
+                    document.getElementById("mvTs").innerText  = data.market_view_ts || "-";
+                } else {
+                    ["mvView","mvDir","mvTs"].forEach(id => document.getElementById(id).innerText = "-");
+                }
+                // CheckpointAnalyst 09:15 아침장
+                const oc = data.opening_char;
+                if (oc) {
+                    document.getElementById("ocChar").innerText   = oc.char || "-";
+                    const sf   = oc.size_filter || "normal";
+                    const sfEl = document.getElementById("ocFilter");
+                    sfEl.innerText   = sf === "skip"   ? "진입차단" :
+                                       sf === "reduce" ? "사이즈축소" : "정상";
+                    sfEl.style.color = sf === "skip"   ? "#ef4444" :
+                                       sf === "reduce" ? "#f59e0b" : "#22c55e";
+                    document.getElementById("ocReason").innerText = oc.reason || "-";
+                } else {
+                    ["ocChar","ocFilter","ocReason"].forEach(id => document.getElementById(id).innerText = "-");
+                }
+                // CheckpointAnalyst 10:30 잠정레짐
+                const pr = data.provisional_regime;
+                if (pr) {
+                    document.getElementById("prRegime").innerText = pr.regime    || "-";
+                    document.getElementById("prDir").innerText    = pr.direction || "-";
+                    document.getElementById("prConf").innerText   = "conf: " + (pr.confidence || "-");
+                } else {
+                    ["prRegime","prDir","prConf"].forEach(id => document.getElementById(id).innerText = "-");
+                }
+                // CheckpointAnalyst 13:00 오후재평가
+                const ar = data.afternoon_regime;
+                if (ar) {
+                    document.getElementById("arRegime").innerText = ar.regime    || "-";
+                    document.getElementById("arBias").innerText   = ar.late_bias || "-";
+                    document.getElementById("arRisk").innerText   = "risk: " + (ar.risk_adj || "-");
+                } else {
+                    ["arRegime","arBias","arRisk"].forEach(id => document.getElementById(id).innerText = "-");
+                }
+
+                // ── LLM 레짐 판단 패널 업데이트 ──────────────────────────
+                updateLlmRegimePanel(data);
+
+                // ── Warning Signal Gate 패널 업데이트 ──────────────────
+                updateGatePanel(
+                    data.flow_entry_gate        || "ALLOW",
+                    data.flow_caution_level     || "none",
+                    data.flow_fac_type          || "none",
+                    data.flow_fac_conf          || "NONE",
+                    parseFloat(data.flow_wa_raw            || 0),
+                    parseFloat(data.flow_llm_weight_adjust || 0),
+                    parseInt(data.flow_gate_reject_count   || 0),
+                    parseInt(data.flow_gate_half_count     || 0),
+                    data.flow_final_gate_reason || "allowed"
+                );
+                // ── Gate 발동 이력 테이블 업데이트 ─────────────────────
+                updateGateLogTable(data.flow_gate_log || []);
+
+                // ── RAG Prep 헬스 업데이트 ──────────────────────────────
+                updateRagPrepHealth(data);
+
+            } catch (err) {
+                console.error(err);
+                // errorBox는 네트워크/fetch 오류 전용
+                document.getElementById("errorBox").innerText = `데이터 로드 실패: ${err}`;
+            }
+        }
+
+        // ── 장전 수동 옵션 ────────────────────────────────────────────────
+        const PM_MODES = ["MANIA_2", "MANIA_1", "NORMAL", "FEAR_1", "FEAR_2"];
+
+        function updatePremarketButtons(mode) {
+            PM_MODES.forEach(m => {
+                const btn = document.getElementById("pmBtn_" + m);
+                if (!btn) return;
+                btn.classList.remove("active-mania", "active-normal", "active-fear");
+                if (m === mode) {
+                    if (m === "NORMAL")            btn.classList.add("active-normal");
+                    else if (m.startsWith("MANIA")) btn.classList.add("active-mania");
+                    else                            btn.classList.add("active-fear");
+                }
+            });
+        }
+
+        async function setPremarketMode(mode) {
+            try {
+                const res  = await fetch("/api/premarket/mode", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({mode})
+                });
+                const data = await res.json();
+                if (data.ok) updatePremarketButtons(data.mode);
+                else console.error("장전 옵션 설정 실패:", data.error);
+            } catch (err) { console.error(err); }
+        }
+
+        // ── 장중 LLM 영향도 ──────────────────────────────────────────────
+        const LLM_LEVELS = ["LOW", "MID", "HIGH"];
+
+        function updateInfluenceButtons(level) {
+            LLM_LEVELS.forEach(l => {
+                const btn = document.getElementById("infBtn_" + l);
+                if (!btn) return;
+                btn.classList.remove("active-llm-low", "active-llm-mid", "active-llm-high");
+                if (l === level) {
+                    if (l === "LOW")      btn.classList.add("active-llm-low");
+                    else if (l === "MID") btn.classList.add("active-llm-mid");
+                    else                  btn.classList.add("active-llm-high");
+                }
+            });
+        }
+
+        async function setLlmInfluence(level) {
+            try {
+                const res  = await fetch("/api/llm/influence", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({level})
+                });
+                const data = await res.json();
+                if (data.ok) updateInfluenceButtons(data.level);
+                else console.error("LLM 영향도 설정 실패:", data.error);
+            } catch (err) { console.error(err); }
+        }
+
+        // ── LLM 5개 신호 상태 배지 ───────────────────────────────────────
+        /**
+         * history: 최신순 배열. history[0] = 마지막 LLM 호출.
+         * 5개 배지는 항상 표시 — 마지막 호출 action과 일치하는 것만 컬러 활성화.
+         */
+        const _LLM_SIG_MAP = {
+            "매수":     ["llmSig_buy",       "llm-5-buy-active"],
+            "매수청산": ["llmSig_buy_exit",  "llm-5-buy-cls-active"],
+            "관망":     ["llmSig_nothing",   "llm-5-nothing-active"],
+            "매도청산": ["llmSig_sell_exit", "llm-5-sel-cls-active"],
+            "매도":     ["llmSig_sell",      "llm-5-sell-active"],
+        };
+
+        // ── LLM 레짐 판단 패널 ───────────────────────────────────────────
+        function updateLlmRegimePanel(data) {
+            // 레짐 레이블 (FlowEngine)
+            const rlEl = document.getElementById("regimeLabel");
+            if (rlEl) {
+                const lbl = data.flow_regime_label || "-";
+                rlEl.textContent = lbl;
+                rlEl.style.color =
+                    lbl === "BULL"    ? "#16a34a" :
+                    lbl === "BULL_W"  ? "#15803d" :
+                    lbl === "BEAR"    ? "#dc2626" :
+                    lbl === "BEAR_W"  ? "#c2410c" : "#64748b";
+            }
+            // LLM 위험관점
+            const rvEl = document.getElementById("llmRiskView");
+            if (rvEl) {
+                const rv = data.flow_llm_risk_view || "-";
+                rvEl.textContent =
+                    rv === "positive" ? "positive (매수우호)" :
+                    rv === "negative" ? "negative (위험)" :
+                    rv === "neutral"  ? "neutral (중립)"  :
+                    rv === "failure"  ? "failure (오류)"  : rv;
+                rvEl.style.color =
+                    rv === "positive" ? "#16a34a" :
+                    rv === "negative" ? "#dc2626" :
+                    rv === "neutral"  ? "#d97706" : "#94a3b8";
+            }
+            // flow_score
+            const fsEl = document.getElementById("flowScore");
+            if (fsEl) {
+                const fs = parseFloat(data.flow_score || 0);
+                fsEl.textContent = (fs >= 0 ? "+" : "") + fs.toFixed(2);
+                fsEl.style.color =
+                    fs >= 0.8  ? "#16a34a" :
+                    fs <= -0.8 ? "#dc2626" :
+                    fs > 0     ? "#15803d" :
+                    fs < 0     ? "#c2410c" : "#64748b";
+            }
+            // LLM 신뢰도
+            const lcEl = document.getElementById("llmConfRegime");
+            if (lcEl) {
+                const lc = parseFloat(data.flow_llm_confidence || 0);
+                lcEl.textContent = lc > 0 ? (lc * 100).toFixed(0) + "%" : "-";
+                lcEl.style.color = lc >= 0.7 ? "#16a34a" : lc >= 0.55 ? "#d97706" : "#dc2626";
+            }
+            // reason_main
+            const rmEl = document.getElementById("llmReasonMain");
+            if (rmEl) rmEl.textContent = data.flow_llm_reason_main || "-";
+            // reason_against
+            const raEl = document.getElementById("llmReasonAgainst");
+            if (raEl) raEl.textContent = data.flow_llm_reason_against || "-";
+        }
+
+        // ── Warning Signal Gate 패널 ─────────────────────────────────────
+        function updateGatePanel(entryGate, cautionLevel, facType, facConf, waRaw, waFinal, rejectCount, halfCount, finalReason) {
+            // entry_gate 배지
+            const egEl = document.getElementById("gateEntryBadge");
+            if (egEl) {
+                egEl.textContent = entryGate;
+                egEl.className   = "gate-badge " +
+                    (entryGate === "REJECT" ? "gate-reject" :
+                     entryGate === "HALF"   ? "gate-half"   : "gate-allow");
+            }
+            // caution_level 배지
+            const clEl = document.getElementById("gateCautionBadge");
+            if (clEl) {
+                clEl.textContent = cautionLevel;
+                clEl.className   = "gate-badge " +
+                    (cautionLevel === "danger"  ? "gate-danger"  :
+                     cautionLevel === "warning" ? "gate-warning" :
+                     cautionLevel === "caution" ? "gate-caution" : "gate-none");
+            }
+            // ambiguous: fac_type 배지
+            const ftEl = document.getElementById("gateFacTypeBadge");
+            if (ftEl) {
+                ftEl.textContent = facType;
+                ftEl.className   = "gate-badge " +
+                    (facType === "forbidden" ? "gate-forbidden" :
+                     facType === "failure"   ? "gate-failure"   : "gate-none");
+            }
+            // ambiguous: confidence 텍스트
+            const fcEl = document.getElementById("gateFacConfBadge");
+            if (fcEl) {
+                if (facType === "none" || facType === "—") {
+                    fcEl.textContent = "—";
+                    fcEl.style.color = "#94a3b8";
+                } else {
+                    fcEl.textContent = facConf;
+                    fcEl.style.color =
+                        facConf === "HIGH" ? "#dc2626" :
+                        facConf === "MED"  ? "#c2410c" : "#94a3b8";
+                }
+            }
+            // weight_adjust 바 (중앙=0, 좌=음수, 우=양수, 범위 ±0.25)
+            function renderWaBar(barId, valId, val) {
+                const bar = document.getElementById(barId);
+                const lbl = document.getElementById(valId);
+                if (!bar || !lbl) return;
+                const MAX = 0.25;
+                const pct = Math.min(Math.abs(val) / MAX, 1.0) * 50; // 0~50%
+                if (val >= 0) {
+                    bar.style.left    = "50%";
+                    bar.style.width   = pct + "%";
+                    bar.style.background = val > 0.05 ? "#16a34a" : "#94a3b8";
+                } else {
+                    bar.style.left    = (50 - pct) + "%";
+                    bar.style.width   = pct + "%";
+                    bar.style.background = val < -0.05 ? "#dc2626" : "#f97316";
+                }
+                lbl.textContent  = (val >= 0 ? "+" : "") + val.toFixed(2);
+                lbl.style.color  =
+                    val > 0.05  ? "#15803d" :
+                    val < -0.05 ? "#dc2626" :
+                    val < 0     ? "#c2410c" : "#64748b";
+            }
+            renderWaBar("waRawBar",   "waRawVal",   waRaw);
+            renderWaBar("waFinalBar", "waFinalVal", waFinal);
+            // 누적 카운터
+            const rcEl = document.getElementById("gateRejectCount");
+            const hcEl = document.getElementById("gateHalfCount");
+            if (rcEl) rcEl.textContent = rejectCount ?? 0;
+            if (hcEl) hcEl.textContent = halfCount   ?? 0;
+            // final_gate_reason 배지
+            const frEl = document.getElementById("gateFinalReason");
+            if (frEl) {
+                frEl.textContent  = finalReason || "allowed";
+                const r = finalReason || "allowed";
+                frEl.style.color      = r === "allowed"              ? "#15803d" :
+                                        r === "entry_gate_half"      ? "#a16207" :
+                                        r === "entry_gate_reject"    ? "#dc2626" :
+                                        r.startsWith("cb_block")     ? "#7c3aed" :
+                                        r === "opening_skip"         ? "#c2410c" :
+                                        r === "data_gate"            ? "#64748b" : "#64748b";
+                frEl.style.borderColor = r === "allowed"           ? "#86efac" :
+                                         r === "entry_gate_half"   ? "#fde047" :
+                                         r === "entry_gate_reject" ? "#fca5a5" :
+                                         r.startsWith("cb_block")  ? "#c4b5fd" :
+                                         r === "opening_skip"      ? "#fdba74" : "#e2e8f0";
+            }
+        }
+
+        // ── Gate 이력 테이블 업데이트 ───────────────────────────────────
+        function updateGateLogTable(gateLog) {
+            const section = document.getElementById("gateLogSection");
+            const tbody   = document.getElementById("gateLogBody");
+            if (!section || !tbody) return;
+
+            if (!gateLog || gateLog.length === 0) {
+                section.style.display = "none";
+                return;
+            }
+
+            section.style.display = "";
+            const rows = gateLog.map(ev => {
+                const gateColor = ev.gate === "REJECT" ? "#dc2626" : "#a16207";
+                const gateBg    = ev.gate === "reject" ? "#fee2e2" : "#fef9c3";
+                const facText   = (ev.fac && ev.fac !== "none")
+                    ? `${ev.fac} · ${ev.conf}`
+                    : "—";
+                return `<tr style="border-top:1px solid #f1f5f9;">
+                    <td style="padding:2px 6px;color:#64748b;">${ev.ts || "-"}</td>
+                    <td style="padding:2px 6px;font-weight:700;color:${gateColor};">${ev.gate}</td>
+                    <td style="padding:2px 6px;color:#64748b;">${ev.caution || "none"}</td>
+                    <td style="padding:2px 6px;color:#64748b;">${facText}</td>
+                </tr>`;
+            }).join("");
+            tbody.innerHTML = rows;
+        }
+
+        function updateLlmSig5(history, modelName) {
+            // 모델명 배지 (간략화)
+            const badge = document.getElementById("llmModelBadge");
+            if (badge) badge.textContent = abbreviateModel(modelName);
+
+            // 전체 배지 초기화
+            Object.values(_LLM_SIG_MAP).forEach(([id]) => {
+                const el = document.getElementById(id);
+                if (el) el.className = "llm-5-badge";
+            });
+
+            const confEl = document.getElementById("llmSigConf");
+
+            if (!history || history.length === 0) {
+                if (confEl) confEl.textContent = "-";
+                return;
+            }
+
+            // 가장 최신 호출 기준 활성 배지
+            const latest = history[0];
+            const sig    = _LLM_SIG_MAP[latest.action];
+            if (sig) {
+                const el = document.getElementById(sig[0]);
+                if (el) el.classList.add(sig[1]);
+            }
+
+            // 신뢰도 + 시각 표시
+            if (confEl) {
+                const conf = (latest.confidence > 0)
+                    ? (latest.confidence * 100).toFixed(0) + "%"
+                    : "";
+                const ts   = latest.ts || "";
+                confEl.textContent = [conf, ts].filter(Boolean).join("  ") || "-";
+            }
+        }
+
+        // ── RAG Prep 헬스 패널 ──────────────────────────────────────────
+        function updateRagPrepHealth(data) {
+            const status    = data.flow_rag_prep_status    || "idle";
+            const pmCount   = data.flow_rag_prep_pm_count;
+            const fpCount   = data.flow_rag_prep_fp_count;
+            const lastSucc  = data.flow_rag_prep_last_success_ts || "-";
+            const lastRun   = data.flow_rag_prep_last_run_ts     || "-";
+            const errMsg    = data.flow_rag_prep_error           || "";
+
+            const stEl = document.getElementById("ragPrepStatus");
+            if (stEl) {
+                stEl.textContent = status;
+                stEl.style.background =
+                    status === "success" ? "#dcfce7" :
+                    status === "running" ? "#dbeafe" :
+                    status === "error"   ? "#fee2e2" : "#f1f5f9";
+                stEl.style.color =
+                    status === "success" ? "#15803d" :
+                    status === "running" ? "#1d4ed8" :
+                    status === "error"   ? "#dc2626" : "#94a3b8";
+                stEl.style.borderColor =
+                    status === "success" ? "#86efac" :
+                    status === "running" ? "#93c5fd" :
+                    status === "error"   ? "#fca5a5" : "#e2e8f0";
+            }
+
+            const pmEl = document.getElementById("ragPmCount");
+            if (pmEl) {
+                pmEl.textContent  = pmCount != null ? pmCount : "-";
+                pmEl.style.color  = (pmCount > 0) ? "#1e293b" : "#dc2626";
+            }
+            const fpEl = document.getElementById("ragFpCount");
+            if (fpEl) {
+                fpEl.textContent  = fpCount != null ? fpCount : "-";
+                fpEl.style.color  = (fpCount > 0) ? "#1e293b" : "#f59e0b";
+            }
+
+            const sEl = document.getElementById("ragLastSuccess");
+            if (sEl) sEl.textContent = lastSucc !== "-" ? lastSucc.slice(11, 16) + " (" + lastSucc.slice(0, 10) + ")" : "-";
+            const rEl = document.getElementById("ragLastRun");
+            if (rEl) rEl.textContent = lastRun !== "-" ? lastRun.slice(11, 16) : "-";
+
+            const eEl = document.getElementById("ragPrepError");
+            if (eEl) {
+                if (errMsg) {
+                    eEl.textContent = "⚠ " + errMsg.slice(0, 80);
+                    eEl.style.display = "";
+                } else {
+                    eEl.style.display = "none";
+                }
+            }
+        }
+
+        // ── 외국인 신호 모드 ─────────────────────────────────────────────
+        const FSG_MODES = ["composite", "delta_only"];
+
+        function updateFsgButtons(mode) {
+            FSG_MODES.forEach(m => {
+                const btn = document.getElementById("fsgBtn_" + m);
+                if (!btn) return;
+                btn.classList.remove("active-normal", "active-fear");
+                if (m === mode) {
+                    btn.classList.add(m === "composite" ? "active-normal" : "active-fear");
+                }
+            });
+        }
+
+        async function setForeignSignalMode(mode) {
+            try {
+                const res  = await fetch("/api/foreign-signal-mode", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({mode})
+                });
+                const data = await res.json();
+                if (data.ok) updateFsgButtons(data.mode);
+                else console.error("외국인 신호 모드 설정 실패:", data.error);
+            } catch (err) { console.error(err); }
+        }
+
+        // ── 시뮬레이션 모드 (Easy / Expert) ─────────────────────────────
+        function updateSimModeButtons(mode) {
+            ["expert", "easy"].forEach(m => {
+                const btn = document.getElementById("simModeBtn_" + m);
+                if (btn) btn.classList.toggle("opt-btn-active", m === mode);
+            });
+            const panel = document.getElementById("simLevelPanel");
+            if (panel) panel.style.display = (mode === "easy") ? "block" : "none";
+        }
+
+        function updateSimLevelButtons(level) {
+            document.querySelectorAll(".sim-level-btn").forEach(btn => {
+                btn.classList.toggle("opt-btn-active", parseInt(btn.dataset.level) === level);
+            });
+        }
+
+        function _buildSimLevelButtons(availableLevels) {
+            const container = document.getElementById("simLevelBtns");
+            if (!container) return;
+            container.innerHTML = "";
+            availableLevels.forEach(lv => {
+                const btn = document.createElement("button");
+                btn.className = "opt-btn sim-level-btn";
+                btn.dataset.level = lv;
+                btn.textContent = "L" + String(lv).padStart(2, "0");
+                btn.title = "레벨 " + lv;
+                btn.onclick = () => setSimLevel(lv);
+                container.appendChild(btn);
+            });
+        }
+
+        async function setSimMode(mode) {
+            try {
+                const res  = await fetch("/api/sim/mode", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({mode})
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    updateSimModeButtons(data.simulation_mode);
+                } else console.error("sim mode 설정 실패:", data.error);
+            } catch (err) { console.error(err); }
+        }
+
+        async function setSimLevel(level) {
+            try {
+                const res  = await fetch("/api/sim/level", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({level})
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    updateSimModeButtons("easy");
+                    updateSimLevelButtons(data.selected_level);
+                    const descEl = document.getElementById("simLevelDesc");
+                    if (descEl) {
+                        const lbl  = data.level_label  || ("LEVEL_" + String(level).padStart(2,"0"));
+                        const desc = data.level_desc   || "";
+                        const styl = data.level_style  || "";
+                        descEl.textContent = lbl + (styl ? "  [" + styl + "]" : "") + (desc ? " — " + desc : "");
+                    }
+                } else console.error("sim level 설정 실패:", data.error);
+            } catch (err) { console.error(err); }
+        }
+
+        // ── 초기 옵션 패널 동기화 (서버 상태 기준으로 버튼 active 설정) ──
+        async function initOptionPanels() {
+            try {
+                const [pm, inf, fsg, simMode, simLevel] = await Promise.all([
+                    fetch("/api/premarket/mode").then(r => r.json()),
+                    fetch("/api/llm/influence").then(r => r.json()),
+                    fetch("/api/foreign-signal-mode").then(r => r.json()),
+                    fetch("/api/sim/mode").then(r => r.json()),
+                    fetch("/api/sim/level").then(r => r.json()),
+                ]);
+                if (pm.ok)  updatePremarketButtons(pm.mode);
+                if (inf.ok) updateInfluenceButtons(inf.level);
+                if (fsg.ok) updateFsgButtons(fsg.mode);
+                if (simLevel.ok && simLevel.available_levels && simLevel.available_levels.length) {
+                    _buildSimLevelButtons(simLevel.available_levels);
+                } else {
+                    // JSON 없을 경우 1~20 기본 생성
+                    _buildSimLevelButtons(Array.from({length:20},(_,i)=>i+1));
+                }
+                if (simMode.ok) {
+                    updateSimModeButtons(simMode.simulation_mode);
+                    if (simMode.simulation_mode === "easy") {
+                        updateSimLevelButtons(simMode.selected_level);
+                        const descEl = document.getElementById("simLevelDesc");
+                        if (descEl && simMode.level_label) {
+                            const lbl  = simMode.level_label;
+                            const desc = simMode.level_desc  || "";
+                            const styl = simMode.level_style || "";
+                            descEl.textContent = lbl + (styl ? "  [" + styl + "]" : "") + (desc ? " — " + desc : "");
+                        }
+                    }
+                }
+            } catch (err) { console.error("옵션 패널 초기화 실패:", err); }
+        }
+
+        // ── 실행 모드 전환 ────────────────────────────────────────────────
+        function updateExecModeButtons(mode) {
+            ["OFF","VIRTUAL","PAPER","LIVE"].forEach(m => {
+                const btn = document.getElementById("execBtn_" + m);
+                if (!btn) return;
+                btn.classList.remove("active-exec-off","active-exec-virtual","active-exec-live");
+                if (m === mode) btn.classList.add("active-exec-" + m.toLowerCase());
+            });
+            const statusEl = document.getElementById("execModeStatus");
+            if (statusEl) {
+                const labels = {OFF:"● 데이터수집", VIRTUAL:"◎ 내부시뮬", PAPER:"◑ 모의거래", LIVE:"▶ 실전매매"};
+                statusEl.textContent = labels[mode] || mode;
+                statusEl.style.color = mode==="LIVE" ? "#f87171" : mode==="PAPER" ? "#fb923c" : mode==="VIRTUAL" ? "#38bdf8" : "#94a3b8";
+            }
+        }
+
+        async function setExecMode(mode) {
+            if (mode === "LIVE") {
+                document.getElementById("livePwModal").style.display = "flex";
+                document.getElementById("livePwInput").value = "";
+                document.getElementById("livePwError").textContent = "";
+                setTimeout(() => document.getElementById("livePwInput").focus(), 50);
+                return;
+            }
+            try {
+                const r = await fetch("/api/execution/mode", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({mode}),
+                });
+                const d = await r.json();
+                if (!d.ok) { alert("모드 전환 실패: " + (d.error || "오류")); return; }
+                updateExecModeButtons(d.execution_mode);
+            } catch(e) { console.error(e); }
+        }
+
+        async function confirmLiveMode() {
+            const pw = document.getElementById("livePwInput").value;
+            const errEl = document.getElementById("livePwError");
+            errEl.textContent = "";
+            try {
+                const r = await fetch("/api/execution/mode", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({mode: "LIVE", password: pw}),
+                });
+                const d = await r.json();
+                if (!d.ok) {
+                    errEl.textContent = d.error || "오류";
+                    document.getElementById("livePwInput").value = "";
+                    document.getElementById("livePwInput").focus();
+                    return;
+                }
+                closeLiveModal();
+                updateExecModeButtons(d.execution_mode);
+            } catch(e) { errEl.textContent = "통신 오류"; }
+        }
+
+        function closeLiveModal() {
+            document.getElementById("livePwModal").style.display = "none";
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const inp = document.getElementById("livePwInput");
+            if (inp) {
+                inp.addEventListener("keydown", e => {
+                    if (e.key === "Enter") confirmLiveMode();
+                    if (e.key === "Escape") closeLiveModal();
+                });
+            }
+        });
+
+        fetchStatus();
+        initOptionPanels();
+        // 실행 모드 초기 상태 로드
+        fetch("/api/execution/mode").then(r=>r.json()).then(d=>{
+            if(d.ok) updateExecModeButtons(d.execution_mode);
+        }).catch(()=>{});
+        setInterval(fetchStatus, 1000);
+    </script>
+
+    <!-- ── 실전 매매 전환 비밀번호 모달 ─────────────────────────────── -->
+    <div id="livePwModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;align-items:center;justify-content:center;">
+        <div style="background:#1e293b;border:1px solid #f87171;border-radius:12px;padding:28px 32px;min-width:320px;box-shadow:0 0 32px rgba(248,113,113,0.3)">
+            <div style="color:#f87171;font-size:15px;font-weight:700;margin-bottom:6px">실전 매매 전환</div>
+            <div style="color:#94a3b8;font-size:12px;margin-bottom:18px">실계좌에 실주문이 전송됩니다. 비밀번호를 입력하세요.</div>
+            <input id="livePwInput" type="password" placeholder="비밀번호"
+                style="width:100%;box-sizing:border-box;background:#0f172a;border:1px solid #475569;border-radius:6px;color:#e2e8f0;padding:8px 12px;font-size:14px;outline:none;margin-bottom:8px">
+            <div id="livePwError" style="color:#f87171;font-size:11px;min-height:16px;margin-bottom:12px"></div>
+            <div style="display:flex;gap:8px;justify-content:flex-end">
+                <button onclick="closeLiveModal()" style="background:#1e293b;border:1px solid #475569;color:#94a3b8;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:13px">취소</button>
+                <button onclick="confirmLiveMode()" style="background:#7f1d1d;border:1px solid #f87171;color:#fca5a5;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700">실전 전환</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

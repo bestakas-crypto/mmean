@@ -1,0 +1,40 @@
+================================================================================
+  MMEAN / regime — 레짐(시황) 분석 엔진
+================================================================================
+
+역할
+----
+실시간 시세 데이터로부터 시장 레짐(bias/score/phase)을 판단한다.
+주간장과 야간장 각각 별도 엔진을 사용한다.
+
+파일 목록
+---------
+regime_engine.py
+  - BiasRegimeEngine: 주간 레짐 분석 메인 엔진
+  - BiasInputs: 입력 구조체 (futures_price, volume, basis, foreign_buy 등)
+  - BIAS_LONG / BIAS_SHORT: 방향성 상수
+  - 출력: bias, long_score, short_score, entry_signal, confidence, session_phase
+  - EMA 기반 추세, volume burst, basis 방향, foreign flow 종합 판단
+
+night_regime_engine.py
+  - NightRegimeEngine: 야간장(18:00~06:00) 전용 레짐 엔진
+  - NightInputs: 입력 구조체
+  - 야간장 특성 반영: ORB(장초 고저), EMA 20/60, 누적 볼륨 비율
+  - 세션 리셋: 매일 18:00 기준
+
+regime_recorder.py
+  - RegimeRecorder: 레짐 틱 데이터를 mmean.db에 기록
+  - regime_ticks 테이블 INSERT
+  - RAG 파이프라인의 원천 데이터 공급원
+
+의존 관계
+---------
+  regime → (독립적, 외부 의존 최소화)
+  core(engine_runtime) → regime
+
+파라미터 튜닝
+------------
+  config/config_manager.py DEFAULT_CONFIG에서 조정
+  - MA_GAP_STRONG, SCORE_BULL, SCORE_BEAR 등
+  - Optuna 최적화 결과가 config_snapshots 테이블에 저장됨
+================================================================================

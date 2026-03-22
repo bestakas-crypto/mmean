@@ -1,0 +1,55 @@
+================================================================================
+  MMEAN / rag — RAG / 패턴 문서 시스템
+================================================================================
+
+역할
+----
+시뮬레이션 결과와 레짐 데이터를 기반으로 패턴 문서를 생성하고
+LLM이 참조할 수 있는 RAG(Retrieval-Augmented Generation) 시스템을 구축한다.
+
+파일 목록
+---------
+pattern_schema.py
+  - REGIME_TAGS: 21개 복합 시장상황 태그 어휘
+    (BULL_CLEAN, BEAR_CLEAN, RANGE_NOISY, VOL_HIGH, FLOW_MIXED 등)
+  - PatternDocMeta: 패턴 문서 메타 구조체
+  - classify_regime_tags(): 틱 데이터 → 태그 리스트 변환
+  - classify_session_tags(): 세션 단위 태그 집계
+  - FAILURE_THRESHOLDS: 실패 판정 기준
+    (profit_factor<1.0, max_drawdown>15t, objective_score<0)
+  - CONFIDENCE_CRITERIA: HIGH/MEDIUM/LOW 신뢰도 기준
+    (HIGH: 10일+50건, MEDIUM: 5일+20건)
+
+rag_prep.py
+  - Step 1: regime_ticks → market_features (regime_tags JSON 포함) 변환
+  - Step 2: market_features → rag_documents 생성 (벡터 임베딩용)
+  - mmean.db의 market_features.regime_tags 컬럼 채움
+  - 실행: python rag/rag_prep.py
+
+sim_rag_builder.py
+  - Phase 1: sim.db → rag_documents 생성
+  - Phase 2A: sim.db + mmean.db → pattern_docs 생성
+    - validation_summary: 스터디 전체 검증 런 요약
+    - pattern_case: 상위 5개 config의 "언제 쓸지/피할지"
+    - failure_case: 실패 트리거 발동 config 경고 문서
+  - 실행: rag_build.bat (메뉴 방식)
+
+rag_retriever.py
+  - RagRetriever: LLM 호출 시 관련 패턴 문서 검색
+  - 벡터 유사도 기반 검색 (sim_vector_store 활용)
+  - mmean.db의 rag_documents 테이블 참조
+
+sim_vector_store.py
+  - 벡터 임베딩 저장/검색
+  - rag_documents 테이블과 연동
+
+Phase 2B (예정, 데이터 10일+ 쌓인 후)
+---------------------------------------
+  - stable_config: 안정적 설정 문서 (10일+, 50건+)
+  - stress_summary: 스트레스 테스트 요약
+  - 교훈 기반 강화 RAG 운영
+
+운영 주기
+---------
+  장 마감 → rag_prep.py → sim_rag_builder.py --pattern-docs
+================================================================================

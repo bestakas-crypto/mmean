@@ -1,0 +1,391 @@
+================================================================================
+MMEAN RAG 시스템 구조 보고서
+작성일: 2026-03-21
+================================================================================
+
+
+1. 개요
+--------------------------------------------------------------------------------
+
+MMEAN의 RAG(Retrieval-Augmented Generation) 시스템은 다음 문제를 풀기 위해 설계되었다.
+
+  "오늘 시장의 패턴이 과거 어떤 날과 유사한가?
+   그 날 가장 잘 동작했던 매매 파라미터는 무엇이었나?
+   LLM이 그 정보를 참고해서 오늘 엔진에 적용할 파라미터를 추천할 수 있는가?"
+
+핵심 아이디어는 단순하다. 시장은 패턴을 반복한다. 추세 장에서 잘 먹히는 파라미터가
+있고, 횡보 장에서 잘 먹히는 파라미터가 따로 있다. 이걸 매번 사람이 판단하지 않고
+시스템이 자동으로 인식하고 적용하게 만드는 것이 목표다.
+
+
+2. 전체 파이프라인 구조
+--------------------------------------------------------------------------------
+
+데이터가 흐르는 방향을 크게 세 단계로 나눌 수 있다.
+
+  [축적 단계]   장중 틱 수집 → regime_ticks → session_patterns
+  [학습 단계]   Monte Carlo/Bayes 탐색 → validation → adoption → RAG 문서화
+  [실전 단계]   장중 LLM 호출 → RAG 검색 → 파라미터 조정 → 엔진 적용
+
+
+3. 축적 단계 — 데이터 수집
+--------------------------------------------------------------------------------
+
+3-1. regime_ticks (mmean.db)
+
+엔진이 실행되는 동안 매 틱(0.5초)마다 다음 정보가 regime_ticks 테이블에 기록된다.
+
+  - 현재가(futures_price)
+  - 레짐 엔진 출력: bias(LONG_BIAS/SHORT_BIAS/NEUTRAL), long_score, short_score
+  - 플로우 엔진 출력: flow_score (-2.0 ~ +2.0)
+  - 외국인 순매수: foreign_buy
+  - LLM 판단: entry_signal, confidence
+  - 세션 위상: session_phase(open/mid/close)
+  - 타임스탬프: ts
+
+이 테이블이 모든 시뮬레이션의 원천 데이터다. 여기서 중요한 점은, 실거래에서
+체결이 발생하든 안 하든 틱마다 빠짐없이 기록된다는 것이다. 즉, 진입 기회가 될 수
+있었던 모든 순간이 기록된다.
+
+현재 유효 데이터 수집 시작일: 2026-03-18 (flow_score 수집 시작 기준)
+
+3-2. day_pattern.py — 일별 패턴 분류
+
+장 마감 후(또는 day_pattern.bat [1] 수동 실행 시) 해당 날짜의 regime_ticks 전체를
+분석해서 그날의 장세 패턴을 하나의 레이블로 분류한다.
+
+분류 과정은 다음 세 구간의 가격 변화를 기반으로 한다.
+  - 오전(08:44~10:30): morning_chg
+  - 오후1(10:30~13:00): midday_chg
+  - 오후2(13:00~15:45): afternoon_chg
+
+판정 기준(T 딕셔너리):
+  - trend_min_change = 8.0틱 이상 단방향 → TREND_UP / TREND_DOWN
+  - range_tight_max = 8.0틱 이내 박스 → RANGE_TIGHT
+  - 변동성 크고 방향 없음 → RANGE_WIDE
+  - 오전 급등/급락 후 오후 수렴 → REVERSAL_UP / REVERSAL_DOWN
+  - 급락 후 급반등 → V_SHAPE
+  - 오전 스파이크 후 박스 → MORNING_SPIKE
+  - 마감 급등락 → CLOSE_RUSH
+  - 명확한 패턴 없음 → CHOPPY
+
+분류 결과는 mmean.db session_patterns 테이블에 저장된다.
+
+  현재 분류된 패턴 (2026-03-21 기준):
+    3/18 TREND_UP, 3/19 CHOPPY, 3/20 TREND_DOWN
+    (3/16, 3/17은 flow_score NULL로 무효 처리됨)
+
+
+4. 학습 단계 — 시뮬레이션 최적화 파이프라인
+--------------------------------------------------------------------------------
+
+이 단계가 핵심이다. sim.bat → sim.py → day_sim.py 순서로 실행된다.
+
+4-1. SimEngine의 역할
+
+SimEngine은 regime_ticks를 입력으로 받아 특정 파라미터 조합으로
+"그날 이렇게 매매했다면 어떤 결과가 나왔을까"를 재현하는 시뮬레이터다.
+
+SimEngine이 하는 일:
+  - 틱을 순서대로 재생하면서 진입/청산 조건 판단
+  - 진입: entry_signal이 LONG_READY/SHORT_READY이고, enter_score 이상이고,
+          flow_required 조건 만족 시 가상 포지션 진입
+  - 청산: SL(손절) / TP(목표가) / 트레일링 스탑 / 레짐 반전 / 세션 종료 중 하나
+  - 결과: pnl_ticks, win_rate, max_drawdown, trade_count 등 집계
+
+SimEngine 자체는 단순한 재현 도구다. 같은 틱 데이터에 다른 파라미터를 넣으면
+다른 결과가 나온다. 이 성질을 이용해서 "어떤 파라미터가 최적인가"를 탐색한다.
+
+4-2. Monte Carlo 탐색 (random search)
+
+파라미터 공간(_DAY_SEARCH_SPACE)에서 무작위로 조합을 뽑아 SimEngine을 돌린다.
+기본 300회 실행. 각 결과는 sim_runs + sim_run_summary에 기록된다.
+
+탐색 공간 주요 변수:
+  enter_score(3.0~7.0), enter_gap(0.5~3.0), min_confidence(0.45~0.85),
+  flow_score_gate_thr(0.5~1.5), sim_sl_ticks(5~25), sim_tp_ticks(8~40),
+  sim_trailing_ticks(1~8), sim_trailing_activate(3~20) 등 17개 파라미터
+
+300번의 무작위 탐색에서 상위 성과를 낸 조합들을 씨앗 삼아 다음 단계로 넘어간다.
+
+4-3. 베이지안 최적화 (Optuna)
+
+Monte Carlo에서 좋은 결과를 낸 파라미터 조합 주변을 Optuna가 집중 탐색한다.
+기본 200회 추가 실행. 베이지안 최적화는 "이 방향으로 가면 더 좋을 것 같다"는
+추론을 하면서 탐색하므로 무작위 탐색보다 효율적이다.
+
+각 trial 결과는 sim_observations에 기록된다.
+(study_name: "day_2026-03-18" 형식, session_date: "2026-03-18")
+
+objective_score 계산:
+  total_pnl × win_rate × profit_factor - max_drawdown_penalty - low_trade_penalty
+  → 단순 수익이 아닌 복합 점수. 거래 수 부족하면 패널티.
+
+4-4. Validation — 교차 검증
+
+탐색 결과 상위 N개(기본 10개) config를 선정해서, 훈련에 사용하지 않은 다른 날짜에
+적용해 일반화 성능을 검증한다.
+
+핵심: 반드시 같은 패턴의 날짜로 검증해야 한다.
+  예) 3/18(TREND_UP)으로 훈련 → 3/16(TREND_UP)으로 검증
+      3/19(CHOPPY)로 훈련 → 3/17(CHOPPY)로 검증
+
+이게 [6r] 레짐 기반 범위 검증의 핵심 로직이다.
+  - fetch_date_pattern(): 훈련 날짜의 패턴 조회
+  - fetch_same_pattern_dates(): 범위 내 같은 패턴 날짜 필터링
+  - 훈련에 쓰인 모든 날짜 자동 제외 (data leakage 방지)
+
+채택 기준(_VALID_CRITERIA):
+  min_objective > 0.0        (수익 양수)
+  min_trade_count >= 5       (최소 5건)
+  max_drawdown >= -20.0틱    (낙폭 제한)
+  min_session_pos_ratio >= 0.50 (수익 세션 50% 이상)
+  min_robustness >= 0.40     (valid_obj / train_obj >= 0.40)
+
+이 5가지 기준을 모두 통과해야 다음 단계로 넘어간다.
+
+4-5. Stress Test (슬리피지 스트레스)
+
+검증 통과 config에 슬리피지 1틱, 2틱을 추가해서 재시뮬레이션.
+실제 체결에서는 슬리피지가 발생하므로, 슬리피지에 지나치게 민감한 config는
+여기서 탈락시킨다.
+
+4-6. adopt_best — 채택
+
+모든 관문을 통과한 config는 sim_adoptions 테이블에 기록된다.
+
+  기록 내용:
+    config_json: 채택된 파라미터 전체
+    train_pattern: 훈련 날짜의 패턴 (예: "TREND_UP")
+    valid_patterns: 검증 날짜별 패턴 JSON ({"2026-03-16": "TREND_UP"})
+    train_obj, valid_obj, robustness, valid_max_dd, stress_passed 등
+
+
+5. RAG 문서화 — sim.db → rag_documents
+--------------------------------------------------------------------------------
+
+sim.bat 종료 시 자동으로 (sim_adoptions > 0 조건 하에) 실행된다.
+
+5-1. db_setup_sim.py
+
+기존 sim.db 스키마에 신규 컬럼 마이그레이션 적용.
+현재: rag_documents.session_pattern 컬럼 추가.
+
+5-2. sim_rag_builder.py
+
+sim.db의 sim_adoptions, sim_runs, sim_run_summary를 JOIN해서
+3종류의 RAG 문서를 생성한다.
+
+  [candidate 문서]
+    sim_adoptions에서 추출. 성공 사례 문서.
+    훈련 날짜, 검증 날짜, objective_score, robustness, stress 통과 여부,
+    파라미터 특징(SL 타이트 여부 등)을 자연어로 요약.
+    핵심 필드: session_pattern = 훈련 날짜의 패턴 (train_pattern에서 전파)
+
+  [failure 문서]
+    - stress 실패: 검증은 통과했지만 슬리피지에 취약한 config
+    - low_trade: validation에서 거래 수 3건 이하인 config
+    "이 설정을 쓰면 이래서 위험하다"는 경고 문서.
+
+  [run_summary 문서]
+    validation/random/bayes_opt 중 상위 100개 run 요약.
+    검증 수준은 아니지만 참고 가능한 성과 데이터.
+
+생성된 문서는 rag_documents 테이블에 INSERT.
+  (doc_id, doc_type, session_mode, session_pattern, regime_type,
+   title, summary_text, key_facts JSON, reasoning_hint, ...)
+
+5-3. sim_vector_store.py — 임베딩
+
+rag_documents 중 embedded=0인 문서를 OpenAI text-embedding-3-small로 벡터화.
+(title + summary_text + key_facts를 하나의 텍스트로 합쳐서 임베딩)
+결과는 rag_embeddings 테이블에 BLOB(numpy float32)로 저장.
+임베딩 완료 시 embedded=1로 플래그 갱신.
+
+코사인 유사도 = L2 정규화된 벡터 간 내적으로 계산 (별도 벡터 DB 불필요).
+
+
+6. 실전 단계 — 장중 LLM 판단
+--------------------------------------------------------------------------------
+
+6-1. 진입 신호 발생
+
+엔진 루프(0.5초)에서 LLMGate가 매 틱 판단한다.
+
+  LLMGate 통과 조건: |flow_score| < 0.8
+    → flow_score가 강한 추세 구간(0.8 이상)이면 LLM 불필요 (신호 명확)
+    → flow_score가 약한 전환 구간이면 LLM에게 판단 요청
+
+6-2. rag_retriever.py — 유사 사례 검색
+
+LLM 호출 직전에 현재 상태를 기반으로 RAG 검색을 수행한다.
+
+  검색 질의 텍스트 생성 (build_query_text):
+    "day LONG LONG_READY conf=0.72 flow=0.15 LONG_BIAS pattern=TREND_UP vwap=above"
+    → 현재 session_mode, regime, entry_signal, confidence, flow_score,
+       bias, session_pattern, vwap_position을 compact 텍스트로 변환
+
+  검색 로직 (retrieve_context):
+    1차: session_pattern 필터 검색 (오늘이 TREND_UP이면 TREND_UP 문서만)
+         → 결과 없으면 전체 풀로 fallback
+    2차: 코사인 유사도 top-k 반환 (candidate 2건, failure 2건)
+    3차: 유사도 0.30 미만 필터링
+
+  mismatch 판단 (_regime_mismatch):
+    session_pattern 필드가 있으면 exact match (TREND_UP vs CHOPPY = mismatch)
+    없으면 proxy regime_type으로 fallback (trend/range/mixed/unknown)
+
+  강제 규칙 생성 (build_llm_constraints):
+    RULE-1: 실패 유사도 >= 성공 유사도 → REJECT 강제
+    RULE-2: 성공 사례 모두 패턴 불일치 → 해당 사례 무시
+    RULE-3: 유사 사례 없음 → HOLD 강제
+    COMMON: 항상 포함 (엔진 기본 조건 뒤집지 말 것)
+
+6-3. LLMCaller — LLM 호출
+
+RAG context_text를 포함한 프롬프트를 LLM(Claude/GPT/Gemini)에 전달.
+
+  LLM에게 주어지는 정보:
+    - 현재 시장 상태 (regime, flow, foreign, vwap 등)
+    - 유사 성공 사례 (어떤 파라미터가 유사 패턴에서 효과적이었나)
+    - 유사 실패 사례 (어떤 설정이 위험했나)
+    - 강제 규칙
+
+  LLM 출력 (OpportunitySchema):
+    direction: LONG / SHORT / HOLD
+    confidence: 0.0 ~ 1.0
+    weight_adjust: -0.20 ~ +0.20 (엔진 가중치 미세 조정)
+    reasoning: 판단 근거 자연어
+
+6-4. 파라미터 적용
+
+LLM의 weight_adjust는 LLMEmaFilter(span=3)로 평활화되고,
+LLMTTLManager(TTL 4분)에 의해 시간이 지나면 소멸한다.
+
+  최종 주문 크기:
+    order_size = base × regime_weight × (1 + weight_adjust_filtered)
+
+  현재 채택된 파라미터(sim_adoptions active 레코드)가 있으면
+  엔진이 그 config_json의 파라미터를 사용한다:
+    enter_score, sim_sl_ticks, sim_trailing_ticks 등
+
+
+7. 전체 사이클 요약
+--------------------------------------------------------------------------------
+
+[일간 사이클]
+
+  장 종료
+    ↓
+  day_pattern.bat [1]
+    → 오늘 날짜 패턴 분류 → session_patterns 등록
+    ↓
+  sim.bat (선택)
+    → [1] random 300회 탐색
+    → [2] bayes 200회 탐색
+    → [6r] 레짐 기반 validation (같은 패턴 날짜 교차 검증)
+    → [7] adopt_best → sim_adoptions 등록
+    ↓  (sim_adoptions >= 1이면 자동 실행)
+  db_setup_sim.py → rag migration 적용
+    ↓
+  sim_rag_builder.py --rebuild → rag_documents 생성
+    ↓
+  sim_vector_store.py → 신규 문서 임베딩
+    ↓
+  다음 장 시작
+
+[장중 실시간 사이클]
+
+  틱 수신 (0.5초)
+    ↓
+  BiasRegimeEngine → bias, long_score, short_score
+  ForeignFlowEngine → flow_score
+  RegimeRecorder → regime_ticks 기록 (내일 시뮬레이션의 원천 데이터)
+    ↓
+  LLMGate → |flow_score| < 0.8 이면 LLM 호출
+    ↓
+  rag_retriever → 유사 사례 검색 (session_pattern 필터 우선)
+    ↓
+  LLMCaller → RAG context + 현재 상태 → weight_adjust 반환
+    ↓
+  LLMEmaFilter → 평활화
+  LLMTTLManager → TTL 관리
+    ↓
+  PositionEngine → order_size 계산
+    ↓
+  (execution_mode에 따라)
+    VIRTUAL: SimEngine 가상 체결 기록
+    PAPER:   KIS 모의계좌 실제 주문
+    LIVE:    KIS 실계좌 실제 주문
+
+
+8. 현재 상태와 한계
+--------------------------------------------------------------------------------
+
+8-1. 현재 상태 (2026-03-21)
+
+  유효 데이터: 3일 (3/18 TREND_UP, 3/19 CHOPPY, 3/20 TREND_DOWN)
+  session_patterns: 7건 등록 (3/16, 3/17은 flow_score NULL로 시뮬 무효)
+  sim_adoptions: 0건
+  rag_documents: 0건 (adoption 없으므로 candidate 문서 없음)
+  RAG 실질 동작: 미시작 (데이터 부족)
+
+8-2. sim_adoptions이 안 나오는 이유
+
+  훈련 1일치 → 과적합 심각
+  검증 기준(MaxDD -20틱)이 타이트한 반면 실제 변동(-90틱)이 큼
+  같은 패턴 쌍이 2개뿐 (TREND_UP 2일, CHOPPY 2일, TREND_DOWN 1일)
+  → 같은 패턴 날이 각 패턴당 5일 이상 쌓여야 의미 있는 검증 가능
+
+8-3. 구조적 한계 (향후 개선 예정)
+
+  현재: 훈련 1일 → 같은 패턴 1일 검증 (데이터 너무 적음)
+  개선안: 같은 패턴 2~3일 묶어서 훈련 → 일반화 성능 향상
+          (day_sim.py 멀티데이 훈련 지원 추가 필요)
+
+  현재: RAG 검색이 session_pattern 기반이지만 adoption이 없어 문서 없음
+  개선안: 데이터 3주 이상 쌓이면 패턴별 문서 자동 생성
+
+  현재: 3/16, 3/17 day_pattern 등록은 됐지만 시뮬 불가
+  처리: ask_range_valid_dates()에서 flow_score NULL 날짜 자동 제외 필요 (미구현)
+
+
+9. 관련 파일 인덱스
+--------------------------------------------------------------------------------
+
+  [데이터 수집]
+    core/engine_runtime.py       메인 엔진 루프 (매 틱)
+    core/regime_recorder.py      regime_ticks INSERT
+    day_pattern.py               일별 패턴 분류 → session_patterns
+
+  [시뮬레이션 최적화]
+    sim.py                       대화형 런처
+    sim_opt/day_sim.py           DaySimRunner (random/bayes/validation/adopt)
+    sim_opt/sim_engine.py        SimEngine (틱 재생 시뮬레이터)
+    sim_opt/replay_sim.py        과거 틱 재생
+
+  [RAG 문서화]
+    db/db_setup_sim.py           sim.db 스키마 + 마이그레이션
+    rag/sim_rag_builder.py       sim_adoptions → rag_documents
+    rag/sim_vector_store.py      임베딩 생성/검색 (OpenAI)
+
+  [실전 LLM 판단]
+    rag/rag_retriever.py         유사 사례 검색 + 강제 규칙 생성
+    llm/llm_filter.py            실시간 진입 신호 필터
+    llm/llm_chain.py             Claude/GPT/Gemini 추상화
+    engines/llm_gate.py          LLM 호출 여부 판단
+    engines/llm_caller.py        LLM 호출 + weight_adjust 반환
+
+  [배치 실행]
+    sim.bat                      시뮬레이션 런처 + RAG 자동 빌드
+    day_pattern.bat              패턴 분류 런처
+    rag_build.bat                RAG 수동 빌드/임베딩
+
+  [DB]
+    storage/mmean.db             실거래 메인 (regime_ticks, session_patterns)
+    storage/sim.db               시뮬레이션 (sim_runs, sim_adoptions, rag_documents)
+
+
+================================================================================
+END OF REPORT
+================================================================================

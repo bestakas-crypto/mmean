@@ -1,0 +1,34 @@
+================================================================================
+  MMEAN / routes — Flask API 라우트
+================================================================================
+
+역할
+----
+대시보드(웹 UI)와 외부 시스템이 엔진 상태를 조회하고 제어하는
+REST API 엔드포인트를 정의한다.
+
+파일 목록
+---------
+routes_core.py
+  - /api/status         : 현재 엔진 상태 (bias, score, entry_signal 등)
+  - /api/engine/resume  : 하드스톱 해제
+  - /api/config/update  : 파라미터 실시간 변경
+  - /api/position/*     : 포지션 정보 조회
+
+routes_analytics.py
+  - /api/analytics/*    : 레짐 이벤트, 진입 이벤트 분석
+  - /api/sim/*          : 시뮬레이션 결과 조회
+  - /api/report/*       : 성과 리포트
+
+routes_promotion.py
+  - /api/promotion/*    : Champion vs Challenger 프로모션 관리
+  - 프로모션 배치 시작/중단/결과 조회
+
+등록 위치
+---------
+  analyzer_app.py에서 register_*_routes() 호출로 Flask 앱에 등록
+
+의존 관계
+---------
+  routes → core(app_state, engine_runtime), sim_opt, config
+================================================================================
