@@ -71,6 +71,17 @@ def _execute(
     """
     result = ExecuteResult(side=side, req_qty=qty)
 
+    # ── 종목코드 결정: 미니 선택 시 MINI_FUTURES_CODE 사용 ─────────────────
+    # 가격 피드·분석은 항상 노멀(FUTURES_CODE) 기준 — 주문 종목만 분기.
+    # 수량 환산 없음 (1포지션 = 1계약 고정).
+    if symbol is None:
+        instrument = runtime.settings.get("TRADE_INSTRUMENT", "normal").lower()
+        if instrument == "mini":
+            symbol = (
+                runtime.settings.get("MINI_FUTURES_CODE", "")
+                or runtime.settings.get("FUTURES_CODE", "")
+            )
+
     # ── 주문 전송 + add_pending (원자) ─────────────────────────────────────
     try:
         ord_no = place_order_and_track(runtime, side, qty, price, symbol)

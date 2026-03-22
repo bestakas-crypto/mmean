@@ -73,6 +73,8 @@ class AppRuntime:
     # ── 주문 실행 레이어 ─────────────────────────────────────────────────
     order_state: Optional[Any] = None         # OrderStateManager
     fill_ws_client: Optional[Any] = None      # KISFillNoticeClient
+    # ── 웹훅 클라이언트 레지스트리 ───────────────────────────────────────
+    webhook_clients: list = field(default_factory=list)  # List[WebhookClient]
 
     @property
     def state(self) -> Dict[str, object]:

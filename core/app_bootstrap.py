@@ -54,6 +54,7 @@ from engines.market_analyst import MarketAnalyst
 from engines.checkpoint_analyst import CheckpointAnalyst
 from engines.adoption_view_adapter import AdoptionViewAdapter
 from logs.judgment_log import JudgmentLog
+from webhook_registry import load_registry as _load_webhook_registry
 
 
 def _terminate_old_process(pid: int, log: logging.Logger) -> None:
@@ -165,9 +166,15 @@ def load_settings(base_dir: str) -> Dict[str, Any]:
         "TREND_SLOPE_WIN": int(os.getenv("MMEAN_TREND_SLOPE_WIN", "5")),
         "ADX_PERIOD": int(os.getenv("MMEAN_ADX_PERIOD", "14")),
         "ATR_PERIOD": int(os.getenv("MMEAN_ATR_PERIOD", "14")),
-        "FUTURES_CODE": os.getenv("MMEAN_FUTURES_CODE", "A01606"),
-        "WS_TR_KEY": os.getenv("MMEAN_WS_TR_KEY", os.getenv("MMEAN_FUTURES_CODE", "A01606")),
-        "SPOT_CODE": os.getenv("MMEAN_SPOT_CODE", "2001"),
+        "FUTURES_CODE":      os.getenv("MMEAN_FUTURES_CODE", "A01606"),
+        "WS_TR_KEY":         os.getenv("MMEAN_WS_TR_KEY", os.getenv("MMEAN_FUTURES_CODE", "A01606")),
+        "SPOT_CODE":         os.getenv("MMEAN_SPOT_CODE", "2001"),
+        # ── 미니선물 / 매매 종목 선택 ────────────────────────────────────────
+        # TRADE_INSTRUMENT: "normal"(표준선물) | "mini"(미니선물)
+        # 가격 피드·분석은 항상 노멀(FUTURES_CODE) 기준.
+        # "mini" 선택 시 실제 주문만 MINI_FUTURES_CODE 종목으로 체결.
+        "MINI_FUTURES_CODE": os.getenv("MMEAN_MINI_FUTURES_CODE", "A05606"),
+        "TRADE_INSTRUMENT":  os.getenv("MMEAN_TRADE_INSTRUMENT", "normal").lower(),
         "MMEAN_SESSION": __import__("session_detect").get_session(
             env_override=os.getenv("MMEAN_SESSION"),
             strict=False,
@@ -292,7 +299,8 @@ def apply_runtime_config(runtime: AppRuntime) -> None:
         runtime.sim_engine.trailing_activate_ticks = int(c["sim_trailing_activate"])
         runtime.sim_engine.neutral_exit_ticks = int(c["sim_neutral_exit_ticks"])
         runtime.sim_engine.profit_protect_ticks = int(c["sim_profit_protect"])
-        runtime.sim_engine.slippage_pt = int(c["sim_slippage_ticks"]) * 0.05
+        from contract_spec import NORMAL_TICK_PT
+        runtime.sim_engine.slippage_pt = int(c["sim_slippage_ticks"]) * NORMAL_TICK_PT
 
     # ── Easy Mode: SimProfileResolver → 메모리 반영 (cfg_mgr 기록 없음) ──
     # 1순위: cfg_mgr.update() 호출 금지 — Easy 설정은 런타임 메모리에만 적용
@@ -416,6 +424,37 @@ def _boot_position_sync(runtime) -> None:
                  dir_label, pos.qty, pos.entry_price)
 
 
+def _auto_detect_contracts(settings: dict, log) -> None:
+    """
+    MST 파일에서 노멀·미니 최근월물을 자동 감지해 settings에 반영.
+
+    .env에 명시적 값이 없을 때(기본값 A01606/A05606)만 갱신.
+    MST 파일이 없거나 파싱 실패 시 기존 settings 값 유지.
+    """
+    try:
+        from mst_parser import detect_nearest_pair
+        normal, mini = detect_nearest_pair("KOSPI200")
+
+        if normal and os.getenv("MMEAN_FUTURES_CODE", "") == "":
+            settings["FUTURES_CODE"] = normal.shrn_iscd
+            settings["WS_TR_KEY"]    = normal.shrn_iscd
+            settings["SPOT_CODE"]    = normal.unas_shrn_iscd
+            log.info("[계약 감지] 노멀 최근월물 → %s (%s)",
+                     normal.shrn_iscd, normal.display_name)
+        else:
+            log.info("[계약 감지] 노멀 고정값 사용 → %s", settings["FUTURES_CODE"])
+
+        if mini and os.getenv("MMEAN_MINI_FUTURES_CODE", "") == "":
+            settings["MINI_FUTURES_CODE"] = mini.shrn_iscd
+            log.info("[계약 감지] 미니 최근월물 → %s (%s)",
+                     mini.shrn_iscd, mini.display_name)
+        else:
+            log.info("[계약 감지] 미니 고정값 사용 → %s", settings["MINI_FUTURES_CODE"])
+
+    except Exception as e:
+        log.warning("[계약 감지] MST 파싱 실패 — 기존 설정 유지: %s", e)
+
+
 def build_runtime(app: Flask) -> AppRuntime:
     base_dir = os.path.dirname(os.path.abspath(__file__))
     settings = load_settings(base_dir)
@@ -423,6 +462,9 @@ def build_runtime(app: Flask) -> AppRuntime:
 
     # ─── 단일 인스턴스 보장: 기존 프로세스 종료 후 PID 락 획득 ──────────
     _acquire_pid_lock(base_dir, log)
+
+    # ─── MST 파일에서 노멀·미니 최근월물 자동 감지 ────────────────────────
+    _auto_detect_contracts(settings, log)
 
     db_dir = os.path.join(base_dir, "storage")
     os.makedirs(db_dir, exist_ok=True)
@@ -581,6 +623,17 @@ def build_runtime(app: Flask) -> AppRuntime:
     # ※ 시작 게이트 통과 후 analyzer_app.py 에서 호출 (비밀번호 검증 선행 보장)
 
     apply_runtime_config(runtime)
+
+    # ── 웹훅 클라이언트 레지스트리 로드 ─────────────────────────────────
+    runtime.webhook_clients = _load_webhook_registry(base_dir)
+    if runtime.webhook_clients:
+        log.info(
+            "웹훅 레지스트리 로드 완료 | 클라이언트 %d개: %s",
+            len(runtime.webhook_clients),
+            ", ".join(f"#{c.id}({c.name})" for c in runtime.webhook_clients),
+        )
+    else:
+        log.info("웹훅 레지스트리 비어 있음 — .env.webhook 미설정 또는 파일 없음")
 
     # ── RAG 사전작업 백그라운드 자동 실행 ────────────────────────────
     # pattern_memory / failure_patterns 가 비어있거나 6시간 이상 오래됐으면

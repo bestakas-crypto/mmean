@@ -1,0 +1,310 @@
+2026-03-20 08:28:53,652 [WARNING] MMEAN - PID 락 파일 쓰기 실패 (계속 진행): [Errno 2] No such file or directory: 'C:\\mme\\mmean\\core\\storage\\mmean.pid'
+2026-03-20 08:28:53,678 [INFO] MMEAN.DBSetup - DB setup 완료 | path=C:\mme\mmean\core\storage\mmean.db
+2026-03-20 08:28:53,700 [INFO] MMEAN.ParamStore - ParamStore 초기화 완료 | db=C:\mme\mmean\core\storage\mmean.db
+2026-03-20 08:28:53,703 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=10틱 TRAIL=12틱(활성:8틱) NEUTRAL=20틱(수익>=6틱시무시) SLIP=1틱 강제=14:45
+2026-03-20 08:28:53,710 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mme\mmean\llm\prompts
+2026-03-20 08:28:53,710 [WARNING] MMEAN.LLM - Claude 비활성: ANTHROPIC_API_KEY 없음 — .env 확인 필요
+2026-03-20 08:28:53,710 [WARNING] MMEAN.LLM - GPT 비활성: OPENAI_API_KEY 없음
+2026-03-20 08:28:53,710 [WARNING] MMEAN.LLM - Gemini 비활성: GEMINI_API_KEY 없음
+2026-03-20 08:28:53,710 [ERROR] MMEAN.LLM - 활성화된 LLM 공급자가 없습니다 — ANTHROPIC_API_KEY / OPENAI_API_KEY / GEMINI_API_KEY 중 하나 이상을 .env에 설정하세요. 모든 LLM 호출이 schema.default()로 폴백됩니다.
+2026-03-20 08:28:53,714 [INFO] MMEAN.LLMController - llm_daily_baseline: is_fallback 컬럼 추가 완료 (기존 rows → 1)
+2026-03-20 08:28:53,719 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-20 08:28:53,721 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=10틱 TRAIL=12틱(활성:8틱) NEUTRAL=20틱(수익>=6틱시무시) SLIP=1틱 강제=14:45
+2026-03-20 08:28:53,726 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=10틱 TRAIL=12틱(활성:8틱) NEUTRAL=20틱(수익>=6틱시무시) SLIP=1틱 강제=14:45
+2026-03-20 08:28:53,728 [INFO] MMEAN.ABSimRunner - ABSimRunner 초기화 완료
+2026-03-20 08:28:53,740 [INFO] MMEAN.SimProfileResolver - SimProfileResolver: level JSON 로드 | path=C:\mme\workspace\levels_v2.json | levels=20
+2026-03-20 08:28:53,752 [INFO] MMEAN - FlowEngine 파이프라인 초기화 완료 | llm_caller=활성
+2026-03-20 08:28:53,761 [INFO] MMEAN - MMEAN 가동
+2026-03-20 08:28:53,762 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-20 08:28:53,763 [INFO] MMEAN - 장전 LLM 컨트롤러 스레드 비활성화 — 수동 옵션 체계 전환
+2026-03-20 08:28:53,764 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:28:53,764 [INFO] MMEAN - SessionWatchdog 시작 | 세션=DAY | 자동종료=15:45 | 감시주기=30s
+2026-03-20 08:29:03,997 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:44:57,641 [INFO] MMEAN - PID 락 획득 | pid=35316 | path=C:\mme\mmean\core\storage\mmean.pid
+2026-03-20 08:44:57,657 [INFO] MMEAN.DBSetup - DB setup 완료 | path=C:\mme\mmean\core\storage\mmean.db
+2026-03-20 08:44:57,681 [INFO] MMEAN.ParamStore - ParamStore 초기화 완료 | db=C:\mme\mmean\core\storage\mmean.db
+2026-03-20 08:44:57,683 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=10틱 TRAIL=12틱(활성:8틱) NEUTRAL=20틱(수익>=6틱시무시) SLIP=1틱 강제=14:45
+2026-03-20 08:44:57,685 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mme\mmean\llm\prompts
+2026-03-20 08:44:57,686 [WARNING] MMEAN.LLM - Claude 비활성: ANTHROPIC_API_KEY 없음 — .env 확인 필요
+2026-03-20 08:44:57,686 [WARNING] MMEAN.LLM - GPT 비활성: OPENAI_API_KEY 없음
+2026-03-20 08:44:57,686 [WARNING] MMEAN.LLM - Gemini 비활성: GEMINI_API_KEY 없음
+2026-03-20 08:44:57,686 [ERROR] MMEAN.LLM - 활성화된 LLM 공급자가 없습니다 — ANTHROPIC_API_KEY / OPENAI_API_KEY / GEMINI_API_KEY 중 하나 이상을 .env에 설정하세요. 모든 LLM 호출이 schema.default()로 폴백됩니다.
+2026-03-20 08:44:57,689 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-20 08:44:57,690 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=10틱 TRAIL=12틱(활성:8틱) NEUTRAL=20틱(수익>=6틱시무시) SLIP=1틱 강제=14:45
+2026-03-20 08:44:57,693 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=10틱 TRAIL=12틱(활성:8틱) NEUTRAL=20틱(수익>=6틱시무시) SLIP=1틱 강제=14:45
+2026-03-20 08:44:57,694 [INFO] MMEAN.ABSimRunner - ABSimRunner 초기화 완료
+2026-03-20 08:44:57,696 [INFO] MMEAN.SimProfileResolver - SimProfileResolver: level JSON 로드 | path=C:\mme\workspace\levels_v2.json | levels=20
+2026-03-20 08:44:57,698 [INFO] MMEAN - FlowEngine 파이프라인 초기화 완료 | llm_caller=활성
+2026-03-20 08:44:57,708 [INFO] MMEAN - MMEAN 가동
+2026-03-20 08:44:57,709 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-20 08:44:57,709 [INFO] MMEAN - 장전 LLM 컨트롤러 스레드 비활성화 — 수동 옵션 체계 전환
+2026-03-20 08:44:57,711 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:44:57,711 [INFO] MMEAN - SessionWatchdog 시작 | 세션=DAY | 자동종료=15:45 | 감시주기=30s
+2026-03-20 08:45:07,937 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:45:18,164 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:45:28,428 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:45:38,641 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:45:48,856 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:45:59,081 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:46:09,289 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:46:19,500 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:46:29,718 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:46:39,940 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:46:50,147 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:47:00,359 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:47:10,558 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:48:36,366 [INFO] MMEAN - PID 락 | 구 프로세스 PID=35316 이미 종료됨
+2026-03-20 08:48:36,367 [INFO] MMEAN - PID 락 획득 | pid=72632 | path=C:\mme\mmean\core\storage\mmean.pid
+2026-03-20 08:48:36,379 [INFO] MMEAN.DBSetup - DB setup 완료 | path=C:\mme\mmean\core\storage\mmean.db
+2026-03-20 08:48:36,406 [INFO] MMEAN.ParamStore - ParamStore 초기화 완료 | db=C:\mme\mmean\core\storage\mmean.db
+2026-03-20 08:48:36,408 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=10틱 TRAIL=12틱(활성:8틱) NEUTRAL=20틱(수익>=6틱시무시) SLIP=1틱 강제=14:45
+2026-03-20 08:48:36,411 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mme\mmean\llm\prompts
+2026-03-20 08:48:36,411 [WARNING] MMEAN.LLM - Claude 비활성: ANTHROPIC_API_KEY 없음 — .env 확인 필요
+2026-03-20 08:48:36,411 [WARNING] MMEAN.LLM - GPT 비활성: OPENAI_API_KEY 없음
+2026-03-20 08:48:36,411 [WARNING] MMEAN.LLM - Gemini 비활성: GEMINI_API_KEY 없음
+2026-03-20 08:48:36,411 [ERROR] MMEAN.LLM - 활성화된 LLM 공급자가 없습니다 — ANTHROPIC_API_KEY / OPENAI_API_KEY / GEMINI_API_KEY 중 하나 이상을 .env에 설정하세요. 모든 LLM 호출이 schema.default()로 폴백됩니다.
+2026-03-20 08:48:36,415 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-20 08:48:36,416 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=10틱 TRAIL=12틱(활성:8틱) NEUTRAL=20틱(수익>=6틱시무시) SLIP=1틱 강제=14:45
+2026-03-20 08:48:36,418 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=10틱 TRAIL=12틱(활성:8틱) NEUTRAL=20틱(수익>=6틱시무시) SLIP=1틱 강제=14:45
+2026-03-20 08:48:36,420 [INFO] MMEAN.ABSimRunner - ABSimRunner 초기화 완료
+2026-03-20 08:48:36,422 [INFO] MMEAN.SimProfileResolver - SimProfileResolver: level JSON 로드 | path=C:\mme\workspace\levels_v2.json | levels=20
+2026-03-20 08:48:36,424 [INFO] MMEAN - FlowEngine 파이프라인 초기화 완료 | llm_caller=활성
+2026-03-20 08:48:36,434 [INFO] MMEAN - MMEAN 가동
+2026-03-20 08:48:36,435 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-20 08:48:36,435 [INFO] MMEAN - 장전 LLM 컨트롤러 스레드 비활성화 — 수동 옵션 체계 전환
+2026-03-20 08:48:36,436 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:48:36,436 [INFO] MMEAN - SessionWatchdog 시작 | 세션=DAY | 자동종료=15:45 | 감시주기=30s
+2026-03-20 08:48:46,618 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:48:56,813 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:49:07,032 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:49:17,241 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:49:27,446 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:49:37,644 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:49:47,836 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:49:58,035 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:50:08,254 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:50:18,453 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:50:28,689 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:52:55,063 [INFO] MMEAN - PID 락 | 구 프로세스 PID=72632 이미 종료됨
+2026-03-20 08:52:55,064 [INFO] MMEAN - PID 락 획득 | pid=100824 | path=C:\mme\mmean\core\storage\mmean.pid
+2026-03-20 08:52:55,074 [INFO] MMEAN.DBSetup - DB setup 완료 | path=C:\mme\mmean\core\storage\mmean.db
+2026-03-20 08:52:55,105 [INFO] MMEAN.ParamStore - ParamStore 초기화 완료 | db=C:\mme\mmean\core\storage\mmean.db
+2026-03-20 08:52:55,107 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=10틱 TRAIL=12틱(활성:8틱) NEUTRAL=20틱(수익>=6틱시무시) SLIP=1틱 강제=14:45
+2026-03-20 08:52:55,109 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mme\mmean\llm\prompts
+2026-03-20 08:52:55,110 [WARNING] MMEAN.LLM - Claude 비활성: ANTHROPIC_API_KEY 없음 — .env 확인 필요
+2026-03-20 08:52:55,110 [WARNING] MMEAN.LLM - GPT 비활성: OPENAI_API_KEY 없음
+2026-03-20 08:52:55,110 [WARNING] MMEAN.LLM - Gemini 비활성: GEMINI_API_KEY 없음
+2026-03-20 08:52:55,110 [ERROR] MMEAN.LLM - 활성화된 LLM 공급자가 없습니다 — ANTHROPIC_API_KEY / OPENAI_API_KEY / GEMINI_API_KEY 중 하나 이상을 .env에 설정하세요. 모든 LLM 호출이 schema.default()로 폴백됩니다.
+2026-03-20 08:52:55,113 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-20 08:52:55,115 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=10틱 TRAIL=12틱(활성:8틱) NEUTRAL=20틱(수익>=6틱시무시) SLIP=1틱 강제=14:45
+2026-03-20 08:52:55,117 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=10틱 TRAIL=12틱(활성:8틱) NEUTRAL=20틱(수익>=6틱시무시) SLIP=1틱 강제=14:45
+2026-03-20 08:52:55,118 [INFO] MMEAN.ABSimRunner - ABSimRunner 초기화 완료
+2026-03-20 08:52:55,120 [INFO] MMEAN.SimProfileResolver - SimProfileResolver: level JSON 로드 | path=C:\mme\workspace\levels_v2.json | levels=20
+2026-03-20 08:52:55,122 [INFO] MMEAN - FlowEngine 파이프라인 초기화 완료 | llm_caller=활성
+2026-03-20 08:52:55,134 [INFO] MMEAN - MMEAN 가동
+2026-03-20 08:52:55,135 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-20 08:52:55,135 [INFO] MMEAN - 장전 LLM 컨트롤러 스레드 비활성화 — 수동 옵션 체계 전환
+2026-03-20 08:52:55,136 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:52:55,136 [INFO] MMEAN - SessionWatchdog 시작 | 세션=DAY | 자동종료=15:45 | 감시주기=30s
+2026-03-20 08:53:05,376 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:53:15,580 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:53:25,781 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:53:35,975 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:53:46,176 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:53:56,398 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:54:06,607 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:54:16,810 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:54:27,013 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:54:37,218 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:54:47,411 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:54:57,595 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:55:07,806 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:55:18,013 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:55:28,206 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:55:38,398 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:55:48,612 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:55:58,810 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:56:09,009 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:56:19,227 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:56:28,042 [INFO] MMEAN - PID 락 | 구 프로세스 PID=100824 이미 종료됨
+2026-03-20 08:56:28,042 [INFO] MMEAN - PID 락 획득 | pid=110608 | path=C:\mme\mmean\core\storage\mmean.pid
+2026-03-20 08:56:28,054 [INFO] MMEAN.DBSetup - DB setup 완료 | path=C:\mme\mmean\core\storage\mmean.db
+2026-03-20 08:56:28,081 [INFO] MMEAN.ParamStore - ParamStore 초기화 완료 | db=C:\mme\mmean\core\storage\mmean.db
+2026-03-20 08:56:28,083 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-20 08:56:28,086 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mme\mmean\llm\prompts
+2026-03-20 08:56:28,086 [INFO] MMEAN.LLM - Claude 활성 | model=claude-sonnet-4-5 | key=sk-ant..._gAA (길이=108)
+2026-03-20 08:56:28,087 [INFO] MMEAN.LLM - GPT 활성 | model=gpt-4o-mini | key=sk-pro...3x4A (길이=164)
+2026-03-20 08:56:28,087 [INFO] MMEAN.LLM - Gemini 활성 | model=gemini-2.0-flash | key=AIzaSy...Z3aw (길이=39)
+2026-03-20 08:56:28,087 [INFO] MMEAN.LLM - LLM 체인 구성 완료 | 공급자=3개 | timeout=(connect=2.0s, read=8.0s) | max_retries=3 | min_interval=60s
+2026-03-20 08:56:28,091 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-20 08:56:28,093 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-20 08:56:28,095 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-20 08:56:28,097 [INFO] MMEAN.ABSimRunner - ABSimRunner 초기화 완료
+2026-03-20 08:56:28,099 [INFO] MMEAN.SimProfileResolver - SimProfileResolver: level JSON 로드 | path=C:\mme\workspace\levels_v2.json | levels=20
+2026-03-20 08:56:28,101 [INFO] MMEAN - FlowEngine 파이프라인 초기화 완료 | llm_caller=활성
+2026-03-20 08:56:28,111 [INFO] MMEAN - MMEAN 가동
+2026-03-20 08:56:28,112 [INFO] MMEAN - investor 폴링 시작 | market=K2I sub=F001
+2026-03-20 08:56:28,113 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-20 08:56:28,113 [INFO] MMEAN - 장전 LLM 컨트롤러 스레드 비활성화 — 수동 옵션 체계 전환
+2026-03-20 08:56:28,113 [INFO] MMEAN - WS 구독 시작 | tr_key=A01606
+2026-03-20 08:56:28,114 [WARNING] MMEAN - 데이터 게이트 차단 | quality=simulated | stale=0s | 진입/기록 차단
+2026-03-20 08:56:28,115 [INFO] MMEAN - SessionWatchdog 시작 | 세션=DAY | 자동종료=15:45 | 감시주기=30s
+2026-03-20 08:56:28,115 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 08:56:29,116 [INFO] MMEAN - PriceGuard soft_reset | WS 재연결 | last=0.00
+2026-03-20 08:56:29,913 [INFO] MMEAN - WS 첫 체결 틱 | tid=H0IFCNT0 | price=869.40 | basis=4.4600 | row_len=50
+2026-03-20 08:56:30,122 [INFO] MMEAN - PriceGuard 첫 유효 틱 앵커 설정 | price=869.40
+2026-03-20 08:56:38,178 [INFO] MMEAN - [FLOW] fq_len=1 foreign_buy=-879 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 08:56:48,231 [INFO] MMEAN - [FLOW] fq_len=1 foreign_buy=-879 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 08:56:49,239 [INFO] MMEAN.sim - [SIM] 진입 LONG | 869.90  TP=OFF  SL=868.65  TRAIL=12틱(활성:8틱)
+2026-03-20 08:56:50,256 [INFO] MMEAN.sim - [SIM] 청산 FORCE_EXIT_EOD | pnl=-25000원 | max_fav=0.00pt | max_adv=0.00pt | trailing=OFF | llm_score=-1.00 | cum=-25000원
+2026-03-20 08:56:53,290 [WARNING] MMEAN.LLMCaller - LLMCallDedup 차단 [FALLBACK weight_adjust=0] | key=(2026-03-20 08:56, LONG_READY) — 직전 결과 재사용
+2026-03-20 08:56:53,291 [INFO] MMEAN.sim - [SIM] 진입 LONG | 870.10  TP=OFF  SL=868.85  TRAIL=12틱(활성:8틱)
+2026-03-20 08:56:54,296 [INFO] MMEAN.sim - [SIM] 청산 FORCE_EXIT_EOD | pnl=+0원 | max_fav=0.00pt | max_adv=0.00pt | trailing=OFF | llm_score=-1.00 | cum=-25000원
+2026-03-20 08:56:58,323 [INFO] MMEAN - [FLOW] fq_len=1 foreign_buy=-879 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 08:57:00,338 [INFO] MMEAN.sim - [SIM] 진입 LONG | 870.55  TP=OFF  SL=869.30  TRAIL=12틱(활성:8틱)
+2026-03-20 08:57:01,343 [WARNING] MMEAN.LLMCaller - LLMCallDedup 차단 [FALLBACK weight_adjust=0] | key=(2026-03-20 08:57, LONG_READY) — 직전 결과 재사용
+2026-03-20 08:57:01,344 [INFO] MMEAN.sim - [SIM] 청산 FORCE_EXIT_EOD | pnl=-62500원 | max_fav=0.00pt | max_adv=0.15pt | trailing=OFF | llm_score=-1.00 | cum=-87500원
+2026-03-20 08:57:08,380 [INFO] MMEAN - [FLOW] fq_len=1 foreign_buy=-879 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 08:57:18,429 [INFO] MMEAN - [FLOW] fq_len=1 foreign_buy=-879 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 08:57:28,503 [INFO] MMEAN - [FLOW] fq_len=2 foreign_buy=-870 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 08:57:38,554 [INFO] MMEAN - [FLOW] fq_len=2 foreign_buy=-870 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 08:57:48,615 [INFO] MMEAN - [FLOW] fq_len=2 foreign_buy=-870 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 08:57:58,675 [INFO] MMEAN - [FLOW] fq_len=2 foreign_buy=-870 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 08:58:08,731 [INFO] MMEAN - [FLOW] fq_len=2 foreign_buy=-870 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 08:58:18,794 [INFO] MMEAN - [FLOW] fq_len=2 foreign_buy=-870 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 08:58:28,869 [INFO] MMEAN - [FLOW] fq_len=3 foreign_buy=-943 flow_score=-0.0526 regime=NEUTRAL long_w=0.4803 short_w=0.5197 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 08:58:38,917 [INFO] MMEAN - [FLOW] fq_len=3 foreign_buy=-943 flow_score=-0.0526 regime=NEUTRAL long_w=0.4803 short_w=0.5197 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 08:58:48,975 [INFO] MMEAN - [FLOW] fq_len=3 foreign_buy=-943 flow_score=-0.0526 regime=NEUTRAL long_w=0.4803 short_w=0.5197 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 08:58:59,045 [INFO] MMEAN - [FLOW] fq_len=3 foreign_buy=-943 flow_score=-0.0526 regime=NEUTRAL long_w=0.4803 short_w=0.5197 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 08:59:09,125 [INFO] MMEAN - [FLOW] fq_len=3 foreign_buy=-943 flow_score=-0.0526 regime=NEUTRAL long_w=0.4803 short_w=0.5197 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 08:59:19,200 [INFO] MMEAN - [FLOW] fq_len=3 foreign_buy=-943 flow_score=-0.0526 regime=NEUTRAL long_w=0.4803 short_w=0.5197 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 08:59:29,258 [INFO] MMEAN - [FLOW] fq_len=4 foreign_buy=-974 flow_score=-0.0387 regime=NEUTRAL long_w=0.4855 short_w=0.5145 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 08:59:39,317 [INFO] MMEAN - [FLOW] fq_len=4 foreign_buy=-974 flow_score=-0.0387 regime=NEUTRAL long_w=0.4855 short_w=0.5145 bias=NEUTRAL entry=WAIT dq=live
+2026-03-20 08:59:49,371 [INFO] MMEAN - [FLOW] fq_len=4 foreign_buy=-974 flow_score=-0.0387 regime=NEUTRAL long_w=0.4855 short_w=0.5145 bias=NEUTRAL entry=WAIT dq=live
+2026-03-20 08:59:59,457 [INFO] MMEAN - [FLOW] fq_len=4 foreign_buy=-974 flow_score=-0.0387 regime=NEUTRAL long_w=0.4855 short_w=0.5145 bias=NEUTRAL entry=WAIT dq=live
+2026-03-20 09:00:09,529 [INFO] MMEAN - [FLOW] fq_len=4 foreign_buy=-974 flow_score=-0.0387 regime=NEUTRAL long_w=0.4855 short_w=0.5145 bias=NEUTRAL entry=WAIT dq=live
+2026-03-20 09:00:19,598 [INFO] MMEAN - [FLOW] fq_len=4 foreign_buy=-974 flow_score=-0.0387 regime=NEUTRAL long_w=0.4855 short_w=0.5145 bias=SHORT_BIAS entry=WAIT dq=live
+2026-03-20 09:00:29,666 [INFO] MMEAN - [FLOW] fq_len=5 foreign_buy=-1056 flow_score=-0.0849 regime=NEUTRAL long_w=0.4682 short_w=0.5318 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:00:39,724 [INFO] MMEAN - [FLOW] fq_len=5 foreign_buy=-1056 flow_score=-0.0849 regime=NEUTRAL long_w=0.4682 short_w=0.5318 bias=NEUTRAL entry=WAIT dq=live
+2026-03-20 09:00:49,782 [INFO] MMEAN - [FLOW] fq_len=5 foreign_buy=-1056 flow_score=-0.0849 regime=NEUTRAL long_w=0.4682 short_w=0.5318 bias=NEUTRAL entry=WAIT dq=live
+2026-03-20 09:00:59,848 [INFO] MMEAN - [FLOW] fq_len=5 foreign_buy=-1056 flow_score=-0.0849 regime=NEUTRAL long_w=0.4682 short_w=0.5318 bias=NEUTRAL entry=WAIT dq=live
+2026-03-20 09:01:09,912 [INFO] MMEAN - [FLOW] fq_len=5 foreign_buy=-1056 flow_score=-0.0849 regime=NEUTRAL long_w=0.4682 short_w=0.5318 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:01:19,965 [INFO] MMEAN - [FLOW] fq_len=5 foreign_buy=-1056 flow_score=-0.0849 regime=NEUTRAL long_w=0.4682 short_w=0.5318 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:01:30,016 [INFO] MMEAN - [FLOW] fq_len=5 foreign_buy=-1056 flow_score=-0.0849 regime=NEUTRAL long_w=0.4682 short_w=0.5318 bias=NEUTRAL entry=WAIT dq=live
+2026-03-20 09:01:40,062 [INFO] MMEAN - [FLOW] fq_len=6 foreign_buy=-1265 flow_score=-0.2033 regime=NEUTRAL long_w=0.4244 short_w=0.5756 bias=NEUTRAL entry=WAIT dq=live
+2026-03-20 09:01:50,146 [INFO] MMEAN - [FLOW] fq_len=6 foreign_buy=-1265 flow_score=-0.2033 regime=NEUTRAL long_w=0.4244 short_w=0.5756 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:02:00,206 [INFO] MMEAN - [FLOW] fq_len=6 foreign_buy=-1265 flow_score=-0.2033 regime=NEUTRAL long_w=0.4244 short_w=0.5756 bias=NEUTRAL entry=WAIT dq=live
+2026-03-20 09:02:10,275 [INFO] MMEAN - [FLOW] fq_len=6 foreign_buy=-1265 flow_score=-0.2033 regime=NEUTRAL long_w=0.4244 short_w=0.5756 bias=NEUTRAL entry=WAIT dq=live
+2026-03-20 09:02:20,340 [INFO] MMEAN - [FLOW] fq_len=6 foreign_buy=-1265 flow_score=-0.2033 regime=NEUTRAL long_w=0.4244 short_w=0.5756 bias=SHORT_BIAS entry=WAIT dq=live
+2026-03-20 09:02:30,393 [INFO] MMEAN - [FLOW] fq_len=6 foreign_buy=-1265 flow_score=-0.2033 regime=NEUTRAL long_w=0.4244 short_w=0.5756 bias=SHORT_BIAS entry=WAIT dq=live
+2026-03-20 09:02:40,470 [INFO] MMEAN - [FLOW] fq_len=7 foreign_buy=-1161 flow_score=+0.0140 regime=NEUTRAL long_w=0.5052 short_w=0.4948 bias=SHORT_BIAS entry=WAIT dq=live
+2026-03-20 09:02:50,543 [INFO] MMEAN - [FLOW] fq_len=7 foreign_buy=-1161 flow_score=+0.0140 regime=NEUTRAL long_w=0.5052 short_w=0.4948 bias=NEUTRAL entry=WAIT dq=live
+2026-03-20 09:03:00,631 [INFO] MMEAN - [FLOW] fq_len=7 foreign_buy=-1161 flow_score=+0.0140 regime=NEUTRAL long_w=0.5052 short_w=0.4948 bias=NEUTRAL entry=WAIT dq=live
+2026-03-20 09:03:10,710 [INFO] MMEAN - [FLOW] fq_len=7 foreign_buy=-1161 flow_score=+0.0140 regime=NEUTRAL long_w=0.5052 short_w=0.4948 bias=NEUTRAL entry=WAIT dq=live
+2026-03-20 09:03:20,794 [INFO] MMEAN - [FLOW] fq_len=7 foreign_buy=-1161 flow_score=+0.0140 regime=NEUTRAL long_w=0.5052 short_w=0.4948 bias=NEUTRAL entry=WAIT dq=live
+2026-03-20 09:03:30,891 [INFO] MMEAN - [FLOW] fq_len=7 foreign_buy=-1161 flow_score=+0.0140 regime=NEUTRAL long_w=0.5052 short_w=0.4948 bias=NEUTRAL entry=WAIT dq=live
+2026-03-20 09:03:40,973 [INFO] MMEAN - [FLOW] fq_len=8 foreign_buy=-1244 flow_score=-0.0778 regime=NEUTRAL long_w=0.4708 short_w=0.5292 bias=NEUTRAL entry=WAIT dq=live
+2026-03-20 09:03:51,040 [INFO] MMEAN - [FLOW] fq_len=8 foreign_buy=-1244 flow_score=-0.0778 regime=NEUTRAL long_w=0.4708 short_w=0.5292 bias=NEUTRAL entry=WAIT dq=live
+2026-03-20 09:04:01,117 [INFO] MMEAN - [FLOW] fq_len=8 foreign_buy=-1244 flow_score=-0.0778 regime=NEUTRAL long_w=0.4708 short_w=0.5292 bias=NEUTRAL entry=WAIT dq=live
+2026-03-20 09:04:11,215 [INFO] MMEAN - [FLOW] fq_len=8 foreign_buy=-1244 flow_score=-0.0778 regime=NEUTRAL long_w=0.4708 short_w=0.5292 bias=NEUTRAL entry=WAIT dq=live
+2026-03-20 09:04:21,283 [INFO] MMEAN - [FLOW] fq_len=8 foreign_buy=-1244 flow_score=-0.0778 regime=NEUTRAL long_w=0.4708 short_w=0.5292 bias=NEUTRAL entry=WAIT dq=live
+2026-03-20 09:04:31,371 [INFO] MMEAN - [FLOW] fq_len=8 foreign_buy=-1244 flow_score=-0.0778 regime=NEUTRAL long_w=0.4708 short_w=0.5292 bias=NEUTRAL entry=WAIT dq=live
+2026-03-20 09:04:37,418 [INFO] MMEAN.sim - [SIM] 진입 LONG | 867.85  TP=OFF  SL=866.60  TRAIL=12틱(활성:8틱)
+2026-03-20 09:04:38,422 [INFO] MMEAN.sim - [SIM] 청산 FORCE_EXIT_EOD | pnl=-12500원 | max_fav=0.00pt | max_adv=0.00pt | trailing=OFF | llm_score=-1.00 | cum=-100000원
+2026-03-20 09:04:41,450 [INFO] MMEAN - [FLOW] fq_len=9 foreign_buy=-1081 flow_score=+0.1068 regime=NEUTRAL long_w=0.5400 short_w=0.4600 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:04:42,560 [INFO] MMEAN.LLMCaller - LLMCaller 성공 | risk=neutral | conf=0.620 | wa=-0.0500 | log_id=1
+2026-03-20 09:04:42,562 [INFO] MMEAN.LLMTTLManager - LLMTTLManager 등록 | weight_adjust=-0.0500 | ttl=240s
+2026-03-20 09:04:42,562 [INFO] MMEAN - LLM bg 완료 | dir=+1 | wa=-0.0500 | conf=0.620 | risk=neutral | key=2026-03-20 09:04|LONG_READY
+2026-03-20 09:04:51,523 [INFO] MMEAN - [FLOW] fq_len=9 foreign_buy=-1081 flow_score=+0.1068 regime=NEUTRAL long_w=0.5400 short_w=0.4600 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:05:01,590 [INFO] MMEAN - [FLOW] fq_len=9 foreign_buy=-1081 flow_score=+0.1068 regime=NEUTRAL long_w=0.5400 short_w=0.4600 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:05:11,656 [INFO] MMEAN - [FLOW] fq_len=9 foreign_buy=-1081 flow_score=+0.1068 regime=NEUTRAL long_w=0.5400 short_w=0.4600 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:05:21,717 [INFO] MMEAN - [FLOW] fq_len=9 foreign_buy=-1081 flow_score=+0.1068 regime=NEUTRAL long_w=0.5400 short_w=0.4600 bias=NEUTRAL entry=WAIT dq=live
+2026-03-20 09:05:31,801 [INFO] MMEAN - [FLOW] fq_len=9 foreign_buy=-1081 flow_score=+0.1068 regime=NEUTRAL long_w=0.5400 short_w=0.4600 bias=NEUTRAL entry=WAIT dq=live
+2026-03-20 09:05:41,876 [INFO] MMEAN - [FLOW] fq_len=10 foreign_buy=-875 flow_score=+0.2054 regime=NEUTRAL long_w=0.5764 short_w=0.4236 bias=NEUTRAL entry=WAIT dq=live
+2026-03-20 09:05:51,944 [INFO] MMEAN - [FLOW] fq_len=10 foreign_buy=-875 flow_score=+0.2054 regime=NEUTRAL long_w=0.5764 short_w=0.4236 bias=NEUTRAL entry=WAIT dq=live
+2026-03-20 09:06:02,012 [INFO] MMEAN - [FLOW] fq_len=10 foreign_buy=-875 flow_score=+0.2054 regime=NEUTRAL long_w=0.5764 short_w=0.4236 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:06:12,106 [INFO] MMEAN - [FLOW] fq_len=10 foreign_buy=-875 flow_score=+0.2054 regime=NEUTRAL long_w=0.5764 short_w=0.4236 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:06:22,172 [INFO] MMEAN - [FLOW] fq_len=10 foreign_buy=-875 flow_score=+0.2054 regime=NEUTRAL long_w=0.5764 short_w=0.4236 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:06:32,242 [INFO] MMEAN - [FLOW] fq_len=10 foreign_buy=-875 flow_score=+0.2054 regime=NEUTRAL long_w=0.5764 short_w=0.4236 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:06:42,311 [INFO] MMEAN - [FLOW] fq_len=11 foreign_buy=-665 flow_score=+0.2471 regime=NEUTRAL long_w=0.5916 short_w=0.4084 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:06:52,383 [INFO] MMEAN - [FLOW] fq_len=11 foreign_buy=-665 flow_score=+0.2471 regime=NEUTRAL long_w=0.5916 short_w=0.4084 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:07:02,468 [INFO] MMEAN - [FLOW] fq_len=11 foreign_buy=-665 flow_score=+0.2471 regime=NEUTRAL long_w=0.5916 short_w=0.4084 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:07:12,532 [INFO] MMEAN - [FLOW] fq_len=11 foreign_buy=-665 flow_score=+0.2471 regime=NEUTRAL long_w=0.5916 short_w=0.4084 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:07:22,595 [INFO] MMEAN - [FLOW] fq_len=11 foreign_buy=-665 flow_score=+0.2471 regime=NEUTRAL long_w=0.5916 short_w=0.4084 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:07:32,670 [INFO] MMEAN - [FLOW] fq_len=11 foreign_buy=-665 flow_score=+0.2471 regime=NEUTRAL long_w=0.5916 short_w=0.4084 bias=NEUTRAL entry=WAIT dq=live
+2026-03-20 09:07:42,749 [INFO] MMEAN - [FLOW] fq_len=12 foreign_buy=-687 flow_score=+0.0932 regime=NEUTRAL long_w=0.5349 short_w=0.4651 bias=NEUTRAL entry=WAIT dq=live
+2026-03-20 09:07:52,822 [INFO] MMEAN - [FLOW] fq_len=12 foreign_buy=-687 flow_score=+0.0932 regime=NEUTRAL long_w=0.5349 short_w=0.4651 bias=NEUTRAL entry=WAIT dq=live
+2026-03-20 09:08:02,899 [INFO] MMEAN - [FLOW] fq_len=12 foreign_buy=-687 flow_score=+0.0932 regime=NEUTRAL long_w=0.5349 short_w=0.4651 bias=NEUTRAL entry=WAIT dq=live
+2026-03-20 09:08:12,967 [INFO] MMEAN - [FLOW] fq_len=12 foreign_buy=-687 flow_score=+0.0932 regime=NEUTRAL long_w=0.5349 short_w=0.4651 bias=NEUTRAL entry=WAIT dq=live
+2026-03-20 09:08:23,045 [INFO] MMEAN - [FLOW] fq_len=12 foreign_buy=-687 flow_score=+0.0932 regime=NEUTRAL long_w=0.5349 short_w=0.4651 bias=NEUTRAL entry=WAIT dq=live
+2026-03-20 09:08:33,108 [INFO] MMEAN - [FLOW] fq_len=12 foreign_buy=-687 flow_score=+0.0932 regime=NEUTRAL long_w=0.5349 short_w=0.4651 bias=NEUTRAL entry=WAIT dq=live
+2026-03-20 09:08:43,169 [INFO] MMEAN - [FLOW] fq_len=13 foreign_buy=-674 flow_score=+0.0675 regime=NEUTRAL long_w=0.5253 short_w=0.4747 bias=NEUTRAL entry=WAIT dq=live
+2026-03-20 09:08:43,169 [INFO] MMEAN.LLMTTLManager - LLMTTLManager 만료 [time_elapsed] | elapsed=240.6s >= ttl=240s | weight_adjust=-0.0500 → 0
+2026-03-20 09:08:53,259 [INFO] MMEAN - [FLOW] fq_len=13 foreign_buy=-674 flow_score=+0.0675 regime=NEUTRAL long_w=0.5253 short_w=0.4747 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:09:03,354 [INFO] MMEAN - [FLOW] fq_len=13 foreign_buy=-674 flow_score=+0.0675 regime=NEUTRAL long_w=0.5253 short_w=0.4747 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:09:13,439 [INFO] MMEAN - [FLOW] fq_len=13 foreign_buy=-674 flow_score=+0.0675 regime=NEUTRAL long_w=0.5253 short_w=0.4747 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:09:23,522 [INFO] MMEAN - [FLOW] fq_len=13 foreign_buy=-674 flow_score=+0.0675 regime=NEUTRAL long_w=0.5253 short_w=0.4747 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:09:33,586 [INFO] MMEAN - [FLOW] fq_len=13 foreign_buy=-674 flow_score=+0.0675 regime=NEUTRAL long_w=0.5253 short_w=0.4747 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:09:43,657 [INFO] MMEAN - [FLOW] fq_len=14 foreign_buy=-602 flow_score=+0.0922 regime=NEUTRAL long_w=0.5345 short_w=0.4655 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:09:53,722 [INFO] MMEAN - [FLOW] fq_len=14 foreign_buy=-602 flow_score=+0.0922 regime=NEUTRAL long_w=0.5345 short_w=0.4655 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:10:03,790 [INFO] MMEAN - [FLOW] fq_len=14 foreign_buy=-602 flow_score=+0.0922 regime=NEUTRAL long_w=0.5345 short_w=0.4655 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:10:13,868 [INFO] MMEAN - [FLOW] fq_len=14 foreign_buy=-602 flow_score=+0.0922 regime=NEUTRAL long_w=0.5345 short_w=0.4655 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:10:16,894 [INFO] MMEAN.sim - [SIM] 진입 LONG | 871.05  TP=OFF  SL=869.80  TRAIL=12틱(활성:8틱)
+2026-03-20 09:10:17,902 [INFO] MMEAN.sim - [SIM] 청산 FORCE_EXIT_EOD | pnl=+0원 | max_fav=0.00pt | max_adv=0.00pt | trailing=OFF | llm_score=-1.00 | cum=-100000원
+2026-03-20 09:10:21,657 [INFO] MMEAN.LLMCaller - LLMCaller 성공 | risk=neutral | conf=0.620 | wa=+0.0000 | log_id=2
+2026-03-20 09:10:21,658 [INFO] MMEAN.LLMTTLManager - LLMTTLManager 등록 | weight_adjust=+0.0000 | ttl=240s
+2026-03-20 09:10:21,658 [INFO] MMEAN - LLM bg 완료 | dir=+1 | wa=+0.0000 | conf=0.620 | risk=neutral | key=2026-03-20 09:10|LONG_READY
+2026-03-20 09:10:23,950 [INFO] MMEAN - [FLOW] fq_len=14 foreign_buy=-602 flow_score=+0.0922 regime=NEUTRAL long_w=0.5345 short_w=0.4655 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:10:34,019 [INFO] MMEAN - [FLOW] fq_len=14 foreign_buy=-602 flow_score=+0.0922 regime=NEUTRAL long_w=0.5345 short_w=0.4655 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:10:44,104 [INFO] MMEAN - [FLOW] fq_len=15 foreign_buy=-504 flow_score=+0.1139 regime=NEUTRAL long_w=0.5426 short_w=0.4574 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:10:54,181 [INFO] MMEAN - [FLOW] fq_len=15 foreign_buy=-504 flow_score=+0.1139 regime=NEUTRAL long_w=0.5426 short_w=0.4574 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:11:04,248 [INFO] MMEAN - [FLOW] fq_len=15 foreign_buy=-504 flow_score=+0.1139 regime=NEUTRAL long_w=0.5426 short_w=0.4574 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:11:14,321 [INFO] MMEAN - [FLOW] fq_len=15 foreign_buy=-504 flow_score=+0.1139 regime=NEUTRAL long_w=0.5426 short_w=0.4574 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:11:24,396 [INFO] MMEAN - [FLOW] fq_len=15 foreign_buy=-504 flow_score=+0.1139 regime=NEUTRAL long_w=0.5426 short_w=0.4574 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:11:34,498 [INFO] MMEAN - [FLOW] fq_len=15 foreign_buy=-504 flow_score=+0.1139 regime=NEUTRAL long_w=0.5426 short_w=0.4574 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:11:44,562 [INFO] MMEAN - [FLOW] fq_len=16 foreign_buy=-469 flow_score=+0.0800 regime=NEUTRAL long_w=0.5300 short_w=0.4700 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:11:54,619 [INFO] MMEAN - [FLOW] fq_len=16 foreign_buy=-469 flow_score=+0.0800 regime=NEUTRAL long_w=0.5300 short_w=0.4700 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:12:04,667 [INFO] MMEAN - [FLOW] fq_len=16 foreign_buy=-469 flow_score=+0.0800 regime=NEUTRAL long_w=0.5300 short_w=0.4700 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:12:14,736 [INFO] MMEAN - [FLOW] fq_len=16 foreign_buy=-469 flow_score=+0.0800 regime=NEUTRAL long_w=0.5300 short_w=0.4700 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:12:20,178 [INFO] MMEAN - PID 락 | 구 프로세스 PID=110608 이미 종료됨
+2026-03-20 09:12:20,179 [INFO] MMEAN - PID 락 획득 | pid=212476 | path=C:\mme\mmean\core\storage\mmean.pid
+2026-03-20 09:12:20,197 [INFO] MMEAN.DBSetup - DB setup 완료 | path=C:\mme\mmean\core\storage\mmean.db
+2026-03-20 09:12:20,222 [INFO] MMEAN.ParamStore - ParamStore 초기화 완료 | db=C:\mme\mmean\core\storage\mmean.db
+2026-03-20 09:12:20,224 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-20 09:12:20,227 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mme\mmean\llm\prompts
+2026-03-20 09:12:20,228 [INFO] MMEAN.LLM - Claude 활성 | model=claude-sonnet-4-5 | key=sk-ant..._gAA (길이=108)
+2026-03-20 09:12:20,229 [INFO] MMEAN.LLM - GPT 활성 | model=gpt-4o-mini | key=sk-pro...3x4A (길이=164)
+2026-03-20 09:12:20,229 [INFO] MMEAN.LLM - Gemini 활성 | model=gemini-2.0-flash | key=AIzaSy...Z3aw (길이=39)
+2026-03-20 09:12:20,229 [INFO] MMEAN.LLM - LLM 체인 구성 완료 | 공급자=3개 | timeout=(connect=2.0s, read=8.0s) | max_retries=3 | min_interval=60s
+2026-03-20 09:12:20,233 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-20 09:12:20,235 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-20 09:12:20,236 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-20 09:12:20,238 [INFO] MMEAN.ABSimRunner - ABSimRunner 초기화 완료
+2026-03-20 09:12:20,240 [INFO] MMEAN.SimProfileResolver - SimProfileResolver: level JSON 로드 | path=C:\mme\workspace\levels_v2.json | levels=20
+2026-03-20 09:12:20,242 [INFO] MMEAN - FlowEngine 파이프라인 초기화 완료 | llm_caller=활성
+2026-03-20 09:12:20,253 [INFO] MMEAN - MMEAN 가동
+2026-03-20 09:12:20,254 [INFO] MMEAN - investor 폴링 시작 | market=K2I sub=F001
+2026-03-20 09:12:20,254 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-20 09:12:20,255 [INFO] MMEAN - 장전 LLM 컨트롤러 스레드 비활성화 — 수동 옵션 체계 전환
+2026-03-20 09:12:20,255 [INFO] MMEAN - WS 구독 시작 | tr_key=A01606
+2026-03-20 09:12:20,256 [WARNING] MMEAN - 데이터 게이트 차단 | quality=simulated | stale=0s | 진입/기록 차단
+2026-03-20 09:12:20,256 [INFO] MMEAN - SessionWatchdog 시작 | 세션=DAY | 자동종료=15:45 | 감시주기=30s
+2026-03-20 09:12:20,257 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-20 09:12:20,482 [INFO] MMEAN - WS 첫 체결 틱 | tid=H0IFCNT0 | price=872.75 | basis=1.5300 | row_len=50
+2026-03-20 09:12:21,264 [INFO] MMEAN - PriceGuard soft_reset | WS 재연결 | last=0.00
+2026-03-20 09:12:21,264 [INFO] MMEAN - PriceGuard 첫 유효 틱 앵커 설정 | price=872.90
+2026-03-20 09:12:30,331 [INFO] MMEAN - [FLOW] fq_len=1 foreign_buy=-404 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:12:40,402 [INFO] MMEAN - [FLOW] fq_len=1 foreign_buy=-404 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:12:50,455 [INFO] MMEAN - [FLOW] fq_len=1 foreign_buy=-404 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:13:00,515 [INFO] MMEAN - [FLOW] fq_len=1 foreign_buy=-404 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:13:10,571 [INFO] MMEAN - [FLOW] fq_len=1 foreign_buy=-404 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:13:20,645 [INFO] MMEAN - [FLOW] fq_len=1 foreign_buy=-404 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:13:30,693 [INFO] MMEAN - [FLOW] fq_len=2 foreign_buy=-424 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:13:40,752 [INFO] MMEAN - [FLOW] fq_len=2 foreign_buy=-424 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:13:50,818 [INFO] MMEAN - [FLOW] fq_len=2 foreign_buy=-424 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:14:00,880 [INFO] MMEAN - [FLOW] fq_len=2 foreign_buy=-424 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:14:10,959 [INFO] MMEAN - [FLOW] fq_len=2 foreign_buy=-424 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:14:21,016 [INFO] MMEAN - [FLOW] fq_len=2 foreign_buy=-424 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:14:31,082 [INFO] MMEAN - [FLOW] fq_len=3 foreign_buy=-394 flow_score=+0.0188 regime=NEUTRAL long_w=0.5071 short_w=0.4929 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:14:41,145 [INFO] MMEAN - [FLOW] fq_len=3 foreign_buy=-394 flow_score=+0.0188 regime=NEUTRAL long_w=0.5071 short_w=0.4929 bias=LONG_BIAS entry=WAIT dq=live
+2026-03-20 09:14:51,215 [INFO] MMEAN - [FLOW] fq_len=3 foreign_buy=-394 flow_score=+0.0188 regime=NEUTRAL long_w=0.5071 short_w=0.4929 bias=LONG_BIAS entry=WAIT dq=live

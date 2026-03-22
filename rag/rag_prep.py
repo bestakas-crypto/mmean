@@ -122,7 +122,7 @@ def step1_compute_features(conn: sqlite3.Connection, days: int = 30) -> int:
 
         if session_date not in daily_pnl_cache:
             r = conn.execute("""
-                SELECT COALESCE(SUM(COALESCE(pnl_ticks,0)*25000), 0)
+                SELECT COALESCE(SUM(COALESCE(pnl_ticks,0)*12500), 0)
                 FROM trades
                 WHERE substr(open_ts,1,10) = ?
             """, (session_date,)).fetchone()

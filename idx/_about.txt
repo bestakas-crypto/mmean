@@ -1,0 +1,84 @@
+================================================================================
+  MMEAN / idx — 지수선물 종목 코드 및 상품 명세
+================================================================================
+
+역할
+----
+KIS(한국투자증권) 선물옵션 종목 데이터와 상품 명세를 관리한다.
+MST 파일 파싱, 틱 상수 정의, 근월물 자동 감지 등 종목 관련 기능 전담.
+
+분석·판단·TP/SL 계산은 항상 노멀(표준선물) 틱 기준으로 수행하고,
+실제 주문 체결만 노멀/미니 중 선택된 종목으로 분기한다.
+
+파일 목록
+---------
+contract_spec.py
+  - 노멀·미니 틱 상수 정의
+    · 노멀 (A01xxx): 1틱 = 0.05pt / 거래승수 250,000원 / 1틱 가치 12,500원
+    · 미니 (A05xxx): 1틱 = 0.02pt / 거래승수  50,000원 / 1틱 가치  1,000원
+  - is_mini() / tick_pt() / tick_value() / multiplier() 헬퍼 함수
+  - 코드 전체에서 틱 값 하드코딩 대신 이 파일을 import해 사용
+
+mst_parser.py
+  - fo_idx_code_mts.mst 파일 파서 (KIS 지수선물 종목 마스터)
+  - FuturesContract dataclass (단축코드, 한글명, 월물구분, 기초자산 등)
+  - load_contracts()  : info_type / 기초자산 필터로 종목 목록 반환
+  - find_nearest()    : 최근월물(mmsc_cls_code='1') 1개 반환
+  - detect_nearest_pair() : (노멀 최근월물, 미니 최근월물) 쌍 반환
+    → app_bootstrap._auto_detect_contracts() 에서 장 시작 시 호출
+
+fo_idx_code_mts.mst
+  - KIS OpenAPI MST 파일 (파이프 구분 텍스트, 약 6,000행)
+  - 갱신 주기: KIS 홈페이지 → 개발자센터 → Starter Kit에서 최신 파일 수동 교체
+  - 포함 종목: 지수선물(1) / 미니선물(B) / 지수옵션(5,6) / 변동성선물(7) 등
+  - KOSPI200 선물 단축코드 구조:
+      A [01|05] [연도 마지막 1자리] [월 2자리]
+      예) A01606 = 표준선물 2026년 6월물 (최근월물)
+          A05605 = 미니선물 2026년 5월물 (최근월물)
+
+info_type.py
+  - KIS 제공 fo_idx_code_mts.mst C 구조체 정의 (참조 문서, 실행 코드 아님)
+  - 필드 오프셋·크기 확인 시 참고
+
+상품기본조회[v1_국내주식-029].xlsx
+  - KIS OpenAPI 상품기본조회 TR 문서 (v1_국내주식-029)
+  - 참조 문서 (코드에서 직접 사용하지 않음)
+  - 종목 정보 조회 API 스펙 확인 시 참고
+
+단축코드 규칙
+-------------
+  prefix  종목 유형
+  ------  --------
+  A01     표준 KOSPI200 지수선물 (분기물: 3·6·9·12월)
+  A05     미니 KOSPI200 지수선물 (매월물)
+
+  월물구분코드(mmsc_cls_code)
+  0 = 연결선물
+  1 = 최근월물  ← MMEAN 기본 사용
+  2 = 차근월물
+  3 = 차차근월물
+  (이하 생략)
+
+의존 관계
+---------
+  idx → (없음, 순수 데이터 레이어)
+  core/app_bootstrap.py  → mst_parser (자동 근월물 감지)
+  core/engine_runtime.py → contract_spec (틱 크기)
+  logs/judgment_log.py   → contract_spec (틱 크기)
+  rag/rag_prep.py        → contract_spec 상수값 (12,500 직접 참조)
+  routes/routes_core.py  → mst_parser (종목 목록 API)
+
+설정 연동
+---------
+  settings["FUTURES_CODE"]      노멀 근월물 단축코드 (WS 구독·가격 피드 기준)
+  settings["MINI_FUTURES_CODE"] 미니 근월물 단축코드 (미니 주문 시 사용)
+  settings["TRADE_INSTRUMENT"]  "normal" | "mini"  (주문 체결 종목 선택)
+  settings["SPOT_CODE"]         기초자산 단축코드 (현물 지수, 기본 2001=KOSPI200)
+
+MST 파일 교체 절차
+------------------
+  1. KIS 개발자센터 → Starter Kit → fo_idx_code_mts.mst 최신 버전 다운로드
+  2. 기존 파일 교체: idx/fo_idx_code_mts.mst
+  3. MMEAN 재시작 → _auto_detect_contracts() 가 새 최근월물 자동 감지
+  (월물 만기일: 해당 월 두 번째 목요일 — 이후 최근월물 자동 전환)
+================================================================================

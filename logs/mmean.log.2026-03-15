@@ -1,0 +1,148 @@
+2026-03-15 16:50:14,409 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-15 16:50:14,419 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mme\mmean\prompts
+2026-03-15 16:50:14,421 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-15 16:50:14,423 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-15 16:50:14,430 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-15 16:50:14,432 [INFO] MMEAN.ABSimRunner - ABSimRunner 초기화 완료
+2026-03-15 16:50:14,439 [INFO] MMEAN - MMEAN 가동
+2026-03-15 16:50:14,441 [INFO] MMEAN - investor 폴링 시작 | market=K2I sub=F001
+2026-03-15 16:50:14,441 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-15 16:50:14,442 [INFO] MMEAN - WS 구독 시작 | tr_key=A01606
+2026-03-15 21:16:24,086 [INFO] MMEAN.DBSetup - 마이그레이션 | trades.entry_trend_weight_long 추가
+2026-03-15 21:16:24,086 [INFO] MMEAN.DBSetup - 마이그레이션 | trades.entry_trend_weight_short 추가
+2026-03-15 21:16:24,088 [INFO] MMEAN.DBSetup - 마이그레이션 | trades.entry_trend_long_score 추가
+2026-03-15 21:16:24,088 [INFO] MMEAN.DBSetup - 마이그레이션 | trades.entry_trend_short_score 추가
+2026-03-15 21:16:24,089 [INFO] MMEAN.DBSetup - 마이그레이션 | trades.param_store_hash 추가
+2026-03-15 21:16:24,089 [INFO] MMEAN.DBSetup - 마이그레이션 | trades.param_store_version 추가
+2026-03-15 21:16:24,090 [INFO] MMEAN.DBSetup - 마이그레이션 | trades.param_hash 추가
+2026-03-15 21:16:24,091 [INFO] MMEAN.DBSetup - 마이그레이션 | llm_calls.prompt_name 추가
+2026-03-15 21:16:24,091 [INFO] MMEAN.DBSetup - 마이그레이션 | llm_calls.prompt_hash 추가
+2026-03-15 21:16:24,092 [INFO] MMEAN.DBSetup - 마이그레이션 | llm_calls.prompt_source 추가
+2026-03-15 21:16:24,092 [INFO] MMEAN.DBSetup - 마이그레이션 | regime_ticks.trend_long_score 추가
+2026-03-15 21:16:24,093 [INFO] MMEAN.DBSetup - 마이그레이션 | regime_ticks.trend_short_score 추가
+2026-03-15 21:16:24,094 [INFO] MMEAN.DBSetup - 마이그레이션 | regime_ticks.trend_weight_long 추가
+2026-03-15 21:16:24,094 [INFO] MMEAN.DBSetup - 마이그레이션 | regime_ticks.trend_weight_short 추가
+2026-03-15 21:16:24,095 [INFO] MMEAN.DBSetup - 마이그레이션 | regime_ticks.ema_fast 추가
+2026-03-15 21:16:24,095 [INFO] MMEAN.DBSetup - 마이그레이션 | regime_ticks.ema_slow 추가
+2026-03-15 21:16:24,096 [INFO] MMEAN.DBSetup - 마이그레이션 | regime_ticks.ema_fast_slope 추가
+2026-03-15 21:16:24,097 [INFO] MMEAN.DBSetup - 마이그레이션 | regime_ticks.param_hash 추가
+2026-03-15 21:16:24,098 [INFO] MMEAN.DBSetup - DB setup 완료 | path=C:\mme\mmean\storage\mmean.db
+2026-03-15 21:16:24,124 [INFO] MMEAN.ParamStore - ParamStore 초기화 완료 | db=C:\mme\mmean\storage\mmean.db
+2026-03-15 21:16:24,128 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-15 21:16:24,138 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mme\mmean\prompts
+2026-03-15 21:16:24,141 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-15 21:16:24,143 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-15 21:16:24,149 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-15 21:16:24,152 [INFO] MMEAN.ABSimRunner - ABSimRunner 초기화 완료
+2026-03-15 21:16:24,165 [INFO] MMEAN - MMEAN 가동
+2026-03-15 21:16:24,167 [INFO] MMEAN - investor 폴링 시작 | market=K2I sub=F001
+2026-03-15 21:16:24,167 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-15 21:16:24,168 [INFO] MMEAN - WS 구독 시작 | tr_key=A01606
+2026-03-15 21:55:56,917 [INFO] MMEAN.DBSetup - DB setup 완료 | path=C:\mme\mmean\storage\mmean.db
+2026-03-15 21:55:56,942 [INFO] MMEAN.ParamStore - ParamStore 초기화 완료 | db=C:\mme\mmean\storage\mmean.db
+2026-03-15 21:55:56,944 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-15 21:55:56,946 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mme\mmean\prompts
+2026-03-15 21:55:56,949 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-15 21:55:56,951 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-15 21:55:56,952 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-15 21:55:56,954 [INFO] MMEAN.ABSimRunner - ABSimRunner 초기화 완료
+2026-03-15 21:55:56,961 [INFO] MMEAN - MMEAN 가동
+2026-03-15 21:55:56,963 [INFO] MMEAN - investor 폴링 시작 | market=K2I sub=F001
+2026-03-15 21:55:56,963 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-15 21:55:56,964 [INFO] MMEAN - WS 구독 시작 | tr_key=A01606
+2026-03-15 21:58:34,570 [INFO] MMEAN.DBSetup - DB setup 완료 | path=C:\mme\mmean\storage\mmean.db
+2026-03-15 21:58:34,594 [INFO] MMEAN.ParamStore - ParamStore 초기화 완료 | db=C:\mme\mmean\storage\mmean.db
+2026-03-15 21:58:34,596 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-15 21:58:34,599 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mme\mmean\prompts
+2026-03-15 21:58:34,602 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-15 21:58:34,604 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-15 21:58:34,605 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-15 21:58:34,607 [INFO] MMEAN.ABSimRunner - ABSimRunner 초기화 완료
+2026-03-15 21:58:34,615 [INFO] MMEAN - MMEAN 가동
+2026-03-15 21:58:34,617 [INFO] MMEAN - investor 폴링 시작 | market=K2I sub=F001
+2026-03-15 21:58:34,617 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-15 21:58:34,618 [INFO] MMEAN - WS 구독 시작 | tr_key=A01606
+2026-03-15 21:59:57,064 [INFO] MMEAN.DBSetup - DB setup 완료 | path=C:\mme\mmean\storage\mmean.db
+2026-03-15 21:59:57,098 [INFO] MMEAN.ParamStore - ParamStore 초기화 완료 | db=C:\mme\mmean\storage\mmean.db
+2026-03-15 21:59:57,100 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-15 21:59:57,102 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mme\mmean\prompts
+2026-03-15 21:59:57,106 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-15 21:59:57,107 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-15 21:59:57,109 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-15 21:59:57,110 [INFO] MMEAN.ABSimRunner - ABSimRunner 초기화 완료
+2026-03-15 21:59:57,118 [INFO] MMEAN - MMEAN 가동
+2026-03-15 21:59:57,120 [INFO] MMEAN - investor 폴링 시작 | market=K2I sub=F001
+2026-03-15 21:59:57,120 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-15 21:59:57,121 [INFO] MMEAN - WS 구독 시작 | tr_key=A01606
+2026-03-15 22:27:42,732 [INFO] MMEAN.DBSetup - DB setup 완료 | path=C:\mme\mmean\storage\mmean.db
+2026-03-15 22:27:42,758 [INFO] MMEAN.ParamStore - ParamStore 초기화 완료 | db=C:\mme\mmean\storage\mmean.db
+2026-03-15 22:27:42,760 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-15 22:27:42,763 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mme\mmean\prompts
+2026-03-15 22:27:42,766 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-15 22:27:42,768 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-15 22:27:42,770 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-15 22:27:42,771 [INFO] MMEAN.ABSimRunner - ABSimRunner 초기화 완료
+2026-03-15 22:27:42,779 [INFO] MMEAN - MMEAN 가동
+2026-03-15 22:27:42,781 [INFO] MMEAN - investor 폴링 시작 | market=K2I sub=F001
+2026-03-15 22:27:42,781 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-15 22:27:42,782 [INFO] MMEAN - WS 구독 시작 | tr_key=A01606
+2026-03-15 22:44:09,889 [INFO] MMEAN.DBSetup - DB setup 완료 | path=C:\mme\mmean\storage\mmean.db
+2026-03-15 22:44:09,923 [INFO] MMEAN.ParamStore - ParamStore 초기화 완료 | db=C:\mme\mmean\storage\mmean.db
+2026-03-15 22:44:09,925 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-15 22:44:09,927 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mme\mmean\prompts
+2026-03-15 22:44:09,930 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-15 22:44:09,932 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-15 22:44:09,934 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-15 22:44:09,935 [INFO] MMEAN.ABSimRunner - ABSimRunner 초기화 완료
+2026-03-15 22:44:09,943 [INFO] MMEAN - MMEAN 가동
+2026-03-15 22:44:09,945 [INFO] MMEAN - investor 폴링 시작 | market=K2I sub=F001
+2026-03-15 22:44:09,945 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-15 22:44:09,946 [INFO] MMEAN - WS 구독 시작 | tr_key=A01606
+2026-03-15 22:50:49,402 [INFO] MMEAN.DBSetup - DB setup 완료 | path=C:\mme\mmean\storage\mmean.db
+2026-03-15 22:50:49,435 [INFO] MMEAN.ParamStore - ParamStore 초기화 완료 | db=C:\mme\mmean\storage\mmean.db
+2026-03-15 22:50:49,436 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-15 22:50:49,439 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mme\mmean\prompts
+2026-03-15 22:50:49,442 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-15 22:50:49,444 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-15 22:50:49,445 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-15 22:50:49,447 [INFO] MMEAN.ABSimRunner - ABSimRunner 초기화 완료
+2026-03-15 22:50:49,455 [INFO] MMEAN - MMEAN 가동
+2026-03-15 22:50:49,456 [INFO] MMEAN - investor 폴링 시작 | market=K2I sub=F001
+2026-03-15 22:50:49,456 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-15 22:50:49,457 [INFO] MMEAN - WS 구독 시작 | tr_key=A01606
+2026-03-15 22:55:15,114 [INFO] MMEAN.DBSetup - DB setup 완료 | path=C:\mme\mmean\storage\mmean.db
+2026-03-15 22:55:15,140 [INFO] MMEAN.ParamStore - ParamStore 초기화 완료 | db=C:\mme\mmean\storage\mmean.db
+2026-03-15 22:55:15,142 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-15 22:55:15,144 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mme\mmean\prompts
+2026-03-15 22:55:15,148 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-15 22:55:15,149 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-15 22:55:15,151 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-15 22:55:15,152 [INFO] MMEAN.ABSimRunner - ABSimRunner 초기화 완료
+2026-03-15 22:55:15,160 [INFO] MMEAN - MMEAN 가동
+2026-03-15 22:55:15,162 [INFO] MMEAN - investor 폴링 시작 | market=K2I sub=F001
+2026-03-15 22:55:15,162 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-15 22:55:15,163 [INFO] MMEAN - WS 구독 시작 | tr_key=A01606
+2026-03-15 23:33:29,718 [INFO] MMEAN.DBSetup - DB setup 완료 | path=C:\mme\mmean\storage\mmean.db
+2026-03-15 23:33:29,753 [INFO] MMEAN.ParamStore - ParamStore 초기화 완료 | db=C:\mme\mmean\storage\mmean.db
+2026-03-15 23:33:29,754 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-15 23:33:29,757 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mme\mmean\prompts
+2026-03-15 23:33:29,760 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-15 23:33:29,762 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-15 23:33:29,763 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-15 23:33:29,765 [INFO] MMEAN.ABSimRunner - ABSimRunner 초기화 완료
+2026-03-15 23:33:29,772 [INFO] MMEAN - MMEAN 가동
+2026-03-15 23:33:29,774 [INFO] MMEAN - investor 폴링 시작 | market=K2I sub=F001
+2026-03-15 23:33:29,774 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-15 23:33:29,775 [INFO] MMEAN - WS 구독 시작 | tr_key=A01606
+2026-03-15 23:37:02,788 [INFO] MMEAN.DBSetup - DB setup 완료 | path=C:\mme\mmean\storage\mmean.db
+2026-03-15 23:37:02,821 [INFO] MMEAN.ParamStore - ParamStore 초기화 완료 | db=C:\mme\mmean\storage\mmean.db
+2026-03-15 23:37:02,822 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-15 23:37:02,825 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mme\mmean\prompts
+2026-03-15 23:37:02,828 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-15 23:37:02,829 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-15 23:37:02,831 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-15 23:37:02,832 [INFO] MMEAN.ABSimRunner - ABSimRunner 초기화 완료
+2026-03-15 23:37:02,840 [INFO] MMEAN - MMEAN 가동
+2026-03-15 23:37:02,842 [INFO] MMEAN - investor 폴링 시작 | market=K2I sub=F001
+2026-03-15 23:37:02,842 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-15 23:37:02,843 [INFO] MMEAN - WS 구독 시작 | tr_key=A01606

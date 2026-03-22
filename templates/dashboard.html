@@ -41,6 +41,57 @@
             color: #64748b;
             font-size: 13px;
         }
+        /* ── 종목 선택 패널 ── */
+        .symbol-panel {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 8px 14px;
+            margin-bottom: 14px;
+            font-size: 13px;
+        }
+        .symbol-panel .sp-label {
+            color: #64748b;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .symbol-panel select {
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 13px;
+            background: #fff;
+            cursor: pointer;
+        }
+        .instr-btn {
+            padding: 4px 14px;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+            background: #f1f5f9;
+            color: #475569;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .instr-btn.active-normal {
+            background: #eff6ff;
+            border-color: #3b82f6;
+            color: #1d4ed8;
+        }
+        .instr-btn.active-mini {
+            background: #fefce8;
+            border-color: #eab308;
+            color: #854d0e;
+        }
+        .sp-divider { color: #cbd5e1; }
+        #spCurrentCode {
+            font-weight: 700;
+            color: #0f172a;
+        }
         .grid {
             display: grid;
             grid-template-columns: repeat(4, minmax(180px, 1fr));
@@ -332,6 +383,23 @@
 </head>
 <body>
     <h1>MMEAN 시장 판단 시스템</h1>
+
+    <!-- ── 종목 선택 패널 ───────────────────────────────────────────────── -->
+    <div class="symbol-panel">
+        <span class="sp-label">📌 종목</span>
+        <select id="spNormalSelect" title="노멀 근월물 선택"></select>
+        <button class="instr-btn" id="btnApplySymbol" onclick="applySymbol()">적용</button>
+        <span class="sp-divider">|</span>
+        <span class="sp-label">매매</span>
+        <button class="instr-btn" id="btnInstrNormal" onclick="setInstrument('normal')">표준선물</button>
+        <button class="instr-btn" id="btnInstrMini"   onclick="setInstrument('mini')">미니선물</button>
+        <span class="sp-divider">|</span>
+        <span class="sp-label">현재가 피드:</span>
+        <span id="spCurrentCode">-</span>
+        <span style="color:#64748b">/ 주문:</span>
+        <span id="spOrderCode" style="font-weight:700;color:#0f172a">-</span>
+        <span style="color:#94a3b8;font-size:12px" id="spTickInfo"></span>
+    </div>
 
     <div class="topbar">
         <div id="sourceText"  class="status-line">소스: -</div>
@@ -1672,6 +1740,88 @@
             if(d.ok) updateExecModeButtons(d.execution_mode);
         }).catch(()=>{});
         setInterval(fetchStatus, 1000);
+
+        // ── 종목 선택 패널 ───────────────────────────────────────────────
+        let _symbolContracts = [];
+
+        async function initSymbolPanel() {
+            try {
+                const res = await fetch('/api/symbol/list');
+                const d   = await res.json();
+                _symbolContracts = d.contracts || [];
+
+                const sel = document.getElementById('spNormalSelect');
+                sel.innerHTML = '';
+                _symbolContracts
+                    .filter(c => c.info_type === '1')
+                    .forEach(c => {
+                        const o = document.createElement('option');
+                        o.value       = c.shrn_iscd;
+                        o.textContent = `${c.display_name}  (${c.shrn_iscd})`;
+                        if (c.shrn_iscd === d.futures_code) o.selected = true;
+                        sel.appendChild(o);
+                    });
+
+                updateSymbolDisplay(d.futures_code, d.mini_futures_code, d.trade_instrument);
+            } catch(e) {
+                console.error('symbol/list 오류', e);
+            }
+        }
+
+        function updateSymbolDisplay(futuresCode, miniCode, instrument) {
+            document.getElementById('spCurrentCode').textContent = futuresCode || '-';
+
+            const isM = instrument === 'mini';
+            document.getElementById('spOrderCode').textContent = isM ? (miniCode || '-') : (futuresCode || '-');
+
+            const nBtn = document.getElementById('btnInstrNormal');
+            const mBtn = document.getElementById('btnInstrMini');
+            nBtn.className = 'instr-btn' + (isM ? '' : ' active-normal');
+            mBtn.className = 'instr-btn' + (isM ? ' active-mini' : '');
+
+            const tickInfo = isM ? '(미니: 1틱=1,000원)' : '(표준: 1틱=12,500원)';
+            document.getElementById('spTickInfo').textContent = tickInfo;
+        }
+
+        async function applySymbol() {
+            const code = document.getElementById('spNormalSelect').value;
+            if (!code) return;
+            if (!confirm(`노멀 종목을 ${code} 로 변경하시겠습니까?\n(WS 재연결이 발생합니다)`)) return;
+            try {
+                const res = await fetch('/api/symbol/set', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({futures_code: code}),
+                });
+                const d = await res.json();
+                if (d.ok) {
+                    alert(`종목 변경 완료: ${d.old_code} → ${d.new_code}`);
+                    initSymbolPanel();
+                } else {
+                    alert('변경 실패: ' + d.error);
+                }
+            } catch(e) { alert('오류: ' + e); }
+        }
+
+        async function setInstrument(instrument) {
+            try {
+                const res = await fetch('/api/instrument', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({instrument}),
+                });
+                const d = await res.json();
+                if (d.ok) {
+                    const cur = document.getElementById('spNormalSelect').value;
+                    const miniCode = (_symbolContracts.find(c => c.info_type === 'B') || {}).shrn_iscd || '-';
+                    updateSymbolDisplay(cur, miniCode, d.trade_instrument);
+                } else {
+                    alert('변경 실패: ' + d.error);
+                }
+            } catch(e) { alert('오류: ' + e); }
+        }
+
+        initSymbolPanel();
     </script>
 
     <!-- ── 실전 매매 전환 비밀번호 모달 ─────────────────────────────── -->

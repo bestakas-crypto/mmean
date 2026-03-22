@@ -1,0 +1,41 @@
+2026-03-23 00:07:32,665 [INFO] MMEAN - PID 락 | 구 프로세스 PID=18948 이미 종료됨
+2026-03-23 00:07:32,667 [INFO] MMEAN - PID 락 획득 | pid=26548 | path=C:\mmean\core\storage\mmean.pid
+2026-03-23 00:07:32,679 [INFO] MMEAN - [계약 감지] 노멀 최근월물 → A01606 (F 202606 (최근월물))
+2026-03-23 00:07:32,680 [INFO] MMEAN - [계약 감지] 미니 최근월물 → A05604 (미니F 202604 (최근월물))
+2026-03-23 00:07:32,690 [INFO] MMEAN.DBSetup - DB setup 완료 | path=C:\mmean\core\storage\mmean.db
+2026-03-23 00:07:32,715 [INFO] MMEAN.ParamStore - ParamStore 초기화 완료 | db=C:\mmean\core\storage\mmean.db
+2026-03-23 00:07:32,717 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=10틱 TRAIL=12틱(활성:8틱) NEUTRAL=20틱(수익>=6틱시무시) SLIP=1틱 강제=14:45
+2026-03-23 00:07:32,721 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mmean\llm\prompts
+2026-03-23 00:07:32,721 [WARNING] MMEAN.LLM - Claude 비활성: ANTHROPIC_API_KEY 없음 — .env 확인 필요
+2026-03-23 00:07:32,721 [WARNING] MMEAN.LLM - GPT 비활성: OPENAI_API_KEY 없음
+2026-03-23 00:07:32,721 [WARNING] MMEAN.LLM - Gemini 비활성: GEMINI_API_KEY 없음
+2026-03-23 00:07:32,721 [ERROR] MMEAN.LLM - 활성화된 LLM 공급자가 없습니다 — ANTHROPIC_API_KEY / OPENAI_API_KEY / GEMINI_API_KEY 중 하나 이상을 .env에 설정하세요. 모든 LLM 호출이 schema.default()로 폴백됩니다.
+2026-03-23 00:07:32,723 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-23 00:07:32,730 [INFO] MMEAN.SimProfileResolver - SimProfileResolver: level JSON 로드 | path=C:\mmean\workspace\levels_v2.json | levels=20
+2026-03-23 00:07:32,731 [INFO] MMEAN - FlowEngine 파이프라인 초기화 완료 | llm_caller=활성
+2026-03-23 00:07:32,733 [INFO] MMEAN - JudgmentLog 초기화 완료 | db=C:\mmean\core\storage\mmean.db
+2026-03-23 00:07:32,733 [INFO] MMEAN - AdoptionViewAdapter 초기화 완료 | sim_db=C:\mmean\core\storage\sim.db
+2026-03-23 00:07:32,734 [WARNING] MMEAN.MarketAnalyst - MarketAnalyst: ANTHROPIC_API_KEY 없음 — 비활성 상태로 시작
+2026-03-23 00:07:32,735 [INFO] MMEAN.MarketAnalyst - MarketAnalyst 시작 | interval=180s | model=claude-haiku-4-5-20251001
+2026-03-23 00:07:32,735 [INFO] MMEAN - MarketAnalyst 초기화 완료 | interval=180s
+2026-03-23 00:07:32,736 [WARNING] MMEAN.CheckpointAnalyst - CheckpointAnalyst: ANTHROPIC_API_KEY 없음 — 비활성 상태
+2026-03-23 00:07:32,737 [INFO] MMEAN.CheckpointAnalyst - CheckpointAnalyst 시작 | 체크포인트: 09:15 / 10:30 / 13:00
+2026-03-23 00:07:32,739 [INFO] MMEAN - CheckpointAnalyst 초기화 완료 | 체크포인트: 09:15 / 10:30 / 13:00
+2026-03-23 00:07:32,739 [INFO] MMEAN - OrderStateManager 초기화 완료
+2026-03-23 00:07:32,740 [WARNING] MMEAN - KIS_HTS_ID 미설정 — 체결통보 WS 비활성
+2026-03-23 00:07:32,740 [INFO] MMEAN - 웹훅 레지스트리 비어 있음 — .env.webhook 미설정 또는 파일 없음
+2026-03-23 00:07:32,741 [INFO] MMEAN - RAG 사전작업 백그라운드 스레드 시작
+2026-03-23 00:07:32,751 [INFO] MMEAN - MMEAN 가동
+2026-03-23 00:07:32,751 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-23 00:07:32,753 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-23 00:07:32,754 [INFO] MMEAN - SessionWatchdog 시작 | 세션=DAY | 강제청산=15:40 | 자동종료=15:45 | 감시주기=30s
+2026-03-23 00:07:42,754 [INFO] MMEAN - RAG prep 실행 — pm=0 mf=0 rt=2053 fp=0
+2026-03-23 00:07:42,939 [INFO] MMEAN - RAG prep step1 완료
+2026-03-23 00:07:42,973 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-23 00:07:43,053 [INFO] MMEAN - RAG prep step2 완료
+2026-03-23 00:07:43,170 [INFO] MMEAN - RAG prep step4 완료
+2026-03-23 00:07:43,173 [INFO] MMEAN - RAG prep 완료 | pattern_memory=0, failure_patterns=0
+2026-03-23 00:07:53,181 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-23 00:08:03,395 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-23 00:08:13,753 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated
+2026-03-23 00:08:24,035 [INFO] MMEAN - [FLOW] fq_len=0 foreign_buy=0 flow_score=+0.0000 regime=NEUTRAL long_w=0.5000 short_w=0.5000 bias=NEUTRAL entry=WAIT dq=simulated

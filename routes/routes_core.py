@@ -85,6 +85,139 @@ def register_core_routes(app, runtime: AppRuntime) -> None:
         return jsonify({"ok": True, "hash": runtime.cfg_mgr.get_hash(), "config": runtime.cfg_mgr.get()})
 
     # ------------------------------------------------------------------
+    # 선물 종목 / 매매 종목 선택 (노멀·미니)
+    # ------------------------------------------------------------------
+
+    @app.route("/api/symbol/list")
+    def api_symbol_list():
+        """MST 파일에서 KOSPI200 지수선물·미니선물 목록 반환."""
+        try:
+            from mst_parser import load_contracts
+            contracts = [c.to_dict() for c in load_contracts(
+                info_types=("1", "B"), unas_filter="KOSPI200"
+            )]
+        except Exception as e:
+            contracts = []
+            runtime.log.warning("symbol/list MST 파싱 실패: %s", e)
+        return jsonify({
+            "ok": True,
+            "futures_code":      runtime.settings.get("FUTURES_CODE"),
+            "mini_futures_code": runtime.settings.get("MINI_FUTURES_CODE"),
+            "trade_instrument":  runtime.settings.get("TRADE_INSTRUMENT", "normal"),
+            "contracts":         contracts,
+        })
+
+    @app.route("/api/symbol/set", methods=["POST"])
+    def api_symbol_set():
+        """
+        노멀 근월물 변경 (WS 재구독 포함).
+        포지션 보유 중에는 변경 불가.
+        body: {"futures_code": "A01609"}
+        """
+        if runtime.order_state is not None:
+            pos = runtime.order_state.get_position()
+            if not pos.is_flat():
+                return jsonify({
+                    "ok": False,
+                    "error": "포지션 보유 중 종목 변경 불가 — 청산 후 변경하세요.",
+                }), 409
+
+        body = request.get_json(silent=True) or {}
+        new_code = str(body.get("futures_code", "")).strip()
+        if not new_code:
+            return jsonify({"ok": False, "error": "futures_code 필요"}), 400
+
+        old_code      = runtime.settings["FUTURES_CODE"]
+        old_mini_code = runtime.settings.get("MINI_FUTURES_CODE", "")
+
+        # ── 노멀 코드 갱신 ────────────────────────────────────────────────
+        runtime.settings["FUTURES_CODE"] = new_code
+        runtime.settings["WS_TR_KEY"]    = new_code
+
+        # ── 미니 코드 동기화: A01XXX → A05XXX (같은 월물) ────────────────
+        # 단축코드 구조: A[01|05][연도1자리][월2자리]
+        # 노멀·미니 suffix(3자리)가 동일 → prefix만 교체
+        try:
+            from mst_parser import load_contracts
+            suffix        = new_code[3:]          # e.g. "606"
+            mini_candidate = "A05" + suffix        # e.g. "A05606"
+            # MST에 실제 존재하는지 확인
+            all_mini = {c.shrn_iscd for c in load_contracts(("B",), "KOSPI200")}
+            if mini_candidate in all_mini:
+                runtime.settings["MINI_FUTURES_CODE"] = mini_candidate
+                runtime.log.info(
+                    "미니 코드 동기화 | %s → %s", old_mini_code, mini_candidate
+                )
+            else:
+                runtime.log.warning(
+                    "미니 동기화 후보 %s 가 MST에 없음 — 기존 %s 유지",
+                    mini_candidate, old_mini_code,
+                )
+        except Exception as e:
+            runtime.log.warning("미니 코드 동기화 실패 — 기존 유지: %s", e)
+
+        new_mini_code = runtime.settings.get("MINI_FUTURES_CODE", "")
+
+        # ── WS 재연결 요청 (다음 틱 처리 후 자동 재구독) ─────────────────
+        if runtime.rt_client is not None:
+            runtime.rt_client.change_symbol(new_code)
+
+        runtime.log.info(
+            "종목 변경 | 노멀 %s → %s | 미니 %s → %s (WS 재연결 예약)",
+            old_code, new_code, old_mini_code, new_mini_code,
+        )
+        return jsonify({
+            "ok":           True,
+            "old_code":     old_code,
+            "new_code":     new_code,
+            "mini_code":    new_mini_code,
+        })
+
+    @app.route("/api/instrument", methods=["GET"])
+    def api_instrument_get():
+        """현재 매매 종목(노멀/미니) 설정 조회."""
+        return jsonify({
+            "ok":                True,
+            "trade_instrument":  runtime.settings.get("TRADE_INSTRUMENT", "normal"),
+            "futures_code":      runtime.settings.get("FUTURES_CODE"),
+            "mini_futures_code": runtime.settings.get("MINI_FUTURES_CODE"),
+        })
+
+    @app.route("/api/instrument", methods=["POST"])
+    def api_instrument_set():
+        """
+        매매 종목 전환: normal(표준선물) ↔ mini(미니선물).
+        포지션 보유 중에는 변경 불가.
+        body: {"instrument": "mini"}  or  {"instrument": "normal"}
+        """
+        if runtime.order_state is not None:
+            pos = runtime.order_state.get_position()
+            if not pos.is_flat():
+                return jsonify({
+                    "ok": False,
+                    "error": "포지션 보유 중 매매 종목 변경 불가 — 청산 후 변경하세요.",
+                }), 409
+
+        body = request.get_json(silent=True) or {}
+        instrument = str(body.get("instrument", "")).strip().lower()
+        if instrument not in ("normal", "mini"):
+            return jsonify({"ok": False, "error": "instrument는 normal|mini 만 허용"}), 400
+
+        old = runtime.settings.get("TRADE_INSTRUMENT", "normal")
+        runtime.settings["TRADE_INSTRUMENT"] = instrument
+        runtime.log.info("매매 종목 전환 | %s → %s", old, instrument)
+        return jsonify({
+            "ok":                True,
+            "old_instrument":    old,
+            "trade_instrument":  instrument,
+            "order_symbol":      (
+                runtime.settings.get("MINI_FUTURES_CODE")
+                if instrument == "mini"
+                else runtime.settings.get("FUTURES_CODE")
+            ),
+        })
+
+    # ------------------------------------------------------------------
     # 외국인 수급 신호 모드 (장중 전환 가능)
     # ------------------------------------------------------------------
     _VALID_FOREIGN_MODES = {"composite", "delta_only"}

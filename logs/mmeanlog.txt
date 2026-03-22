@@ -1,0 +1,779 @@
+2026-03-16 08:45:00,593 [INFO] MMEAN.DBSetup - DB setup 완료 | path=C:\mme\mmean\storage\mmean.db
+2026-03-16 08:45:00,619 [INFO] MMEAN.ParamStore - ParamStore 초기화 완료 | db=C:\mme\mmean\storage\mmean.db
+2026-03-16 08:45:00,621 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 08:45:00,623 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mme\mmean\prompts
+2026-03-16 08:45:00,626 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-16 08:45:00,627 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 08:45:00,629 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 08:45:00,630 [INFO] MMEAN.ABSimRunner - ABSimRunner 초기화 완료
+2026-03-16 08:45:00,638 [INFO] MMEAN - MMEAN 가동
+2026-03-16 08:45:00,639 [INFO] MMEAN - investor 폴링 시작 | market=K2I sub=F001
+2026-03-16 08:45:00,639 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-16 08:45:00,641 [WARNING] MMEAN - 데이터 게이트 차단 | quality=simulated | stale=0s | 진입/기록 차단
+2026-03-16 08:45:00,641 [INFO] MMEAN - WS 구독 시작 | tr_key=A01606
+2026-03-16 08:50:00,716 [INFO] MMEAN - LLM 컨트롤러 기동 | key=2026-03-16 08:50 | dq=live
+2026-03-16 08:50:00,719 [INFO] MMEAN.LLMController - LLM baseline 신규 생성 | session_date=2026-03-16 | hash=b769d429 | trend_src=param_store
+2026-03-16 08:50:00,721 [INFO] MMEAN.LLMController - LLM 전략 컨트롤러 실행 | session_date=2026-03-16 | shadow=True | prompt_hash=264c1be1ed4e
+2026-03-16 08:50:00,721 [INFO] MMEAN.LLM - LLM 요청 | layer=strategy | provider=Claude | model=claude-3-5-sonnet-20240620 | try=1/3
+2026-03-16 08:50:01,026 [WARNING] MMEAN.LLM - LLM HTTP 오류 | layer=strategy | provider=Claude | Claude HTTP 401 {"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"},"request_id":"req_011CZ5m9mByyU2Zb1d3cpcac"}
+2026-03-16 08:50:01,027 [INFO] MMEAN.LLM - LLM 요청 | layer=strategy | provider=GPT | model=gpt-4o-mini | try=1/3
+2026-03-16 08:50:02,565 [INFO] MMEAN.sim - [SIM] 진입 LONG | 815.00  TP=OFF  SL=813.75  TRAIL=12틱(활성:8틱)
+2026-03-16 08:50:03,060 [WARNING] MMEAN.LLM - LLM 타임아웃 | layer=strategy | provider=GPT | try=1
+2026-03-16 08:50:03,060 [WARNING] MMEAN.LLM - LLM 재시도 1/3 | provider=GPT | 2.0s 후
+2026-03-16 08:50:05,075 [INFO] MMEAN.LLM - LLM 요청 | layer=strategy | provider=GPT | model=gpt-4o-mini | try=2/3
+2026-03-16 08:50:07,120 [WARNING] MMEAN.LLM - LLM 타임아웃 | layer=strategy | provider=GPT | try=2
+2026-03-16 08:50:07,120 [WARNING] MMEAN.LLM - LLM 재시도 2/3 | provider=GPT | 4.0s 후
+2026-03-16 08:50:11,133 [INFO] MMEAN.LLM - LLM 요청 | layer=strategy | provider=GPT | model=gpt-4o-mini | try=3/3
+2026-03-16 08:50:13,164 [WARNING] MMEAN.LLM - LLM 타임아웃 | layer=strategy | provider=GPT | try=3
+2026-03-16 08:50:13,164 [INFO] MMEAN.LLM - LLM 요청 | layer=strategy | provider=Gemini | model=gemini-3-flash-preview | try=1/3
+2026-03-16 08:50:15,280 [WARNING] MMEAN.LLM - LLM 타임아웃 | layer=strategy | provider=Gemini | try=1
+2026-03-16 08:50:15,281 [WARNING] MMEAN.LLM - LLM 재시도 1/3 | provider=Gemini | 2.0s 후
+2026-03-16 08:50:17,291 [ERROR] MMEAN.LLM - 모든 LLM 공급자 호출 실패 | layer=strategy | fallback=default
+2026-03-16 08:50:17,291 [INFO] MMEAN.LLMController - LLM 전략 로그모드 | mode=normal | cfg_patch={'enter_score': 5.0, 'sim_tp_ticks': 0, 'sim_sl_ticks': 10, 'basis_strong': 0.35, 'oi_negative_strong': -80.0} | trend_patch={} | reason=default_fallback
+2026-03-16 08:53:26,917 [INFO] MMEAN.sim - [SIM] 진입 LONG | 815.00  TP=OFF  SL=813.75  TRAIL=12틱(활성:8틱)
+2026-03-16 08:54:30,355 [INFO] MMEAN.sim - [SIM] 진입 LONG | 816.10  TP=OFF  SL=814.85  TRAIL=12틱(활성:8틱)
+2026-03-16 08:57:08,535 [INFO] MMEAN.sim - [SIM] 진입 LONG | 815.70  TP=OFF  SL=814.45  TRAIL=12틱(활성:8틱)
+2026-03-16 08:57:18,615 [INFO] MMEAN.sim - [SIM] 진입 LONG | 815.55  TP=OFF  SL=814.30  TRAIL=12틱(활성:8틱)
+2026-03-16 09:00:27,991 [INFO] MMEAN.sim - [SIM] 진입 LONG | 817.75  TP=OFF  SL=816.50  TRAIL=12틱(활성:8틱)
+2026-03-16 09:00:28,997 [INFO] MMEAN.sim - [SIM] 트레일링 활성 | extreme=818.20 | 유리이동=9.0틱
+2026-03-16 09:18:57,657 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 824.05  TP=OFF  SL=825.30  TRAIL=12틱(활성:8틱)
+2026-03-16 09:20:04,116 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 822.95  TP=OFF  SL=824.20  TRAIL=12틱(활성:8틱)
+2026-03-16 09:22:01,941 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 820.70  TP=OFF  SL=821.95  TRAIL=12틱(활성:8틱)
+2026-03-16 09:32:26,918 [INFO] MMEAN.DBSetup - DB setup 완료 | path=C:\mme\mmean\storage\mmean.db
+2026-03-16 09:32:26,930 [INFO] MMEAN.ParamStore - ParamStore 초기화 완료 | db=C:\mme\mmean\storage\mmean.db
+2026-03-16 09:32:26,931 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 09:32:26,934 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mme\mmean\prompts
+2026-03-16 09:32:26,937 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-16 09:32:26,939 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 09:32:26,940 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 09:32:26,942 [INFO] MMEAN.ABSimRunner - ABSimRunner 초기화 완료
+2026-03-16 09:32:26,950 [INFO] MMEAN - MMEAN 가동
+2026-03-16 09:32:26,952 [INFO] MMEAN - investor 폴링 시작 | market=K2I sub=F001
+2026-03-16 09:32:26,952 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-16 09:32:26,953 [INFO] MMEAN - WS 구독 시작 | tr_key=A01606
+2026-03-16 09:32:26,954 [WARNING] MMEAN - 데이터 게이트 차단 | quality=simulated | stale=0s | 진입/기록 차단
+2026-03-16 09:43:18,158 [INFO] MMEAN.DBSetup - DB setup 완료 | path=C:\mme\mmean\storage\mmean.db
+2026-03-16 09:43:18,177 [INFO] MMEAN.ParamStore - ParamStore 초기화 완료 | db=C:\mme\mmean\storage\mmean.db
+2026-03-16 09:43:18,179 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 09:43:18,181 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mme\mmean\prompts
+2026-03-16 09:43:18,185 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-16 09:43:18,187 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 09:43:18,188 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 09:43:18,190 [INFO] MMEAN.ABSimRunner - ABSimRunner 초기화 완료
+2026-03-16 09:43:18,198 [INFO] MMEAN - MMEAN 가동
+2026-03-16 09:43:18,199 [INFO] MMEAN - investor 폴링 시작 | market=K2I sub=F001
+2026-03-16 09:43:18,199 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-16 09:43:18,200 [INFO] MMEAN - WS 구독 시작 | tr_key=A01606
+2026-03-16 09:43:18,202 [WARNING] MMEAN - 데이터 게이트 차단 | quality=simulated | stale=0s | 진입/기록 차단
+2026-03-16 09:51:53,751 [INFO] MMEAN.sim - [SIM] 진입 LONG | 826.05  TP=OFF  SL=824.80  TRAIL=12틱(활성:8틱)
+2026-03-16 09:59:47,078 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 823.00  TP=OFF  SL=824.25  TRAIL=12틱(활성:8틱)
+2026-03-16 10:10:49,458 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 818.00  TP=OFF  SL=819.25  TRAIL=12틱(활성:8틱)
+2026-03-16 10:13:07,416 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 817.35  TP=OFF  SL=818.60  TRAIL=12틱(활성:8틱)
+2026-03-16 10:13:09,442 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 817.20  TP=OFF  SL=818.45  TRAIL=12틱(활성:8틱)
+2026-03-16 10:13:18,520 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 816.80  TP=OFF  SL=818.05  TRAIL=12틱(활성:8틱)
+2026-03-16 10:26:03,881 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 816.40  TP=OFF  SL=817.65  TRAIL=12틱(활성:8틱)
+2026-03-16 10:27:36,593 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 815.45  TP=OFF  SL=816.70  TRAIL=12틱(활성:8틱)
+2026-03-16 10:27:45,673 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 815.20  TP=OFF  SL=816.45  TRAIL=12틱(활성:8틱)
+2026-03-16 10:37:08,765 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 814.05  TP=OFF  SL=815.30  TRAIL=12틱(활성:8틱)
+2026-03-16 10:41:35,541 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 811.75  TP=OFF  SL=813.00  TRAIL=12틱(활성:8틱)
+2026-03-16 10:46:06,647 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 812.85  TP=OFF  SL=814.10  TRAIL=12틱(활성:8틱)
+2026-03-16 10:51:46,929 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 815.15  TP=OFF  SL=816.40  TRAIL=12틱(활성:8틱)
+2026-03-16 10:58:14,754 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 815.35  TP=OFF  SL=816.60  TRAIL=12틱(활성:8틱)
+2026-03-16 11:00:38,815 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 816.60  TP=OFF  SL=817.85  TRAIL=12틱(활성:8틱)
+2026-03-16 11:02:27,476 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 816.65  TP=OFF  SL=817.90  TRAIL=12틱(활성:8틱)
+2026-03-16 11:02:29,517 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 816.35  TP=OFF  SL=817.60  TRAIL=12틱(활성:8틱)
+2026-03-16 11:02:32,549 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 816.10  TP=OFF  SL=817.35  TRAIL=12틱(활성:8틱)
+2026-03-16 11:06:14,180 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 815.50  TP=OFF  SL=816.75  TRAIL=12틱(활성:8틱)
+2026-03-16 11:06:26,286 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 815.00  TP=OFF  SL=816.25  TRAIL=12틱(활성:8틱)
+2026-03-16 11:08:14,141 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 815.15  TP=OFF  SL=816.40  TRAIL=12틱(활성:8틱)
+2026-03-16 11:11:21,627 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 814.85  TP=OFF  SL=816.10  TRAIL=12틱(활성:8틱)
+2026-03-16 11:20:35,554 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 812.85  TP=OFF  SL=814.10  TRAIL=12틱(활성:8틱)
+2026-03-16 11:22:56,568 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 810.80  TP=OFF  SL=812.05  TRAIL=12틱(활성:8틱)
+2026-03-16 11:23:27,760 [INFO] MMEAN.DBSetup - DB setup 완료 | path=C:\mme\mmean\storage\mmean.db
+2026-03-16 11:23:27,771 [INFO] MMEAN.ParamStore - ParamStore 초기화 완료 | db=C:\mme\mmean\storage\mmean.db
+2026-03-16 11:23:27,773 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 11:23:27,780 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mme\mmean\prompts
+2026-03-16 11:23:27,784 [INFO] MMEAN.LLMController - llm_daily_baseline: is_fallback 컬럼 추가 완료 (기존 rows → 1)
+2026-03-16 11:23:27,789 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-16 11:23:27,790 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 11:23:27,793 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 11:23:27,794 [INFO] MMEAN.ABSimRunner - ABSimRunner 초기화 완료
+2026-03-16 11:23:27,802 [INFO] MMEAN - MMEAN 가동
+2026-03-16 11:23:27,805 [INFO] MMEAN - investor 폴링 시작 | market=K2I sub=F001
+2026-03-16 11:23:27,805 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-16 11:23:27,806 [INFO] MMEAN - WS 구독 시작 | tr_key=A01606
+2026-03-16 11:23:27,807 [WARNING] MMEAN - 데이터 게이트 차단 | quality=simulated | stale=0s | 진입/기록 차단
+2026-03-16 11:25:43,800 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 811.00  TP=OFF  SL=812.25  TRAIL=12틱(활성:8틱)
+2026-03-16 11:30:27,915 [INFO] MMEAN.LLMController - LLM baseline fallback → 장중 재시도 | session_date=2026-03-16 | t=11:30
+2026-03-16 11:30:27,915 [INFO] MMEAN - LLM 컨트롤러 기동 | key=2026-03-16 11:30 | dq=live
+2026-03-16 11:30:27,927 [INFO] MMEAN.LLMController - LLM baseline 신규 생성 | session_date=2026-03-16 | hash=b769d429 | trend_src=param_store
+2026-03-16 11:30:27,934 [INFO] MMEAN.LLMController - LLM 전략 컨트롤러 실행 | session_date=2026-03-16 | shadow=True | prompt_hash=264c1be1ed4e
+2026-03-16 11:30:27,935 [INFO] MMEAN.LLM - LLM 요청 | layer=strategy | provider=Claude | model=claude-3-5-sonnet-20240620 | try=1/3
+2026-03-16 11:30:28,276 [WARNING] MMEAN.LLM - LLM HTTP 오류 | layer=strategy | provider=Claude | Claude HTTP 404 {"type":"error","error":{"type":"not_found_error","message":"model: claude-3-5-sonnet-20240620"},"request_id":"req_011CZ5yPRNuBMjQw6xEmaJSw"}
+2026-03-16 11:30:28,276 [INFO] MMEAN.LLM - LLM 요청 | layer=strategy | provider=GPT | model=gpt-4o-mini | try=1/3
+2026-03-16 11:30:32,010 [INFO] MMEAN.LLM - LLM 성공 | layer=strategy | provider=GPT | 3732ms | try=1 | tokens=673
+2026-03-16 11:30:32,010 [INFO] MMEAN.LLMController - LLM 전략 로그모드 | mode=normal | cfg_patch={'enter_score': 5.5, 'sim_tp_ticks': 4, 'sim_sl_ticks': 14, 'basis_strong': 0.2975, 'oi_negative_strong': -94.1176} | trend_patch={} | reason=시장 상태가 NEUTRAL이며 외국인 수급이 부정적이므로 공격적인 전략 조정은 피하고 보수적으로 접근하기 위해 파라미터 조정. 최대 거래 수와 손실 한도를 적절히 조정하여 리스크 관리 강화.
+2026-03-16 11:30:32,014 [WARNING] MMEAN.LLMController - LLM baseline fallback 유지 (is_fallback=1) | session_date=2026-03-16 | status=success | fallback_depth=1
+2026-03-16 11:33:01,115 [INFO] MMEAN.DBSetup - DB setup 완료 | path=C:\mme\mmean\storage\mmean.db
+2026-03-16 11:33:01,134 [INFO] MMEAN.ParamStore - ParamStore 초기화 완료 | db=C:\mme\mmean\storage\mmean.db
+2026-03-16 11:33:01,136 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 11:33:01,138 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mme\mmean\prompts
+2026-03-16 11:33:01,139 [INFO] MMEAN.LLM - Claude 활성 | model=claude-3-5-sonnet-20240620 | key=sk-ant..._gAA (길이=108)
+2026-03-16 11:33:01,139 [INFO] MMEAN.LLM - GPT 활성 | model=gpt-4o-mini | key=sk-pro...3x4A (길이=164)
+2026-03-16 11:33:01,140 [INFO] MMEAN.LLM - Gemini 활성 | model=gemini-3-flash-preview | key=AIzaSy...Z3aw (길이=39)
+2026-03-16 11:33:01,140 [INFO] MMEAN.LLM - LLM 체인 구성 완료 | 공급자=3개 | timeout=(connect=2.0s, read=10.0s) | max_retries=3 | min_interval=60s
+2026-03-16 11:33:01,143 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-16 11:33:01,145 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 11:33:01,147 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 11:33:01,148 [INFO] MMEAN.ABSimRunner - ABSimRunner 초기화 완료
+2026-03-16 11:33:01,157 [INFO] MMEAN - MMEAN 가동
+2026-03-16 11:33:01,158 [INFO] MMEAN - investor 폴링 시작 | market=K2I sub=F001
+2026-03-16 11:33:01,159 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-16 11:33:01,160 [INFO] MMEAN - WS 구독 시작 | tr_key=A01606
+2026-03-16 11:33:01,160 [INFO] MMEAN - LLM 컨트롤러 루프 시작 | strategy=08:50 | recovery_interval=10min | recovery_end=15:00
+2026-03-16 11:33:01,160 [WARNING] MMEAN - 데이터 게이트 차단 | quality=simulated | stale=0s | 진입/기록 차단
+2026-03-16 11:33:01,160 [INFO] MMEAN - LLM 공급자 등록 | providers=['Claude', 'GPT', 'Gemini']
+2026-03-16 11:33:01,161 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=False | dq=simulated | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 11:34:44,942 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 809.80  TP=OFF  SL=811.05  TRAIL=12틱(활성:8틱)
+2026-03-16 11:37:23,047 [INFO] MMEAN.DBSetup - DB setup 완료 | path=C:\mme\mmean\storage\mmean.db
+2026-03-16 11:37:23,058 [INFO] MMEAN.ParamStore - ParamStore 초기화 완료 | db=C:\mme\mmean\storage\mmean.db
+2026-03-16 11:37:23,060 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 11:37:23,063 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mme\mmean\prompts
+2026-03-16 11:37:23,063 [INFO] MMEAN.LLM - Claude 활성 | model=claude-3-5-sonnet-20240620 | key=sk-ant..._gAA (길이=108)
+2026-03-16 11:37:23,064 [INFO] MMEAN.LLM - GPT 활성 | model=gpt-4o-mini | key=sk-pro...3x4A (길이=164)
+2026-03-16 11:37:23,064 [INFO] MMEAN.LLM - Gemini 활성 | model=gemini-3-flash-preview | key=AIzaSy...Z3aw (길이=39)
+2026-03-16 11:37:23,065 [INFO] MMEAN.LLM - LLM 체인 구성 완료 | 공급자=3개 | timeout=(connect=2.0s, read=10.0s) | max_retries=3 | min_interval=60s
+2026-03-16 11:37:23,068 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-16 11:37:23,070 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 11:37:23,071 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 11:37:23,073 [INFO] MMEAN.ABSimRunner - ABSimRunner 초기화 완료
+2026-03-16 11:37:23,082 [INFO] MMEAN - MMEAN 가동
+2026-03-16 11:37:23,084 [INFO] MMEAN - investor 폴링 시작 | market=K2I sub=F001
+2026-03-16 11:37:23,084 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-16 11:37:23,085 [INFO] MMEAN - WS 구독 시작 | tr_key=A01606
+2026-03-16 11:37:23,085 [INFO] MMEAN - LLM 컨트롤러 루프 시작 | strategy=08:50 | recovery_interval=10min | recovery_end=15:00
+2026-03-16 11:37:23,086 [WARNING] MMEAN - 데이터 게이트 차단 | quality=simulated | stale=0s | 진입/기록 차단
+2026-03-16 11:37:23,086 [INFO] MMEAN - LLM 공급자 등록 | providers=['Claude', 'GPT', 'Gemini']
+2026-03-16 11:37:23,087 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=False | dq=simulated | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 11:40:08,143 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 809.30  TP=OFF  SL=810.55  TRAIL=12틱(활성:8틱)
+2026-03-16 11:40:23,148 [INFO] MMEAN.LLMController - LLM baseline fallback → 장중 재시도 | session_date=2026-03-16 | t=11:40
+2026-03-16 11:40:23,148 [INFO] MMEAN - LLM 컨트롤러 기동 | key=2026-03-16 11:40 | dq=live
+2026-03-16 11:40:23,152 [INFO] MMEAN.LLMController - LLM 전략 컨트롤러 실행 | session_date=2026-03-16 | shadow=True | prompt_hash=264c1be1ed4e
+2026-03-16 11:40:23,152 [INFO] MMEAN.LLM - LLM query 시작 | layer=strategy | providers=3 | daily=0/144 | last_call_ago=Nones | min_interval=60s
+2026-03-16 11:40:23,152 [INFO] MMEAN.LLM - LLM 요청 | layer=strategy | provider=Claude | model=claude-3-5-sonnet-20240620 | try=1/3
+2026-03-16 11:40:23,442 [WARNING] MMEAN.LLM - LLM HTTP 오류 | layer=strategy | provider=Claude | Claude HTTP 404 {"type":"error","error":{"type":"not_found_error","message":"model: claude-3-5-sonnet-20240620"},"request_id":"req_011CZ5z9JBYJcYqWbPywSzvL"}
+2026-03-16 11:40:23,443 [INFO] MMEAN.LLM - LLM 요청 | layer=strategy | provider=GPT | model=gpt-4o-mini | try=1/3
+2026-03-16 11:40:27,018 [INFO] MMEAN.LLM - LLM 성공 | layer=strategy | provider=GPT | 3575ms | try=1 | tokens=638
+2026-03-16 11:40:27,019 [INFO] MMEAN.LLMController - LLM 전략 로그모드 | mode=normal | cfg_patch={'enter_score': 4.5, 'sim_tp_ticks': 4, 'sim_sl_ticks': 14, 'basis_strong': 0.2975, 'oi_negative_strong': -94.1176} | trend_patch={} | reason=외국인 수급이 부정적이며, 전체 시장 신뢰도가 낮아 신중한 접근 필요
+2026-03-16 11:40:27,030 [WARNING] MMEAN.LLMController - LLM baseline fallback 유지 (is_fallback=1) | session_date=2026-03-16 | status=success | fallback_depth=1
+2026-03-16 11:40:57,041 [INFO] MMEAN.LLMController - LLM baseline fallback → 장중 재시도 | session_date=2026-03-16 | t=11:40
+2026-03-16 11:42:27,067 [INFO] MMEAN - [LLM진단] should_run=False | last_key=2026-03-16 11:40 | valid_baseline=False | dq=live | daily_calls=1/144 | last_call_ago=124s | interval_min=60.0
+2026-03-16 11:42:43,279 [INFO] MMEAN.DBSetup - DB setup 완료 | path=C:\mme\mmean\storage\mmean.db
+2026-03-16 11:42:43,298 [INFO] MMEAN.ParamStore - ParamStore 초기화 완료 | db=C:\mme\mmean\storage\mmean.db
+2026-03-16 11:42:43,300 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 11:42:43,302 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mme\mmean\prompts
+2026-03-16 11:42:43,302 [INFO] MMEAN.LLM - Claude 활성 | model=claude-sonnet-4-20250514 | key=sk-ant..._gAA (길이=108)
+2026-03-16 11:42:43,303 [INFO] MMEAN.LLM - GPT 활성 | model=gpt-4o-mini | key=sk-pro...3x4A (길이=164)
+2026-03-16 11:42:43,303 [INFO] MMEAN.LLM - Gemini 활성 | model=gemini-2.0-flash | key=AIzaSy...Z3aw (길이=39)
+2026-03-16 11:42:43,304 [INFO] MMEAN.LLM - LLM 체인 구성 완료 | 공급자=3개 | timeout=(connect=2.0s, read=10.0s) | max_retries=3 | min_interval=60s
+2026-03-16 11:42:43,307 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-16 11:42:43,308 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 11:42:43,310 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 11:42:43,311 [INFO] MMEAN.ABSimRunner - ABSimRunner 초기화 완료
+2026-03-16 11:42:43,320 [INFO] MMEAN - MMEAN 가동
+2026-03-16 11:42:43,321 [INFO] MMEAN - investor 폴링 시작 | market=K2I sub=F001
+2026-03-16 11:42:43,321 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-16 11:42:43,323 [INFO] MMEAN - LLM 컨트롤러 루프 시작 | strategy=08:50 | recovery_interval=10min | recovery_end=15:00
+2026-03-16 11:42:43,323 [WARNING] MMEAN - 데이터 게이트 차단 | quality=simulated | stale=0s | 진입/기록 차단
+2026-03-16 11:42:43,323 [INFO] MMEAN - LLM 공급자 등록 | providers=['Claude', 'GPT', 'Gemini']
+2026-03-16 11:42:43,324 [INFO] MMEAN - WS 구독 시작 | tr_key=A01606
+2026-03-16 11:42:43,325 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=False | dq=simulated | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 11:43:31,674 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 809.20  TP=OFF  SL=810.45  TRAIL=12틱(활성:8틱)
+2026-03-16 11:45:11,283 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 808.35  TP=OFF  SL=809.60  TRAIL=12틱(활성:8틱)
+2026-03-16 11:47:43,412 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=False | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 11:50:13,463 [INFO] MMEAN.LLMController - LLM baseline fallback → 장중 재시도 | session_date=2026-03-16 | t=11:50
+2026-03-16 11:50:13,463 [INFO] MMEAN - LLM 컨트롤러 기동 | key=2026-03-16 11:50 | dq=live
+2026-03-16 11:50:13,476 [INFO] MMEAN.LLMController - LLM 전략 컨트롤러 실행 | session_date=2026-03-16 | shadow=True | prompt_hash=264c1be1ed4e
+2026-03-16 11:50:13,476 [INFO] MMEAN.LLM - LLM query 시작 | layer=strategy | providers=3 | daily=0/144 | last_call_ago=Nones | min_interval=60s
+2026-03-16 11:50:13,477 [INFO] MMEAN.LLM - LLM 요청 | layer=strategy | provider=Claude | model=claude-sonnet-4-20250514 | try=1/3
+2026-03-16 11:50:17,397 [ERROR] MMEAN.LLM - LLM 예기치 못한 오류 | layer=strategy | provider=Claude
+Traceback (most recent call last):
+  File "C:\mme\mmean\llm_chain.py", line 478, in query
+    parsed = json.loads(cleaned)
+  File "C:\Users\besta\miniconda3\envs\mmean\lib\json\__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+  File "C:\Users\besta\miniconda3\envs\mmean\lib\json\decoder.py", line 337, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+  File "C:\Users\besta\miniconda3\envs\mmean\lib\json\decoder.py", line 355, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 8 column 19 (char 171)
+2026-03-16 11:50:17,400 [INFO] MMEAN.LLM - LLM 요청 | layer=strategy | provider=GPT | model=gpt-4o-mini | try=1/3
+2026-03-16 11:50:21,394 [INFO] MMEAN.LLM - LLM 성공 | layer=strategy | provider=GPT | 3994ms | try=1 | tokens=664
+2026-03-16 11:50:21,395 [INFO] MMEAN.LLMController - LLM 전략 로그모드 | mode=normal | cfg_patch={'enter_score': 4.95, 'sim_tp_ticks': 4, 'sim_sl_ticks': 14, 'basis_strong': 0.2975, 'oi_negative_strong': -94.1176} | trend_patch={} | reason=현재 외국인 매수세가 강하게 부정적이며, 단기적인 반등 가능성에 대한 조심스러운 접근 필요. 전반적인 시장 상황과 손실 감소를 고려하여 보수적인 전략 조정.
+2026-03-16 11:50:21,407 [WARNING] MMEAN.LLMController - LLM baseline fallback 유지 (is_fallback=1) | session_date=2026-03-16 | status=success | fallback_depth=1
+2026-03-16 11:50:51,416 [INFO] MMEAN.LLMController - LLM baseline fallback → 장중 재시도 | session_date=2026-03-16 | t=11:50
+2026-03-16 11:52:53,865 [INFO] MMEAN - [LLM진단] should_run=False | last_key=2026-03-16 11:50 | valid_baseline=False | dq=live | daily_calls=1/144 | last_call_ago=160s | interval_min=60.0
+2026-03-16 11:54:07,594 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 810.95  TP=OFF  SL=812.20  TRAIL=12틱(활성:8틱)
+2026-03-16 12:00:08,513 [INFO] MMEAN.DBSetup - DB setup 완료 | path=C:\mme\mmean\storage\mmean.db
+2026-03-16 12:00:08,526 [INFO] MMEAN.ParamStore - ParamStore 초기화 완료 | db=C:\mme\mmean\storage\mmean.db
+2026-03-16 12:00:08,528 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 12:00:08,530 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mme\mmean\prompts
+2026-03-16 12:00:08,531 [INFO] MMEAN.LLM - Claude 활성 | model=claude-sonnet-4-20250514 | key=sk-ant..._gAA (길이=108)
+2026-03-16 12:00:08,531 [INFO] MMEAN.LLM - GPT 활성 | model=gpt-4o-mini | key=sk-pro...3x4A (길이=164)
+2026-03-16 12:00:08,532 [INFO] MMEAN.LLM - Gemini 활성 | model=gemini-2.0-flash | key=AIzaSy...Z3aw (길이=39)
+2026-03-16 12:00:08,532 [INFO] MMEAN.LLM - LLM 체인 구성 완료 | 공급자=3개 | timeout=(connect=2.0s, read=10.0s) | max_retries=3 | min_interval=60s
+2026-03-16 12:00:08,535 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-16 12:00:08,537 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 12:00:08,538 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 12:00:08,540 [INFO] MMEAN.ABSimRunner - ABSimRunner 초기화 완료
+2026-03-16 12:00:08,550 [INFO] MMEAN - MMEAN 가동
+2026-03-16 12:00:08,551 [INFO] MMEAN - investor 폴링 시작 | market=K2I sub=F001
+2026-03-16 12:00:08,551 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-16 12:00:08,552 [INFO] MMEAN - WS 구독 시작 | tr_key=A01606
+2026-03-16 12:00:08,553 [INFO] MMEAN - LLM 컨트롤러 루프 시작 | strategy=08:50 | recovery_interval=10min | recovery_end=15:00
+2026-03-16 12:00:08,553 [WARNING] MMEAN - 데이터 게이트 차단 | quality=simulated | stale=0s | 진입/기록 차단
+2026-03-16 12:00:08,553 [INFO] MMEAN - LLM 공급자 등록 | providers=['Claude', 'GPT', 'Gemini']
+2026-03-16 12:00:08,554 [INFO] MMEAN - [LLM진단] should_run=True | last_key= | valid_baseline=False | dq=simulated | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 12:00:08,556 [INFO] MMEAN - LLM baseline fallback → 장중 재시도 | key=2026-03-16 12:00 | dq=simulated
+2026-03-16 12:00:08,557 [INFO] MMEAN - LLM 컨트롤러 기동 | key=2026-03-16 12:00 | dq=simulated
+2026-03-16 12:00:08,559 [INFO] MMEAN.LLMController - LLM 전략 컨트롤러 실행 | session_date=2026-03-16 | shadow=True | prompt_hash=264c1be1ed4e
+2026-03-16 12:00:08,559 [INFO] MMEAN.LLM - LLM query 시작 | layer=strategy | providers=3 | daily=0/144 | last_call_ago=Nones | min_interval=60s
+2026-03-16 12:00:08,560 [INFO] MMEAN.LLM - LLM 요청 | layer=strategy | provider=Claude | model=claude-sonnet-4-20250514 | try=1/3
+2026-03-16 12:00:13,569 [WARNING] MMEAN.LLM - LLM JSON 파싱 실패 | layer=strategy | provider=Claude | err=Expecting value: line 7 column 22 (char 148) | raw_preview={↵  "mode": "CAUTIOUS",↵  "max_trades_per_day": 15,↵  "daily_loss_limit": 0.85,↵  "long_weight": 0.75,↵  "short_weight": 0.55,↵  "enter_score_adj": +5,↵  "tp_ticks_adj": +2,↵  "sl_ticks_adj": -1,↵  "reason": "외국인 매수세 중립+OI중립으로 방향성 불분명, 최근 5일 큰 손실로 보수적 접근 필요, 승률 26.8% 저조로 진입 기준 강화하되 TP는 소폭 확대"↵}
+2026-03-16 12:00:13,570 [WARNING] MMEAN.LLM - LLM 파싱 오류 | layer=strategy | provider=Claude | JSON 파싱 실패: Expecting value: line 7 column 22 (char 148)
+2026-03-16 12:00:13,573 [INFO] MMEAN.LLM - LLM 요청 | layer=strategy | provider=GPT | model=gpt-4o-mini | try=1/3
+2026-03-16 12:00:17,264 [INFO] MMEAN.LLM - LLM 성공 | layer=strategy | provider=GPT | 3691ms | try=1 | tokens=656
+2026-03-16 12:00:17,264 [INFO] MMEAN.LLMController - LLM 전략 로그모드 | mode=normal | cfg_patch={'enter_score': 5.1, 'sim_tp_ticks': 4, 'sim_sl_ticks': 14, 'basis_strong': 0.2975, 'oi_negative_strong': -94.1176} | trend_patch={} | reason=외국인 수급이 변화 없이 중립적이며, 최근 성과가 부진하므로 보수적으로 조정하여 리스크를 관리하고 시장 반응을 지켜보려는 의도.
+2026-03-16 12:00:17,269 [INFO] MMEAN.LLMController - LLM baseline 유효 확정 (is_fallback=0) | session_date=2026-03-16 | provider=GPT | fallback_depth=1
+2026-03-16 12:03:24,974 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 812.60  TP=OFF  SL=813.85  TRAIL=12틱(활성:8틱)
+2026-03-16 12:05:17,341 [INFO] MMEAN - [LLM진단] should_run=False | last_key=2026-03-16 12:00 | valid_baseline=False | dq=live | daily_calls=1/144 | last_call_ago=309s | interval_min=60.0
+2026-03-16 12:05:59,100 [INFO] MMEAN.sim - [SIM] 트레일링 활성 | extreme=812.15 | 유리이동=9.0틱
+2026-03-16 12:09:24,637 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 813.50  TP=OFF  SL=814.75  TRAIL=12틱(활성:8틱)
+2026-03-16 12:10:17,425 [INFO] MMEAN - [LLM진단] should_run=True | last_key=2026-03-16 12:00 | valid_baseline=False | dq=live | daily_calls=1/144 | last_call_ago=609s | interval_min=60.0
+2026-03-16 12:10:17,425 [INFO] MMEAN - LLM baseline fallback → 장중 재시도 | key=2026-03-16 12:10 | dq=live
+2026-03-16 12:10:17,426 [INFO] MMEAN - LLM 컨트롤러 기동 | key=2026-03-16 12:10 | dq=live
+2026-03-16 12:10:17,427 [INFO] MMEAN.LLMController - LLM 전략 컨트롤러 실행 | session_date=2026-03-16 | shadow=True | prompt_hash=264c1be1ed4e
+2026-03-16 12:10:17,427 [INFO] MMEAN.LLM - LLM query 시작 | layer=strategy | providers=3 | daily=1/144 | last_call_ago=608.9s | min_interval=60s
+2026-03-16 12:10:17,427 [INFO] MMEAN.LLM - LLM 요청 | layer=strategy | provider=Claude | model=claude-sonnet-4-20250514 | try=1/3
+2026-03-16 12:10:21,651 [INFO] MMEAN.LLM - LLM 성공 | layer=strategy | provider=Claude | 4222ms | try=1 | tokens=895
+2026-03-16 12:10:21,651 [INFO] MMEAN.LLMController - LLM 전략 로그모드 | mode=conservative | cfg_patch={'enter_score': 6.0, 'sim_tp_ticks': 2, 'sim_sl_ticks': 9, 'basis_strong': 0.2975, 'oi_negative_strong': -94.1176} | trend_patch={} | reason=외국인 매도세(-1796) 지속, 낮은 승률(26.8%) 대응으로 보수적 접근. 거래량 감소로 진입 기준 강화하되 소폭 조정
+2026-03-16 12:10:21,654 [INFO] MMEAN.LLMController - LLM baseline 유효 확정 (is_fallback=0) | session_date=2026-03-16 | provider=Claude | fallback_depth=0
+2026-03-16 12:11:59,599 [INFO] MMEAN.sim - [SIM] 트레일링 활성 | extreme=813.05 | 유리이동=9.0틱
+2026-03-16 12:15:21,730 [INFO] MMEAN - [LLM진단] should_run=False | last_key=2026-03-16 12:10 | valid_baseline=False | dq=live | daily_calls=2/144 | last_call_ago=304s | interval_min=60.0
+2026-03-16 12:17:07,729 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 812.60  TP=OFF  SL=813.85  TRAIL=12틱(활성:8틱)
+2026-03-16 12:17:35,152 [INFO] MMEAN.DBSetup - DB setup 완료 | path=C:\mme\mmean\storage\mmean.db
+2026-03-16 12:17:35,180 [INFO] MMEAN.ParamStore - ParamStore 초기화 완료 | db=C:\mme\mmean\storage\mmean.db
+2026-03-16 12:17:35,182 [WARNING] MMEAN.sim - [SIM] 미결 포지션 복원 | SHORT | 진입=812.60 | time=2026-03-16 12:17:07.728
+2026-03-16 12:17:35,182 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 12:17:35,184 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mme\mmean\prompts
+2026-03-16 12:17:35,185 [INFO] MMEAN.LLM - Claude 활성 | model=claude-sonnet-4-20250514 | key=sk-ant..._gAA (길이=108)
+2026-03-16 12:17:35,185 [INFO] MMEAN.LLM - GPT 활성 | model=gpt-4o-mini | key=sk-pro...3x4A (길이=164)
+2026-03-16 12:17:35,185 [INFO] MMEAN.LLM - Gemini 활성 | model=gemini-2.0-flash | key=AIzaSy...Z3aw (길이=39)
+2026-03-16 12:17:35,185 [INFO] MMEAN.LLM - LLM 체인 구성 완료 | 공급자=3개 | timeout=(connect=2.0s, read=10.0s) | max_retries=3 | min_interval=60s
+2026-03-16 12:17:35,188 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-16 12:17:35,190 [WARNING] MMEAN.sim - [SIM] 미결 포지션 복원 | SHORT | 진입=812.60 | time=2026-03-16 12:17:07.728
+2026-03-16 12:17:35,191 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 12:17:35,192 [WARNING] MMEAN.sim - [SIM] 미결 포지션 복원 | SHORT | 진입=812.60 | time=2026-03-16 12:17:07.728
+2026-03-16 12:17:35,192 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 12:17:35,194 [INFO] MMEAN.ABSimRunner - ABSimRunner 초기화 완료
+2026-03-16 12:17:35,203 [INFO] MMEAN - MMEAN 가동
+2026-03-16 12:17:35,204 [INFO] MMEAN - investor 폴링 시작 | market=K2I sub=F001
+2026-03-16 12:17:35,204 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-16 12:17:35,206 [INFO] MMEAN - LLM 컨트롤러 루프 시작 | strategy=08:50 | recovery_interval=10min | recovery_end=15:00
+2026-03-16 12:17:35,206 [WARNING] MMEAN - 데이터 게이트 차단 | quality=simulated | stale=0s | 진입/기록 차단
+2026-03-16 12:17:35,206 [INFO] MMEAN - LLM 공급자 등록 | providers=['Claude', 'GPT', 'Gemini']
+2026-03-16 12:17:35,206 [INFO] MMEAN - WS 구독 시작 | tr_key=A01606
+2026-03-16 12:17:35,207 [INFO] MMEAN.sim - [SIM] 트레일링 활성 | extreme=350.00 | 유리이동=9252.0틱
+2026-03-16 12:17:35,207 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=simulated | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 12:17:36,227 [INFO] MMEAN.sim - [SIM] 트레일링 활성 | extreme=0.00 | 유리이동=16252.0틱
+2026-03-16 12:17:36,227 [INFO] MMEAN.sim - [SIM] 트레일링 활성 | extreme=0.00 | 유리이동=16252.0틱
+2026-03-16 12:17:47,824 [ERROR] MMEAN - 엔진 오류: database is locked
+Traceback (most recent call last):
+  File "C:\mme\mmean\engine_runtime.py", line 845, in engine_loop
+    runtime.sim_engine.on_tick(
+  File "C:\mme\mmean\sim_engine.py", line 701, in on_tick
+    trade  = self._close(ts, exit_p, bias, tpsl, snap, data_gate_ok)
+  File "C:\mme\mmean\sim_engine.py", line 573, in _close
+    self._recorder.insert_trade({
+  File "C:\mme\mmean\regime_recorder.py", line 130, in insert_trade
+    self.conn.execute("""
+sqlite3.OperationalError: database is locked
+2026-03-16 12:17:47,826 [ERROR] MMEAN - 신규 에러 [engine_error]: database is locked
+2026-03-16 12:17:59,425 [ERROR] MMEAN - 엔진 오류: database is locked
+Traceback (most recent call last):
+  File "C:\mme\mmean\engine_runtime.py", line 815, in engine_loop
+    runtime.recorder.insert_tick(state["timestamp"], res, state)
+  File "C:\mme\mmean\regime_recorder.py", line 41, in insert_tick
+    cur.execute("""
+sqlite3.OperationalError: database is locked
+2026-03-16 12:18:11,050 [ERROR] MMEAN - 엔진 오류: database is locked
+Traceback (most recent call last):
+  File "C:\mme\mmean\engine_runtime.py", line 815, in engine_loop
+    runtime.recorder.insert_tick(state["timestamp"], res, state)
+  File "C:\mme\mmean\regime_recorder.py", line 41, in insert_tick
+    cur.execute("""
+sqlite3.OperationalError: database is locked
+2026-03-16 12:18:11,052 [WARNING] MMEAN - 에러 3회 반복 [engine_error]: database is locked
+2026-03-16 12:18:11,056 [CRITICAL] MMEAN - 서킷 브레이커 오픈 | [engine_error] 3회 연속 | 60s 후 half-open
+2026-03-16 12:19:22,804 [ERROR] MMEAN - 엔진 오류: database is locked
+Traceback (most recent call last):
+  File "C:\mme\mmean\engine_runtime.py", line 815, in engine_loop
+    runtime.recorder.insert_tick(state["timestamp"], res, state)
+  File "C:\mme\mmean\regime_recorder.py", line 41, in insert_tick
+    cur.execute("""
+sqlite3.OperationalError: database is locked
+2026-03-16 12:19:34,407 [ERROR] MMEAN - 엔진 오류: database is locked
+Traceback (most recent call last):
+  File "C:\mme\mmean\engine_runtime.py", line 815, in engine_loop
+    runtime.recorder.insert_tick(state["timestamp"], res, state)
+  File "C:\mme\mmean\regime_recorder.py", line 41, in insert_tick
+    cur.execute("""
+sqlite3.OperationalError: database is locked
+2026-03-16 12:19:34,408 [CRITICAL] MMEAN - 하드스톱 발동 | [engine_error] 5회 연속 | /api/engine/resume 으로 수동 해제 필요
+2026-03-16 12:21:13,743 [INFO] MMEAN.DBSetup - DB setup 완료 | path=C:\mme\mmean\storage\mmean.db
+2026-03-16 12:21:13,764 [INFO] MMEAN.ParamStore - ParamStore 초기화 완료 | db=C:\mme\mmean\storage\mmean.db
+2026-03-16 12:21:13,766 [WARNING] MMEAN.sim - [SIM] 미결 포지션 복원 | SHORT | 진입=812.60 | time=2026-03-16 12:17:07.728
+2026-03-16 12:21:13,766 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 12:21:13,768 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mme\mmean\prompts
+2026-03-16 12:21:13,769 [INFO] MMEAN.LLM - Claude 활성 | model=claude-sonnet-4-20250514 | key=sk-ant..._gAA (길이=108)
+2026-03-16 12:21:13,769 [INFO] MMEAN.LLM - GPT 활성 | model=gpt-4o-mini | key=sk-pro...3x4A (길이=164)
+2026-03-16 12:21:13,769 [INFO] MMEAN.LLM - Gemini 활성 | model=gemini-2.0-flash | key=AIzaSy...Z3aw (길이=39)
+2026-03-16 12:21:13,769 [INFO] MMEAN.LLM - LLM 체인 구성 완료 | 공급자=3개 | timeout=(connect=2.0s, read=10.0s) | max_retries=3 | min_interval=60s
+2026-03-16 12:21:13,772 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-16 12:21:13,774 [WARNING] MMEAN.sim - [SIM] 미결 포지션 복원 | SHORT | 진입=812.60 | time=2026-03-16 12:17:07.728
+2026-03-16 12:21:13,774 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 12:21:13,776 [WARNING] MMEAN.sim - [SIM] 미결 포지션 복원 | SHORT | 진입=812.60 | time=2026-03-16 12:17:07.728
+2026-03-16 12:21:13,776 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 12:21:13,779 [INFO] MMEAN.ABSimRunner - ABSimRunner 초기화 완료
+2026-03-16 12:21:13,787 [INFO] MMEAN - MMEAN 가동
+2026-03-16 12:21:13,788 [INFO] MMEAN - investor 폴링 시작 | market=K2I sub=F001
+2026-03-16 12:21:13,788 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-16 12:21:13,790 [INFO] MMEAN - LLM 컨트롤러 루프 시작 | strategy=08:50 | recovery_interval=10min | recovery_end=15:00
+2026-03-16 12:21:13,790 [WARNING] MMEAN - 데이터 게이트 차단 | quality=simulated | stale=0s | 진입/기록 차단
+2026-03-16 12:21:13,790 [INFO] MMEAN - LLM 공급자 등록 | providers=['Claude', 'GPT', 'Gemini']
+2026-03-16 12:21:13,791 [INFO] MMEAN.sim - [SIM] 트레일링 활성 | extreme=350.00 | 유리이동=9252.0틱
+2026-03-16 12:21:13,791 [INFO] MMEAN - WS 구독 시작 | tr_key=A01606
+2026-03-16 12:21:13,791 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=simulated | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 12:21:25,405 [ERROR] MMEAN - 엔진 오류: database is locked
+Traceback (most recent call last):
+  File "C:\mme\mmean\engine_runtime.py", line 845, in engine_loop
+    runtime.sim_engine.on_tick(
+  File "C:\mme\mmean\sim_engine.py", line 701, in on_tick
+    trade  = self._close(ts, exit_p, bias, tpsl, snap, data_gate_ok)
+  File "C:\mme\mmean\sim_engine.py", line 573, in _close
+    self._recorder.insert_trade({
+  File "C:\mme\mmean\regime_recorder.py", line 130, in insert_trade
+    self.conn.execute("""
+sqlite3.OperationalError: database is locked
+2026-03-16 12:21:25,411 [ERROR] MMEAN - 신규 에러 [engine_error]: database is locked
+2026-03-16 12:21:37,017 [ERROR] MMEAN - 엔진 오류: database is locked
+Traceback (most recent call last):
+  File "C:\mme\mmean\engine_runtime.py", line 815, in engine_loop
+    runtime.recorder.insert_tick(state["timestamp"], res, state)
+  File "C:\mme\mmean\regime_recorder.py", line 41, in insert_tick
+    cur.execute("""
+sqlite3.OperationalError: database is locked
+2026-03-16 12:21:48,629 [ERROR] MMEAN - 엔진 오류: database is locked
+Traceback (most recent call last):
+  File "C:\mme\mmean\engine_runtime.py", line 815, in engine_loop
+    runtime.recorder.insert_tick(state["timestamp"], res, state)
+  File "C:\mme\mmean\regime_recorder.py", line 41, in insert_tick
+    cur.execute("""
+sqlite3.OperationalError: database is locked
+2026-03-16 12:21:48,630 [WARNING] MMEAN - 에러 3회 반복 [engine_error]: database is locked
+2026-03-16 12:21:48,630 [CRITICAL] MMEAN - 서킷 브레이커 오픈 | [engine_error] 3회 연속 | 60s 후 half-open
+2026-03-16 12:23:00,288 [ERROR] MMEAN - 엔진 오류: database is locked
+Traceback (most recent call last):
+  File "C:\mme\mmean\engine_runtime.py", line 815, in engine_loop
+    runtime.recorder.insert_tick(state["timestamp"], res, state)
+  File "C:\mme\mmean\regime_recorder.py", line 41, in insert_tick
+    cur.execute("""
+sqlite3.OperationalError: database is locked
+2026-03-16 12:23:11,885 [ERROR] MMEAN - 엔진 오류: database is locked
+Traceback (most recent call last):
+  File "C:\mme\mmean\engine_runtime.py", line 815, in engine_loop
+    runtime.recorder.insert_tick(state["timestamp"], res, state)
+  File "C:\mme\mmean\regime_recorder.py", line 41, in insert_tick
+    cur.execute("""
+sqlite3.OperationalError: database is locked
+2026-03-16 12:23:11,886 [CRITICAL] MMEAN - 하드스톱 발동 | [engine_error] 5회 연속 | /api/engine/resume 으로 수동 해제 필요
+2026-03-16 12:26:13,876 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 12:31:13,974 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 12:33:46,653 [INFO] MMEAN.DBSetup - DB setup 완료 | path=C:\mme\mmean\storage\mmean.db
+2026-03-16 12:33:46,679 [INFO] MMEAN.ParamStore - ParamStore 초기화 완료 | db=C:\mme\mmean\storage\mmean.db
+2026-03-16 12:33:46,681 [WARNING] MMEAN.sim - [SIM] 미결 포지션 복원 | SHORT | 진입=812.60 | time=2026-03-16 12:17:07.728
+2026-03-16 12:33:46,682 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 12:33:46,684 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mme\mmean\prompts
+2026-03-16 12:33:46,684 [INFO] MMEAN.LLM - Claude 활성 | model=claude-sonnet-4-20250514 | key=sk-ant..._gAA (길이=108)
+2026-03-16 12:33:46,685 [INFO] MMEAN.LLM - GPT 활성 | model=gpt-4o-mini | key=sk-pro...3x4A (길이=164)
+2026-03-16 12:33:46,685 [INFO] MMEAN.LLM - Gemini 활성 | model=gemini-2.0-flash | key=AIzaSy...Z3aw (길이=39)
+2026-03-16 12:33:46,685 [INFO] MMEAN.LLM - LLM 체인 구성 완료 | 공급자=3개 | timeout=(connect=2.0s, read=10.0s) | max_retries=3 | min_interval=60s
+2026-03-16 12:33:46,688 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-16 12:33:46,690 [WARNING] MMEAN.sim - [SIM] 미결 포지션 복원 | SHORT | 진입=812.60 | time=2026-03-16 12:17:07.728
+2026-03-16 12:33:46,690 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 12:33:46,692 [WARNING] MMEAN.sim - [SIM] 미결 포지션 복원 | SHORT | 진입=812.60 | time=2026-03-16 12:17:07.728
+2026-03-16 12:33:46,692 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 12:33:46,693 [INFO] MMEAN.ABSimRunner - ABSimRunner 초기화 완료
+2026-03-16 12:33:46,702 [INFO] MMEAN - MMEAN 가동
+2026-03-16 12:33:46,703 [INFO] MMEAN - investor 폴링 시작 | market=K2I sub=F001
+2026-03-16 12:33:46,703 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-16 12:33:46,704 [INFO] MMEAN - LLM 컨트롤러 루프 시작 | strategy=08:50 | recovery_interval=10min | recovery_end=15:00
+2026-03-16 12:33:46,705 [WARNING] MMEAN - 데이터 게이트 차단 | quality=simulated | stale=0s | 진입/기록 차단
+2026-03-16 12:33:46,705 [INFO] MMEAN - LLM 공급자 등록 | providers=['Claude', 'GPT', 'Gemini']
+2026-03-16 12:33:46,706 [INFO] MMEAN - WS 구독 시작 | tr_key=A01606
+2026-03-16 12:33:46,706 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=simulated | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 12:34:19,397 [ERROR] MMEAN - 엔진 오류: database is locked
+Traceback (most recent call last):
+  File "C:\mme\mmean\engine_runtime.py", line 845, in engine_loop
+    runtime.sim_engine.on_tick(
+  File "C:\mme\mmean\sim_engine.py", line 705, in on_tick
+    trade  = self._close(ts, exit_p, bias, tpsl, snap, data_gate_ok)
+  File "C:\mme\mmean\sim_engine.py", line 574, in _close
+    self._recorder.insert_trade({
+  File "C:\mme\mmean\regime_recorder.py", line 131, in insert_trade
+    self.conn.execute("""
+sqlite3.OperationalError: database is locked
+2026-03-16 12:34:19,405 [ERROR] MMEAN - 신규 에러 [engine_error]: database is locked
+2026-03-16 12:34:52,088 [ERROR] MMEAN - 엔진 오류: database is locked
+Traceback (most recent call last):
+  File "C:\mme\mmean\engine_runtime.py", line 815, in engine_loop
+    runtime.recorder.insert_tick(state["timestamp"], res, state)
+  File "C:\mme\mmean\regime_recorder.py", line 42, in insert_tick
+    cur.execute("""
+sqlite3.OperationalError: database is locked
+2026-03-16 12:35:24,828 [ERROR] MMEAN - 엔진 오류: database is locked
+Traceback (most recent call last):
+  File "C:\mme\mmean\engine_runtime.py", line 815, in engine_loop
+    runtime.recorder.insert_tick(state["timestamp"], res, state)
+  File "C:\mme\mmean\regime_recorder.py", line 42, in insert_tick
+    cur.execute("""
+sqlite3.OperationalError: database is locked
+2026-03-16 12:35:24,831 [WARNING] MMEAN - 에러 3회 반복 [engine_error]: database is locked
+2026-03-16 12:35:24,833 [CRITICAL] MMEAN - 서킷 브레이커 오픈 | [engine_error] 3회 연속 | 60s 후 half-open
+2026-03-16 12:36:57,610 [ERROR] MMEAN - 엔진 오류: database is locked
+Traceback (most recent call last):
+  File "C:\mme\mmean\engine_runtime.py", line 815, in engine_loop
+    runtime.recorder.insert_tick(state["timestamp"], res, state)
+  File "C:\mme\mmean\regime_recorder.py", line 42, in insert_tick
+    cur.execute("""
+sqlite3.OperationalError: database is locked
+2026-03-16 12:37:30,280 [ERROR] MMEAN - 엔진 오류: database is locked
+Traceback (most recent call last):
+  File "C:\mme\mmean\engine_runtime.py", line 815, in engine_loop
+    runtime.recorder.insert_tick(state["timestamp"], res, state)
+  File "C:\mme\mmean\regime_recorder.py", line 42, in insert_tick
+    cur.execute("""
+sqlite3.OperationalError: database is locked
+2026-03-16 12:37:30,283 [CRITICAL] MMEAN - 하드스톱 발동 | [engine_error] 5회 연속 | /api/engine/resume 으로 수동 해제 필요
+2026-03-16 12:38:46,799 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 12:43:46,862 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 12:44:26,042 [INFO] MMEAN.DBSetup - DB setup 완료 | path=C:\mme\mmean\storage\mmean.db
+2026-03-16 12:44:26,062 [INFO] MMEAN.ParamStore - ParamStore 초기화 완료 | db=C:\mme\mmean\storage\mmean.db
+2026-03-16 12:44:26,064 [WARNING] MMEAN.sim - [SIM] 미결 포지션 복원 | SHORT | 진입=812.60 | time=2026-03-16 12:17:07.728
+2026-03-16 12:44:26,064 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 12:44:26,067 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mme\mmean\prompts
+2026-03-16 12:44:26,067 [INFO] MMEAN.LLM - Claude 활성 | model=claude-sonnet-4-20250514 | key=sk-ant..._gAA (길이=108)
+2026-03-16 12:44:26,067 [INFO] MMEAN.LLM - GPT 활성 | model=gpt-4o-mini | key=sk-pro...3x4A (길이=164)
+2026-03-16 12:44:26,067 [INFO] MMEAN.LLM - Gemini 활성 | model=gemini-2.0-flash | key=AIzaSy...Z3aw (길이=39)
+2026-03-16 12:44:26,068 [INFO] MMEAN.LLM - LLM 체인 구성 완료 | 공급자=3개 | timeout=(connect=2.0s, read=10.0s) | max_retries=3 | min_interval=60s
+2026-03-16 12:44:26,071 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-16 12:44:26,073 [WARNING] MMEAN.sim - [SIM] 미결 포지션 복원 | SHORT | 진입=812.60 | time=2026-03-16 12:17:07.728
+2026-03-16 12:44:26,073 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 12:44:26,074 [WARNING] MMEAN.sim - [SIM] 미결 포지션 복원 | SHORT | 진입=812.60 | time=2026-03-16 12:17:07.728
+2026-03-16 12:44:26,074 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 12:44:26,076 [INFO] MMEAN.ABSimRunner - ABSimRunner 초기화 완료
+2026-03-16 12:44:26,085 [INFO] MMEAN - MMEAN 가동
+2026-03-16 12:44:26,086 [INFO] MMEAN - investor 폴링 시작 | market=K2I sub=F001
+2026-03-16 12:44:26,086 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-16 12:44:26,087 [INFO] MMEAN - LLM 컨트롤러 루프 시작 | strategy=08:50 | recovery_interval=10min | recovery_end=15:00
+2026-03-16 12:44:26,087 [WARNING] MMEAN - 데이터 게이트 차단 | quality=simulated | stale=0s | 진입/기록 차단
+2026-03-16 12:44:26,088 [INFO] MMEAN - LLM 공급자 등록 | providers=['Claude', 'GPT', 'Gemini']
+2026-03-16 12:44:26,088 [INFO] MMEAN - WS 구독 시작 | tr_key=A01606
+2026-03-16 12:44:26,089 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=simulated | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 12:44:27,101 [INFO] MMEAN.sim - [SIM] 트레일링 활성 | extreme=0.00 | 유리이동=16252.0틱
+2026-03-16 12:44:27,102 [INFO] MMEAN.sim - [SIM] 트레일링 활성 | extreme=0.00 | 유리이동=16252.0틱
+2026-03-16 12:44:27,102 [INFO] MMEAN.sim - [SIM] 트레일링 활성 | extreme=0.00 | 유리이동=16252.0틱
+2026-03-16 12:44:59,791 [ERROR] MMEAN - 엔진 오류: database is locked
+Traceback (most recent call last):
+  File "C:\mme\mmean\engine_runtime.py", line 845, in engine_loop
+    runtime.sim_engine.on_tick(
+  File "C:\mme\mmean\sim_engine.py", line 705, in on_tick
+    trade  = self._close(ts, exit_p, bias, tpsl, snap, data_gate_ok)
+  File "C:\mme\mmean\sim_engine.py", line 574, in _close
+    self._recorder.insert_trade({
+  File "C:\mme\mmean\regime_recorder.py", line 131, in insert_trade
+    self.conn.execute("""
+sqlite3.OperationalError: database is locked
+2026-03-16 12:44:59,799 [ERROR] MMEAN - 신규 에러 [engine_error]: database is locked
+2026-03-16 12:45:32,490 [ERROR] MMEAN - 엔진 오류: database is locked
+Traceback (most recent call last):
+  File "C:\mme\mmean\engine_runtime.py", line 815, in engine_loop
+    runtime.recorder.insert_tick(state["timestamp"], res, state)
+  File "C:\mme\mmean\regime_recorder.py", line 42, in insert_tick
+    cur.execute("""
+sqlite3.OperationalError: database is locked
+2026-03-16 12:46:05,184 [ERROR] MMEAN - 엔진 오류: database is locked
+Traceback (most recent call last):
+  File "C:\mme\mmean\engine_runtime.py", line 815, in engine_loop
+    runtime.recorder.insert_tick(state["timestamp"], res, state)
+  File "C:\mme\mmean\regime_recorder.py", line 42, in insert_tick
+    cur.execute("""
+sqlite3.OperationalError: database is locked
+2026-03-16 12:46:05,187 [WARNING] MMEAN - 에러 3회 반복 [engine_error]: database is locked
+2026-03-16 12:46:05,189 [CRITICAL] MMEAN - 서킷 브레이커 오픈 | [engine_error] 3회 연속 | 60s 후 half-open
+2026-03-16 12:47:37,910 [ERROR] MMEAN - 엔진 오류: database is locked
+Traceback (most recent call last):
+  File "C:\mme\mmean\engine_runtime.py", line 815, in engine_loop
+    tc.trend_weight_long = challenger_params.trend_weight_long
+  File "C:\mme\mmean\regime_recorder.py", line 42, in insert_tick
+    cur.execute("""
+sqlite3.OperationalError: database is locked
+2026-03-16 12:48:10,610 [ERROR] MMEAN - 엔진 오류: database is locked
+Traceback (most recent call last):
+  File "C:\mme\mmean\engine_runtime.py", line 815, in engine_loop
+    tc.trend_weight_long = challenger_params.trend_weight_long
+  File "C:\mme\mmean\regime_recorder.py", line 42, in insert_tick
+    cur.execute("""
+sqlite3.OperationalError: database is locked
+2026-03-16 12:48:10,613 [CRITICAL] MMEAN - 하드스톱 발동 | [engine_error] 5회 연속 | /api/engine/resume 으로 수동 해제 필요
+2026-03-16 12:49:26,164 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 12:54:26,240 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 12:59:26,310 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 13:01:54,955 [INFO] MMEAN - PID 락 획득 | pid=3716 | path=C:\mme\mmean\storage\mmean.pid
+2026-03-16 13:01:54,958 [INFO] MMEAN.DBSetup - DB setup 완료 | path=C:\mme\mmean\storage\mmean.db
+2026-03-16 13:01:54,985 [INFO] MMEAN.ParamStore - ParamStore 초기화 완료 | db=C:\mme\mmean\storage\mmean.db
+2026-03-16 13:01:54,987 [WARNING] MMEAN.sim - [SIM] 미결 포지션 복원 | SHORT | 진입=812.60 | time=2026-03-16 12:17:07.728
+2026-03-16 13:01:54,987 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 13:01:54,989 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mme\mmean\prompts
+2026-03-16 13:01:54,990 [INFO] MMEAN.LLM - Claude 활성 | model=claude-sonnet-4-20250514 | key=sk-ant..._gAA (길이=108)
+2026-03-16 13:01:54,990 [INFO] MMEAN.LLM - GPT 활성 | model=gpt-4o-mini | key=sk-pro...3x4A (길이=164)
+2026-03-16 13:01:54,990 [INFO] MMEAN.LLM - Gemini 활성 | model=gemini-2.0-flash | key=AIzaSy...Z3aw (길이=39)
+2026-03-16 13:01:54,991 [INFO] MMEAN.LLM - LLM 체인 구성 완료 | 공급자=3개 | timeout=(connect=2.0s, read=10.0s) | max_retries=3 | min_interval=60s
+2026-03-16 13:01:54,993 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-16 13:01:54,995 [WARNING] MMEAN.sim - [SIM] 미결 포지션 복원 | SHORT | 진입=812.60 | time=2026-03-16 12:17:07.728
+2026-03-16 13:01:54,995 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 13:01:54,997 [WARNING] MMEAN.sim - [SIM] 미결 포지션 복원 | SHORT | 진입=812.60 | time=2026-03-16 12:17:07.728
+2026-03-16 13:01:54,998 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 13:01:54,999 [INFO] MMEAN.ABSimRunner - ABSimRunner 초기화 완료
+2026-03-16 13:01:55,008 [INFO] MMEAN - MMEAN 가동
+2026-03-16 13:01:55,009 [INFO] MMEAN - investor 폴링 시작 | market=K2I sub=F001
+2026-03-16 13:01:55,009 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-16 13:01:55,010 [INFO] MMEAN - LLM 컨트롤러 루프 시작 | strategy=08:50 | recovery_interval=10min | recovery_end=15:00
+2026-03-16 13:01:55,010 [INFO] MMEAN - PriceGuard seed | 복원 포지션 진입가 812.60
+2026-03-16 13:01:55,010 [INFO] MMEAN - LLM 공급자 등록 | providers=['Claude', 'GPT', 'Gemini']
+2026-03-16 13:01:55,010 [WARNING] MMEAN - 데이터 게이트 차단 | quality=simulated | stale=0s | 진입/기록 차단
+2026-03-16 13:01:55,011 [INFO] MMEAN - WS 구독 시작 | tr_key=A01606
+2026-03-16 13:01:55,011 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=simulated | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 13:01:56,019 [INFO] MMEAN - PriceGuard soft_reset | WS 재연결 | last=812.60
+2026-03-16 13:02:27,697 [ERROR] MMEAN - 엔진 오류: database is locked
+Traceback (most recent call last):
+  File "C:\mme\mmean\engine_runtime.py", line 961, in engine_loop
+    runtime.sim_engine.on_tick(
+  File "C:\mme\mmean\sim_engine.py", line 705, in on_tick
+    trade  = self._close(ts, exit_p, bias, tpsl, snap, data_gate_ok)
+  File "C:\mme\mmean\sim_engine.py", line 574, in _close
+    self._recorder.insert_trade({
+  File "C:\mme\mmean\regime_recorder.py", line 131, in insert_trade
+    self.conn.execute("""
+sqlite3.OperationalError: database is locked
+2026-03-16 13:02:27,718 [ERROR] MMEAN - 신규 에러 [engine_error]: database is locked
+2026-03-16 13:03:00,420 [ERROR] MMEAN - 엔진 오류: database is locked
+Traceback (most recent call last):
+  File "C:\mme\mmean\engine_runtime.py", line 931, in engine_loop
+    runtime.recorder.insert_tick(state["timestamp"], res, state)
+  File "C:\mme\mmean\regime_recorder.py", line 42, in insert_tick
+    cur.execute("""
+sqlite3.OperationalError: database is locked
+2026-03-16 13:03:33,133 [ERROR] MMEAN - 엔진 오류: database is locked
+Traceback (most recent call last):
+  File "C:\mme\mmean\engine_runtime.py", line 931, in engine_loop
+    runtime.recorder.insert_tick(state["timestamp"], res, state)
+  File "C:\mme\mmean\regime_recorder.py", line 42, in insert_tick
+    cur.execute("""
+sqlite3.OperationalError: database is locked
+2026-03-16 13:03:33,136 [WARNING] MMEAN - 에러 3회 반복 [engine_error]: database is locked
+2026-03-16 13:03:33,138 [CRITICAL] MMEAN - 서킷 브레이커 오픈 | [engine_error] 3회 연속 | 60s 후 half-open
+2026-03-16 13:05:05,939 [ERROR] MMEAN - 엔진 오류: database is locked
+Traceback (most recent call last):
+  File "C:\mme\mmean\engine_runtime.py", line 931, in engine_loop
+    runtime.recorder.insert_tick(state["timestamp"], res, state)
+  File "C:\mme\mmean\regime_recorder.py", line 42, in insert_tick
+    cur.execute("""
+sqlite3.OperationalError: database is locked
+2026-03-16 13:05:38,590 [ERROR] MMEAN - 엔진 오류: database is locked
+Traceback (most recent call last):
+  File "C:\mme\mmean\engine_runtime.py", line 931, in engine_loop
+    runtime.recorder.insert_tick(state["timestamp"], res, state)
+  File "C:\mme\mmean\regime_recorder.py", line 42, in insert_tick
+    cur.execute("""
+sqlite3.OperationalError: database is locked
+2026-03-16 13:05:38,593 [CRITICAL] MMEAN - 하드스톱 발동 | [engine_error] 5회 연속 | /api/engine/resume 으로 수동 해제 필요
+2026-03-16 13:06:55,089 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 13:11:19,968 [INFO] MMEAN - PID 락 | 구 프로세스 PID=3716 이미 종료됨
+2026-03-16 13:11:19,969 [INFO] MMEAN - PID 락 획득 | pid=31444 | path=C:\mme\mmean\storage\mmean.pid
+2026-03-16 13:11:19,974 [INFO] MMEAN.DBSetup - DB setup 완료 | path=C:\mme\mmean\storage\mmean.db
+2026-03-16 13:11:19,996 [INFO] MMEAN.ParamStore - ParamStore 초기화 완료 | db=C:\mme\mmean\storage\mmean.db
+2026-03-16 13:11:19,998 [WARNING] MMEAN.sim - [SIM] 미결 포지션 복원 | SHORT | 진입=812.60 | time=2026-03-16 12:17:07.728
+2026-03-16 13:11:19,998 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 13:11:20,001 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mme\mmean\prompts
+2026-03-16 13:11:20,001 [INFO] MMEAN.LLM - Claude 활성 | model=claude-sonnet-4-20250514 | key=sk-ant..._gAA (길이=108)
+2026-03-16 13:11:20,001 [INFO] MMEAN.LLM - GPT 활성 | model=gpt-4o-mini | key=sk-pro...3x4A (길이=164)
+2026-03-16 13:11:20,002 [INFO] MMEAN.LLM - Gemini 활성 | model=gemini-2.0-flash | key=AIzaSy...Z3aw (길이=39)
+2026-03-16 13:11:20,002 [INFO] MMEAN.LLM - LLM 체인 구성 완료 | 공급자=3개 | timeout=(connect=2.0s, read=10.0s) | max_retries=3 | min_interval=60s
+2026-03-16 13:11:20,005 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-16 13:11:20,007 [WARNING] MMEAN.sim - [SIM] 미결 포지션 복원 | SHORT | 진입=812.60 | time=2026-03-16 12:17:07.728
+2026-03-16 13:11:20,007 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 13:11:20,008 [WARNING] MMEAN.sim - [SIM] 미결 포지션 복원 | SHORT | 진입=812.60 | time=2026-03-16 12:17:07.728
+2026-03-16 13:11:20,009 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 13:11:20,011 [INFO] MMEAN.ABSimRunner - ABSimRunner 초기화 완료
+2026-03-16 13:11:20,020 [INFO] MMEAN - MMEAN 가동
+2026-03-16 13:11:20,020 [INFO] MMEAN - investor 폴링 시작 | market=K2I sub=F001
+2026-03-16 13:11:20,020 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-16 13:11:20,022 [INFO] MMEAN - LLM 컨트롤러 루프 시작 | strategy=08:50 | recovery_interval=10min | recovery_end=15:00
+2026-03-16 13:11:20,022 [INFO] MMEAN - PriceGuard seed | 복원 포지션 진입가 812.60
+2026-03-16 13:11:20,022 [INFO] MMEAN - LLM 공급자 등록 | providers=['Claude', 'GPT', 'Gemini']
+2026-03-16 13:11:20,023 [INFO] MMEAN - WS 구독 시작 | tr_key=A01606
+2026-03-16 13:11:20,023 [WARNING] MMEAN - 데이터 게이트 차단 | quality=simulated | stale=0s | 진입/기록 차단
+2026-03-16 13:11:20,024 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=simulated | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 13:11:21,031 [INFO] MMEAN - PriceGuard soft_reset | WS 재연결 | last=812.60
+2026-03-16 13:13:23,777 [INFO] MMEAN - PID 락 | 구 프로세스 PID=31444 이미 종료됨
+2026-03-16 13:13:23,778 [INFO] MMEAN - PID 락 획득 | pid=38056 | path=C:\mme\mmean\storage\mmean.pid
+2026-03-16 13:13:23,781 [INFO] MMEAN.DBSetup - DB setup 완료 | path=C:\mme\mmean\storage\mmean.db
+2026-03-16 13:13:23,801 [INFO] MMEAN.ParamStore - ParamStore 초기화 완료 | db=C:\mme\mmean\storage\mmean.db
+2026-03-16 13:13:23,803 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 13:13:23,805 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mme\mmean\prompts
+2026-03-16 13:13:23,805 [INFO] MMEAN.LLM - Claude 활성 | model=claude-sonnet-4-20250514 | key=sk-ant..._gAA (길이=108)
+2026-03-16 13:13:23,806 [INFO] MMEAN.LLM - GPT 활성 | model=gpt-4o-mini | key=sk-pro...3x4A (길이=164)
+2026-03-16 13:13:23,806 [INFO] MMEAN.LLM - Gemini 활성 | model=gemini-2.0-flash | key=AIzaSy...Z3aw (길이=39)
+2026-03-16 13:13:23,806 [INFO] MMEAN.LLM - LLM 체인 구성 완료 | 공급자=3개 | timeout=(connect=2.0s, read=10.0s) | max_retries=3 | min_interval=60s
+2026-03-16 13:13:23,809 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-16 13:13:23,810 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 13:13:23,812 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 13:13:23,814 [INFO] MMEAN.ABSimRunner - ABSimRunner 초기화 완료
+2026-03-16 13:13:23,824 [INFO] MMEAN - MMEAN 가동
+2026-03-16 13:13:23,824 [INFO] MMEAN - investor 폴링 시작 | market=K2I sub=F001
+2026-03-16 13:13:23,824 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-16 13:13:23,824 [INFO] MMEAN - LLM 컨트롤러 루프 시작 | strategy=08:50 | recovery_interval=10min | recovery_end=15:00
+2026-03-16 13:13:23,826 [WARNING] MMEAN - 데이터 게이트 차단 | quality=simulated | stale=0s | 진입/기록 차단
+2026-03-16 13:13:23,826 [INFO] MMEAN - LLM 공급자 등록 | providers=['Claude', 'GPT', 'Gemini']
+2026-03-16 13:13:23,826 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=simulated | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 13:13:23,826 [INFO] MMEAN - WS 구독 시작 | tr_key=A01606
+2026-03-16 13:13:24,830 [INFO] MMEAN - PriceGuard soft_reset | WS 재연결 | last=0.00
+2026-03-16 13:15:02,687 [INFO] MMEAN.sim - [SIM] 진입 LONG | 822.30  TP=OFF  SL=821.05  TRAIL=12틱(활성:8틱)
+2026-03-16 13:15:24,897 [INFO] MMEAN.sim - [SIM] 트레일링 활성 | extreme=822.80 | 유리이동=10.0틱
+2026-03-16 13:16:44,624 [INFO] MMEAN.sim - [SIM] 청산 TRAILING_STOP | pnl=+262500원 | max_fav=1.75pt | max_adv=0.10pt | trailing=ON | llm_score=-1.00 | cum=+262500원
+2026-03-16 13:18:23,892 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 13:23:23,961 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 13:28:24,031 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 13:33:24,136 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 13:38:24,209 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 13:43:30,598 [INFO] MMEAN - PID 락 | 구 프로세스 PID=38056 이미 종료됨
+2026-03-16 13:43:30,599 [INFO] MMEAN - PID 락 획득 | pid=28428 | path=C:\mme\mmean\storage\mmean.pid
+2026-03-16 13:43:30,602 [INFO] MMEAN.DBSetup - DB setup 완료 | path=C:\mme\mmean\storage\mmean.db
+2026-03-16 13:43:30,615 [INFO] MMEAN.ParamStore - ParamStore 초기화 완료 | db=C:\mme\mmean\storage\mmean.db
+2026-03-16 13:43:30,617 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 13:43:30,620 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mme\mmean\prompts
+2026-03-16 13:43:30,620 [INFO] MMEAN.LLM - Claude 활성 | model=claude-sonnet-4-20250514 | key=sk-ant..._gAA (길이=108)
+2026-03-16 13:43:30,620 [INFO] MMEAN.LLM - GPT 활성 | model=gpt-4o-mini | key=sk-pro...3x4A (길이=164)
+2026-03-16 13:43:30,621 [INFO] MMEAN.LLM - Gemini 활성 | model=gemini-2.0-flash | key=AIzaSy...Z3aw (길이=39)
+2026-03-16 13:43:30,621 [INFO] MMEAN.LLM - LLM 체인 구성 완료 | 공급자=3개 | timeout=(connect=2.0s, read=10.0s) | max_retries=3 | min_interval=60s
+2026-03-16 13:43:30,624 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-16 13:43:30,626 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 13:43:30,628 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 13:43:30,629 [INFO] MMEAN.ABSimRunner - ABSimRunner 초기화 완료
+2026-03-16 13:43:30,638 [INFO] MMEAN - MMEAN 가동
+2026-03-16 13:43:30,640 [INFO] MMEAN - investor 폴링 시작 | market=K2I sub=F001
+2026-03-16 13:43:30,640 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-16 13:43:30,640 [INFO] MMEAN - LLM 컨트롤러 루프 시작 | strategy=08:50 | recovery_interval=10min | recovery_end=15:00
+2026-03-16 13:43:30,641 [WARNING] MMEAN - 데이터 게이트 차단 | quality=simulated | stale=0s | 진입/기록 차단
+2026-03-16 13:43:30,641 [INFO] MMEAN - LLM 공급자 등록 | providers=['Claude', 'GPT', 'Gemini']
+2026-03-16 13:43:30,642 [INFO] MMEAN - WS 구독 시작 | tr_key=A01606
+2026-03-16 13:43:30,642 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=simulated | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 13:43:31,644 [INFO] MMEAN - PriceGuard soft_reset | WS 재연결 | last=0.00
+2026-03-16 13:44:42,131 [INFO] MMEAN.sim - [SIM] 진입 LONG | 821.95  TP=OFF  SL=820.70  TRAIL=12틱(활성:8틱)
+2026-03-16 13:45:21,410 [INFO] MMEAN.sim - [SIM] 트레일링 활성 | extreme=822.40 | 유리이동=9.0틱
+2026-03-16 13:45:41,583 [INFO] MMEAN.sim - [SIM] 청산 TRAILING_STOP | pnl=-12500원 | max_fav=0.65pt | max_adv=0.50pt | trailing=ON | llm_score=-1.00 | cum=-12500원
+2026-03-16 13:48:30,728 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 13:51:26,064 [INFO] MMEAN.sim - [SIM] 진입 LONG | 821.45  TP=OFF  SL=820.20  TRAIL=12틱(활성:8틱)
+2026-03-16 13:52:53,699 [INFO] MMEAN.sim - [SIM] 트레일링 활성 | extreme=822.00 | 유리이동=11.0틱
+2026-03-16 13:53:26,923 [INFO] MMEAN.sim - [SIM] 청산 TRAILING_STOP | pnl=+87500원 | max_fav=1.05pt | max_adv=0.40pt | trailing=ON | llm_score=-1.00 | cum=+75000원
+2026-03-16 13:53:30,817 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 13:57:19,547 [INFO] MMEAN.sim - [SIM] 진입 LONG | 821.80  TP=OFF  SL=820.55  TRAIL=12틱(활성:8틱)
+2026-03-16 13:58:30,896 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 13:58:44,118 [INFO] MMEAN.sim - [SIM] 청산 STOP_LOSS | pnl=-337500원 | max_fav=0.00pt | max_adv=1.35pt | trailing=OFF | llm_score=-1.00 | cum=-262500원
+2026-03-16 14:03:30,965 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 14:07:28,300 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 821.90  TP=OFF  SL=823.15  TRAIL=12틱(활성:8틱)
+2026-03-16 14:08:12,717 [INFO] MMEAN.sim - [SIM] 청산 BIAS_REVERSAL | pnl=-175000원 | max_fav=-0.00pt | max_adv=0.60pt | trailing=OFF | llm_score=-1.00 | cum=-437500원
+2026-03-16 14:08:31,039 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 14:10:35,897 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 821.60  TP=OFF  SL=822.85  TRAIL=12틱(활성:8틱)
+2026-03-16 14:13:31,107 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 14:14:10,546 [INFO] MMEAN.sim - [SIM] 청산 NEUTRAL_TIMEOUT | pnl=-125000원 | max_fav=-0.00pt | max_adv=0.55pt | trailing=OFF | llm_score=-1.00 | cum=-562500원
+2026-03-16 14:17:51,056 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 821.20  TP=OFF  SL=822.45  TRAIL=12틱(활성:8틱)
+2026-03-16 14:18:31,196 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 14:18:44,417 [INFO] MMEAN.sim - [SIM] 트레일링 활성 | extreme=820.75 | 유리이동=9.0틱
+2026-03-16 14:20:07,002 [INFO] MMEAN.sim - [SIM] 청산 TRAILING_STOP | pnl=+75000원 | max_fav=1.00pt | max_adv=0.15pt | trailing=ON | llm_score=-1.00 | cum=-487500원
+2026-03-16 14:23:31,282 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 14:28:31,364 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 14:31:32,226 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 821.10  TP=OFF  SL=822.35  TRAIL=12틱(활성:8틱)
+2026-03-16 14:32:43,766 [INFO] MMEAN.sim - [SIM] 트레일링 활성 | extreme=820.60 | 유리이동=10.0틱
+2026-03-16 14:33:31,434 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 14:34:01,379 [INFO] MMEAN.sim - [SIM] 청산 TRAILING_STOP | pnl=+12500원 | max_fav=0.75pt | max_adv=0.30pt | trailing=ON | llm_score=-1.00 | cum=-475000원
+2026-03-16 14:38:31,511 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 14:43:31,589 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 14:48:31,673 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 14:53:31,728 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 14:58:31,818 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 15:01:27,310 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 826.05  TP=OFF  SL=827.30  TRAIL=12틱(활성:8틱)
+2026-03-16 15:02:58,977 [INFO] MMEAN.sim - [SIM] 청산 NEUTRAL_TIMEOUT | pnl=-162500원 | max_fav=-0.00pt | max_adv=0.55pt | trailing=OFF | llm_score=-1.00 | cum=-637500원
+2026-03-16 15:03:31,897 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 15:07:52,091 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 826.10  TP=OFF  SL=827.35  TRAIL=12틱(활성:8틱)
+2026-03-16 15:08:31,966 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 15:09:22,749 [INFO] MMEAN.sim - [SIM] 청산 NEUTRAL_TIMEOUT | pnl=-12500원 | max_fav=-0.00pt | max_adv=0.25pt | trailing=OFF | llm_score=-1.00 | cum=-650000원
+2026-03-16 15:13:32,047 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 15:18:32,116 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 15:23:32,188 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 15:23:47,983 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 824.90  TP=OFF  SL=826.15  TRAIL=12틱(활성:8틱)
+2026-03-16 15:26:34,063 [INFO] MMEAN.sim - [SIM] 청산 STOP_LOSS | pnl=-337500원 | max_fav=-0.00pt | max_adv=1.25pt | trailing=OFF | llm_score=-1.00 | cum=-987500원
+2026-03-16 15:28:32,265 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 15:33:31,968 [INFO] MMEAN.sim - [SIM] 진입 SHORT | 825.15  TP=OFF  SL=826.40  TRAIL=12틱(활성:8틱)
+2026-03-16 15:33:32,357 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 15:36:32,198 [INFO] MMEAN.sim - [SIM] 청산 NEUTRAL_TIMEOUT | pnl=+25000원 | max_fav=-0.00pt | max_adv=0.55pt | trailing=OFF | llm_score=-1.00 | cum=-962500원
+2026-03-16 15:38:32,440 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 15:41:58,494 [WARNING] MMEAN - 데이터 게이트 차단 | quality=stale | stale=0s | 진입/기록 차단
+2026-03-16 15:43:32,515 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=live | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 15:45:10,910 [WARNING] MMEAN - 데이터 게이트 차단 | quality=stale | stale=0s | 진입/기록 차단
+2026-03-16 15:45:20,981 [WARNING] MMEAN - 데이터 게이트 차단 | quality=stale | stale=10s | 진입/기록 차단
+2026-03-16 15:45:31,058 [WARNING] MMEAN - 데이터 게이트 차단 | quality=stale | stale=20s | 진입/기록 차단
+2026-03-16 15:45:41,132 [WARNING] MMEAN - 데이터 게이트 차단 | quality=stale | stale=30s | 진입/기록 차단
+2026-03-16 15:45:51,206 [WARNING] MMEAN - 데이터 게이트 차단 | quality=stale | stale=40s | 진입/기록 차단
+2026-03-16 15:46:01,276 [WARNING] MMEAN - 데이터 게이트 차단 | quality=stale | stale=50s | 진입/기록 차단
+2026-03-16 15:46:11,347 [WARNING] MMEAN - 데이터 게이트 차단 | quality=stale | stale=60s | 진입/기록 차단
+2026-03-16 15:46:11,347 [ERROR] MMEAN - 신규 에러 [data_gate]: 시장 데이터 stale 60초 지속
+2026-03-16 15:46:13,361 [WARNING] MMEAN - 에러 3회 반복 [data_gate]: 시장 데이터 stale 62초 지속
+2026-03-16 15:46:13,361 [CRITICAL] MMEAN - 서킷 브레이커 오픈 | [data_gate] 3회 연속 | 60s 후 half-open
+2026-03-16 15:47:14,433 [WARNING] MMEAN - 데이터 게이트 차단 | quality=stale | stale=124s | 진입/기록 차단
+2026-03-16 15:47:15,439 [CRITICAL] MMEAN - 하드스톱 발동 | [data_gate] 5회 연속 | /api/engine/resume 으로 수동 해제 필요
+2026-03-16 15:48:32,581 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=stale | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 15:52:58,890 [INFO] MMEAN - PID 락 | 구 프로세스 PID=28428 이미 종료됨
+2026-03-16 15:52:58,891 [INFO] MMEAN - PID 락 획득 | pid=53004 | path=C:\mme\mmean\storage\mmean.pid
+2026-03-16 15:52:58,894 [INFO] MMEAN.DBSetup - DB setup 완료 | path=C:\mme\mmean\storage\mmean.db
+2026-03-16 15:52:58,907 [INFO] MMEAN.ParamStore - ParamStore 초기화 완료 | db=C:\mme\mmean\storage\mmean.db
+2026-03-16 15:52:58,909 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 15:52:58,911 [INFO] MMEAN.PromptManager - PromptManager 초기화 | reload_mode=immediate | prompts_dir=C:\mme\mmean\prompts
+2026-03-16 15:52:58,911 [INFO] MMEAN.LLM - Claude 활성 | model=claude-sonnet-4-20250514 | key=sk-ant..._gAA (길이=108)
+2026-03-16 15:52:58,911 [INFO] MMEAN.LLM - GPT 활성 | model=gpt-4o-mini | key=sk-pro...3x4A (길이=164)
+2026-03-16 15:52:58,912 [INFO] MMEAN.LLM - Gemini 활성 | model=gemini-2.0-flash | key=AIzaSy...Z3aw (길이=39)
+2026-03-16 15:52:58,912 [INFO] MMEAN.LLM - LLM 체인 구성 완료 | 공급자=3개 | timeout=(connect=2.0s, read=10.0s) | max_retries=3 | min_interval=60s
+2026-03-16 15:52:58,915 [INFO] MMEAN - LLM 모듈 초기화 완료 | apply=0 | filter=0
+2026-03-16 15:52:58,917 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 15:52:58,919 [INFO] MMEAN.sim - SimEngine v3 | TP=OFF SL=25틱 TRAIL=12틱(활성:8틱) NEUTRAL=80틱(수익>=6틱시무시) SLIP=1틱 강제=05:50
+2026-03-16 15:52:58,921 [INFO] MMEAN.ABSimRunner - ABSimRunner 초기화 완료
+2026-03-16 15:52:58,930 [INFO] MMEAN - MMEAN 가동
+2026-03-16 15:52:58,931 [INFO] MMEAN - investor 폴링 시작 | market=K2I sub=F001
+2026-03-16 15:52:58,932 [INFO] MMEAN.LLMFilter - LLMOpportunityFilter 비활성 상태입니다.
+2026-03-16 15:52:58,932 [INFO] MMEAN - LLM 컨트롤러 루프 시작 | strategy=08:50 | recovery_interval=10min | recovery_end=15:00
+2026-03-16 15:52:58,932 [WARNING] MMEAN - 데이터 게이트 차단 | quality=simulated | stale=0s | 진입/기록 차단
+2026-03-16 15:52:58,933 [INFO] MMEAN - LLM 공급자 등록 | providers=['Claude', 'GPT', 'Gemini']
+2026-03-16 15:52:58,933 [INFO] MMEAN - WS 구독 시작 | tr_key=A01606
+2026-03-16 15:52:58,934 [INFO] MMEAN - [LLM진단] should_run=False | last_key= | valid_baseline=True | dq=simulated | daily_calls=0/144 | last_call_ago=-1s | interval_min=60.0
+2026-03-16 15:52:59,940 [INFO] MMEAN - PriceGuard soft_reset | WS 재연결 | last=0.00

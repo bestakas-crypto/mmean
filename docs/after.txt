@@ -202,6 +202,62 @@ MMEAN — 나중에 할 작업 목록 (after.txt)
   대시보드 파라미터 설정 패널에서 직접 조정 가능하게.
 전제조건: A-002 리포트 데이터 필요
 
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔵 구조 개선 (장기 / 안정화 후 진행)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[S-001] engine_runtime.py 분해
+────────────────────────────────────────────────────────────────────────────────
+우선순위: 낮음 (지금 건드리면 리스크가 수익보다 큼 — 안정화 후 진행)
+현황:
+  core/engine_runtime.py  2,115줄
+  engine_loop()           779줄 (단일 함수)
+  _llm_call_in_bg()       208줄
+  단일 함수가 세션 제어 + WS 수신 + 레짐 계산 + entry_gate +
+  LLM 호출 + 주문 분기 + 예외 복구를 동시에 담당.
+문제:
+  - 변경 한 군데가 다른 5군데를 깨뜨릴 수 있는 높은 결합도
+  - 버그 발생 시 어느 계층 문제인지 분리 어려움
+  - 테스트 포인트 분리 불가
+분해 방향 (최소 단위):
+  1. ws_ingest.py          — WS 수신 + investor 데이터 파싱
+  2. engine_orchestrator.py — engine_loop 오케스트레이션
+  3. llm_dispatch.py       — LLM 호출 / 비동기 bg call 관리
+  4. execution_bridge.py   — execute_entry / execute_exit 분기 + 결과 처리
+  5. watchdog.py           — session_watchdog_loop / 복구 로직
+  6. session_mgr.py        — 세션 감지 / 개장·마감 처리
+전제조건:
+  - 엔진 2~3개월 운영 후 안정적 동작 확인
+  - 주요 실행 경로 통합 테스트 스크립트 작성 선행 권장
+  - S-002(flat import 전환) 완료 후 진행 권장
+주의:
+  지금 시점 진행 시 핵심 루프 동작 보장 어려움.
+  데이터 축적 + 안정화 이후 단계적으로 분리할 것.
+
+[S-002] flat import → 명시적 패키지 import 전환
+────────────────────────────────────────────────────────────────────────────────
+우선순위: 낮음 (path_setup 순서 수정으로 급한 불은 끔 — 장기 정비)
+현황:
+  engine_runtime.py, app_bootstrap.py 등에서 sys.path 암묵적 의존 혼재.
+    from regime_engine import BiasInputs        ← 암묵적
+    from kis_tr_catalog import WS_TR_BY_SESSION ← 암묵적
+  idx/ 추가 후 신규 flat import 포함:
+    engine_runtime.py: from contract_spec import NORMAL_TICK_PT  ← 암묵적
+    logs/judgment_log.py: from contract_spec import NORMAL_TICK_PT ← 암묵적
+    routes_core.py: from mst_parser import load_contracts ← 암묵적
+    (현재는 path_setup.py가 idx/ 등록으로 정상 작동 — 장애 없음)
+전환 방향:
+    from regime.regime_engine import BiasInputs
+    from core.kis_tr_catalog import WS_TR_BY_SESSION
+    from core.kis_order_api import get_order_token
+    from idx.contract_spec import NORMAL_TICK_PT
+    from idx.mst_parser import load_contracts
+전제조건:
+  - 영향 파일 전수 audit 선행 (engine_runtime, app_bootstrap, sim_opt/*, 등)
+  - S-001 분해와 병행하면 효율적
+
+
 [A-008] HALF 토큰명 / 동작 정의 일원화
 ────────────────────────────────────────────────────────────────────────────────
 우선순위: 낮음 (운영 중 혼란이 누적되면 올림)
@@ -229,5 +285,53 @@ MMEAN — 나중에 할 작업 목록 (after.txt)
   - failure 회피 대비 실질적 수익 개선 효과가 있는지
   - 특정 장세(추세장)에서만 제한적으로 써야 하는지
 전제조건: A-002 효과 분석 + 3개월 이상 운영 데이터 필요
+
+[W-001] 웹훅 수신 엔드포인트 rate limit
+────────────────────────────────────────────────────────────────────────────────
+우선순위: 낮음 (클라이언트 수가 늘거나 외부 노출 시 재검토)
+배경:
+  POST /api/webhook/state 는 현재 rate limit 없음.
+  등록된 클라이언트 IP 가 폴링 방식으로 쓰거나, 클라이언트 수가 많아지면
+  Flask 메인 스레드에 부하가 걸릴 수 있음.
+구현 방향 (규모 커질 때):
+  - flask-limiter 로 IP 또는 토큰 단위 제한 (예: 60회/분)
+  - 혹은 nginx 리버스 프록시 레벨에서 처리 (애플리케이션 코드 변경 없음)
+전제조건: 클라이언트 수 5개 이상 or 외부 인터넷 노출 시
+
+[W-002] 토큰 회전 정책 (token rotation)
+────────────────────────────────────────────────────────────────────────────────
+우선순위: 낮음 (현재 토큰은 수명 제한 없음)
+배경:
+  CLIENT_N_TOKEN 은 .env.webhook 에 정적으로 설정되며 만료 개념이 없음.
+  토큰이 유출되면 재시작 없이는 무효화 불가.
+구현 방향 (운영 규모 커질 때):
+  - .env.webhook 에 토큰 갱신 후 재시작으로 즉시 반영 (현행 구조로 충분)
+  - 또는 토큰 만료 일시(CLIENT_N_TOKEN_EXPIRES) 필드 추가
+  - 또는 DB 기반 토큰 테이블 전환 (재시작 없이 revoke 가능)
+현행 운영 수준에서는 재시작으로 토큰 교체 가능 → 즉시 수정 불필요
+
+[W-003] 웹훅 발신 thread pool 전환
+────────────────────────────────────────────────────────────────────────────────
+우선순위: 낮음 (현 트리거 빈도에서는 신규 thread 비용 무시 가능)
+배경:
+  send() 는 이벤트(진입/청산/강제청산)마다 클라이언트 수만큼 daemon thread 신규 생성.
+  진입/청산은 하루 수 회 수준 → 현행 구조 문제없음.
+구현 방향 (클라이언트 수 10개 이상 or 고빈도 이벤트 추가 시):
+  concurrent.futures.ThreadPoolExecutor(max_workers=클라이언트 수) 로 교체
+  AppRuntime 에 _webhook_pool 필드 보유 → send() 에서 pool.submit() 호출
+전제조건: 클라이언트 10개 이상 or 발신 이벤트 유형 대폭 확장 시
+
+[W-004] 조회 fields 화이트리스트 엄격화
+────────────────────────────────────────────────────────────────────────────────
+우선순위: 낮음 (현재 노출 데이터가 민감하지 않음)
+배경:
+  POST /api/webhook/state 의 fields 필터는 현재 _STATE_KEYS 전체에서 자유 선택.
+  클라이언트가 임의 키를 요청해도 collect_state() 에 없으면 결과에 안 잡힘 → 무해.
+  다만 클라이언트별로 허용 필드를 제한하고 싶다면 레지스트리 확장 필요.
+구현 방향 (필요 시):
+  .env.webhook 에 CLIENT_N_ALLOWED_FIELDS=flow_score,entry_signal,bias 형식 추가
+  find_by_token() 반환 클라이언트에 allowed_fields 필드 추가
+  routes_webhook.py 에서 교집합 필터 적용
+전제조건: 클라이언트별 접근 제어 정책이 실제로 필요해진 시점
 
 ================================================================================

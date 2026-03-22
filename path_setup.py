@@ -26,6 +26,7 @@ def setup() -> None:
         "engines",
         "config",
         "regime",
+        "idx",    # ← 지수선물 계약 스펙 / MST 파서
         "core",   # ← 마지막 삽입 → sys.path[0] 최우선
     ]
     # root 먼저 등록

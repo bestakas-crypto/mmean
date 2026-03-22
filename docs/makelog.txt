@@ -1169,4 +1169,104 @@ MMEAN MAKELOG — 작업 이력 / 프로젝트 상태 기록
   오류 시 캐시 초기화 → 다음 전이 시 자동 재연결
 - docs/after.txt: 11개 항목 (🔴B 3건 / 🟡A 7건 / 🔵C 5건) 재정리
   B-001/B-002 [DONE 2026-03-22] 표시
+
+[2026-03-22 17:00 KST] 구조 정비 — path_setup 우선순위 수정 + 불필요 파일 삭제
+- path_setup.py: subdirs 순서 수정 — core/ 를 마지막(→ sys.path[0] 최우선)으로 이동
+  이전: order/ 가 sys.path[0] → kis_tr_catalog 충돌(WS_TR_BY_SESSION 누락) 위험
+  수정: core/kis_tr_catalog.py 가 order/kis_tr_catalog.py 보다 항상 우선 로드
+- analyzer_app.py: import path_setup 누락 추가 (기존 sim.py 에만 있었음)
+- sim_opt/day_sim.py, night_sim.py: _STORAGE 경로 수정
+  dirname(__file__)/storage → dirname(dirname(__file__))/storage (mmean/storage/ 정상화)
+- 삭제: storage/sim.db.corrupted (3.7 GB 고아), sim_opt/storage/sim.db (100 KB 고아) + 디렉토리
+  삭제: llm/llm_controller.py + app_bootstrap.py·app_state.py 내 모든 참조 제거
+  삭제: TRcode/*.xlsx 전체, scripts/check_order_imports.py, tmp_drives.py, tmp_night_list.py
+- docs/after.txt: S-001(engine_runtime 분해), S-002(flat import 전환) 장기 항목 추가
+  외부 리뷰 보고서 2건 검토 — 즉시 수정 불필요 판단, after.txt 기록으로 처리
+
+[2026-03-22 17:30 KST] 웹훅 발신 기능 구현 (진입·청산·강제청산 → POST)
+- core/webhook_sender.py 신규: build_payload() + send() — daemon thread 비동기 POST
+  페이로드: flow_* 전체 + entry_signal/bias/시장지표/세션컨텍스트 60여 개 state 변수
+  HMAC-SHA256 서명 옵션(X-MMEAN-Signature 헤더), POST 타임아웃 5초, 실패 조용히 무시
+- core/engine_runtime.py: webhook_send() 호출 3곳 추가
+  _run_entry() → "ENTRY" / _run_exit() → "EXIT" / _force_close_live_position() → "FORCE_EXIT"
+  ImportError 시 no-op fallback — 트레이딩 로직 영향 없음
+- core/app_bootstrap.py: WEBHOOK_URL / WEBHOOK_SECRET settings 로드 추가
+- .env.public: 웹훅 설정 섹션 추가 (MMEAN_WEBHOOK_URL / MMEAN_WEBHOOK_SECRET)
+
+[2026-03-22 18:00 KST] 웹훅 다중 클라이언트 + 수신 조회 기능 구현
+- core/webhook_registry.py 신규: WebhookClient dataclass + load_registry() + find_by_token()
+  .env.webhook 파싱 (CLIENT_N_URL/SECRET/TOKEN/NAME 형식, N=1~∞)
+  URL만 → 발신 전용 / TOKEN만 → 조회 전용 / 둘 다 → 양방향
+- core/webhook_sender.py 전면 재작성: 단일 URL → 레지스트리 기반 전원 병렬 전송
+  클라이언트별 독립 daemon thread (Webhook-EVENT-C{id}), 실패 개별 무시
+- core/app_state.py: AppRuntime.webhook_clients: list 필드 추가
+- core/app_bootstrap.py: 부팅 시 _load_webhook_registry() 실행 + 로드 결과 로그
+  WEBHOOK_URL/SECRET settings 항목 제거 → .env.webhook 방식으로 일원화
+- routes/routes_webhook.py 신규: POST /api/webhook/state 엔드포인트
+  X-MMEAN-Token 헤더 인증, fields 필터, 503(초기화 중) 처리
+- analyzer_app.py: register_webhook_routes(app, runtime) 추가
+- .env.webhook 신규(gitignored): 클라이언트 등록 파일 템플릿
+- .env.webhook.example 신규(tracked): GitHub 공개용 등록 형식 예시
+- .gitignore: .env.webhook 추가 / .env.public: 웹훅 섹션 → .env.webhook 안내로 대체
+
+[2026-03-22 18:30 KST] 웹훅 외부 리뷰 반영 — 3개 수정
+- core/webhook_registry.py: URL 없어도 TOKEN만 있으면 레지스트리 등록 허용
+  이전: url 없으면 continue → 조회 전용 클라이언트 등록 불가 구조 불일치
+  수정: url AND token 둘 다 없을 때만 건너뜀
+- core/webhook_registry.py: find_by_token() == 비교 → hmac.compare_digest() 교체
+  타이밍 공격 방지 (token_bytes 사전 인코딩 후 루프 내 재사용)
+- routes/routes_webhook.py: 인증 실패 WARNING·성공 INFO 감사 로그 3곳 추가
+  실패 시 ip + token 앞 6자리, 성공 시 client_id·name·ip·fields 수 기록
+- docs/after.txt: W-001(rate limit)·W-002(토큰 회전)·W-003(thread pool)·W-004(fields 화이트리스트)
+  선택 보강 4개 항목 추가 — 현재 규모에서는 불필요, 클라이언트 확장 시 검토
+
+[2026-03-22 19:00 KST] 고아 .env 파일 삭제 — env 파일 루트 일원화
+- core/.env.secrets 삭제: API 키 중복 분산 (로드 코드 없음 — app_bootstrap.py 는 base_dir 루트만 참조)
+- core/.env.public 삭제: .gitignore 미등록 상태로 git tracked 위험 + 사용처 없음
+- env 파일은 루트(.env.secrets / .env.public / .env.webhook)에만 존재하는 것으로 정리
+
+[2026-03-22 20:30 KST] 선물 종목 선택 기능 구현 + 틱 상수 오류 수정
+- TRcode/ 재정리: 상품기본조회[v1_국내주식-029].xlsx → idx/로 이동, TRcode/ 디렉토리 삭제
+- idx/contract_spec.py 신규: 노멀·미니 틱 상수 정의
+  NORMAL_TICK_PT=0.05, NORMAL_TICK_VALUE=12500, NORMAL_MULTIPLIER=250000
+  MINI_TICK_PT=0.02, MINI_TICK_VALUE=1000, MINI_MULTIPLIER=50000
+  is_mini() / tick_pt() / tick_value() / multiplier() 헬퍼
+- idx/mst_parser.py 신규: fo_idx_code_mts.mst 파서
+  FuturesContract dataclass, load_contracts(), find_nearest(), detect_nearest_pair()
+  단축코드 구조: A[01=노멀|05=미니][연도마지막자리][월2자리] (e.g. A01606=표준2026년6월)
+- 틱 오류 수정:
+  engine_runtime.py: _TICK_SIZE = NORMAL_TICK_PT (contract_spec import)
+  engine_runtime.py: pnl_ticks*25000 → pnl_ticks*12500 (2배 과계산 수정)
+  rag_prep.py: pnl_ticks*25000 → pnl_ticks*12500
+  logs/judgment_log.py: _TICK_SIZE = NORMAL_TICK_PT
+  app_bootstrap.py: slippage_pt = ticks * NORMAL_TICK_PT (0.05 하드코딩 제거)
+- path_setup.py: "idx" 서브디렉토리 등록 추가 (core/ 직전, sys.path에 mst_parser/contract_spec 노출)
+- app_bootstrap.py: MINI_FUTURES_CODE / TRADE_INSTRUMENT settings 추가
+  _auto_detect_contracts() 신규: MST에서 노멀·미니 최근월물(mmsc_cls_code=1) 자동 감지
+  build_runtime() 시작 시 호출 — .env 명시값 없을 때만 갱신
+- core/engine_runtime.py: KISRealtimeClient.change_symbol() 신규
+  _new_tr_key 플래그 → async for 루프에서 감지 → break → while True 재연결
+- order/order_executor.py: TRADE_INSTRUMENT="mini" 시 MINI_FUTURES_CODE로 주문
+  수량 환산 없음 (1포지션 = 1계약 고정)
+- routes/routes_core.py: API 3개 추가
+  GET /api/symbol/list — MST 파싱 결과 + 현재 설정 반환
+  POST /api/symbol/set — 노멀 종목 변경 + WS 재연결 (포지션 보유 중 차단)
+  GET|POST /api/instrument — 노멀/미니 매매 전환 (포지션 보유 중 차단)
+- templates/dashboard.html: 종목 선택 패널 신규 추가 (h1 바로 아래)
+  노멀 근월물 드롭다운 + 적용 버튼 / 표준선물·미니선물 토글 버튼
+  현재가 피드 종목·주문 종목 별도 표시 / 틱 가치 안내 (12,500원 vs 1,000원)
+
+[2026-03-22 21:30 KST] MMEX 1단계 골격 생성 — C:/mmex/ 디렉토리 신규
+- 위치: C:/mmex/ (MMEAN 멀티 클라이언트 구성원, 같은 프로젝트 관리)
+- 정의: MMEAN 웹훅 이벤트 수신 → 계좌별 운영 정책 평가 → 멀티계좌 주문 실행
+  MMEX는 시장 판단 없음. 운영 판단(enabled/pause/상태 정합성)만 수행.
+- 구조: core/ accounts/ broker/ db/ routes/ templates/ docs/
+  core/: app_bootstrap, app_state, webhook_receiver(POST /webhook/receive), dispatcher
+  accounts/: account_registry(.env.accounts 파서), policy_engine, position_manager(상태머신)
+  broker/: base_adapter(추상), kis_adapter(1단계 dry-run)
+  db/: db_setup.py — 5개 테이블 (master_events/accounts/account_positions/executions/execution_logs)
+  핵심 원칙: master_events 1건 → executions N건 (원장·실행 이력 반드시 분리)
+- 상태머신: IDLE→ENTRY_PENDING→POSITION_OPEN→EXIT_PENDING→IDLE / 실패→HALTED
+- 현재 단계: 1단계 dry-run 동작 가능 / 실계좌 주문은 2단계 예정 (after.txt B-002)
+- MMEAN 연동: .env.webhook CLIENT_N_URL=http://[MMEX]:5010/webhook/receive
 ================================================================================

@@ -35,6 +35,14 @@ try:
 except ImportError:
     execute_entry = execute_exit = ExecuteResult = None  # type: ignore[assignment]
     _ORDER_EXECUTOR_AVAILABLE = False
+# 웹훅 전송 (선택적 — URL 미설정 시 no-op)
+try:
+    from webhook_sender import send as webhook_send
+    _WEBHOOK_AVAILABLE = True
+except ImportError:
+    def webhook_send(event, runtime, *, side=None, result=None):  # type: ignore[misc]
+        pass
+    _WEBHOOK_AVAILABLE = False
 # TR 코드 상수
 from kis_tr_catalog import WS_TR_BY_SESSION
 
@@ -309,6 +317,7 @@ class KISRealtimeClient:
         self.runtime = runtime
         self.tr_key = tr_key
         self._lock = threading.Lock()
+        self._new_tr_key: str | None = None   # change_symbol() 요청 시 설정 → 다음 WS 재연결에 반영
         self.latest = {
             "futures_price": 0.0,
             "spot_price": 0.0,
@@ -325,6 +334,14 @@ class KISRealtimeClient:
     def get_snapshot(self) -> Dict[str, float]:
         with self._lock:
             return dict(self.latest)
+
+    def change_symbol(self, new_tr_key: str) -> None:
+        """
+        WS 구독 종목코드 변경 요청.
+        현재 연결을 즉시 끊고 다음 재연결 시 new_tr_key로 구독.
+        포지션 보유 중에는 호출 금지 (routes_core에서 검증).
+        """
+        self._new_tr_key = new_tr_key
 
     async def _run(self) -> None:
         runtime = self.runtime
@@ -359,6 +376,14 @@ class KISRealtimeClient:
                         "body": {"input": {"tr_id": _ws_tr["ask"], "tr_key": self.tr_key}},
                     }))
                     async for msg in ws:
+                        # ── 종목 변경 요청 감지 → WS 재연결 트리거 ─────────
+                        if self._new_tr_key and self._new_tr_key != self.tr_key:
+                            self.tr_key = self._new_tr_key
+                            self._new_tr_key = None
+                            runtime.log.info(
+                                "WS 종목 변경 → %s (재연결 진행)", self.tr_key
+                            )
+                            break  # async with 블록 종료 → while True 재연결
                         if msg.startswith("0|") or msg.startswith("1|"):
                             parts = msg.split("|")
                             tid, row = parts[1], parts[3].split("^")
@@ -459,7 +484,10 @@ class LiveOrderExecutor:
       _exec.try_exit()
     """
 
-    _TICK_SIZE = 0.05   # KOSPI200 선물 최소 틱 (0.05pt)
+    try:
+        from contract_spec import NORMAL_TICK_PT as _TICK_SIZE   # 0.05pt
+    except ImportError:
+        _TICK_SIZE = 0.05   # fallback
 
     def __init__(self, runtime: AppRuntime) -> None:
         self.runtime           = runtime
@@ -568,6 +596,7 @@ class LiveOrderExecutor:
                 return
             result = execute_entry(self.runtime, side=side, qty=qty, price=price)
             self._update_state(result)
+            webhook_send("ENTRY", self.runtime, side=side, result=result)
             if result.ok:
                 self.runtime.log.info(
                     "[EXEC] 진입 체결 ✓ | side=%s qty=%d fill=%.2f ord=%s env=%s",
@@ -600,6 +629,7 @@ class LiveOrderExecutor:
                 return
             result = execute_exit(self.runtime, qty=qty, price=price)
             self._update_state(result)
+            webhook_send("EXIT", self.runtime, result=result)
             if result.ok:
                 self.runtime.log.info(
                     "[EXEC] 청산 체결 ✓ | qty=%d fill=%.2f ord=%s env=%s",
@@ -890,7 +920,7 @@ def refresh_today_stats_loop(runtime: AppRuntime) -> None:
             conn = sqlite3.connect(runtime.db_path, check_same_thread=False)
             conn.row_factory = sqlite3.Row
             row = conn.execute(
-                "SELECT COUNT(*) AS cnt, SUM(COALESCE(pnl_ticks,0)*25000) AS pnl FROM trades WHERE substr(open_ts,1,10)=?",
+                "SELECT COUNT(*) AS cnt, SUM(COALESCE(pnl_ticks,0)*12500) AS pnl FROM trades WHERE substr(open_ts,1,10)=?",
                 (today,),
             ).fetchone()
             cnt = int(row["cnt"] or 0)
@@ -1999,6 +2029,7 @@ def _force_close_live_position(runtime: AppRuntime) -> None:
 
     try:
         result = execute_exit(runtime, qty=0, timeout=_FORCE_CLOSE_TIMEOUT_SEC)
+        webhook_send("FORCE_EXIT", runtime, result=result)
 
         if result.ok:
             runtime.log.info(
