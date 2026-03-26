@@ -18,7 +18,7 @@ log = logging.getLogger("MMEAN.LLM")
 # -------------------------------------------------------------------
 # 상수 (env override 가능)
 # -------------------------------------------------------------------
-LLM_MAX_TOKENS: int         = int(os.getenv("LLM_MAX_TOKENS",          "200"))
+LLM_MAX_TOKENS: int         = int(os.getenv("LLM_MAX_TOKENS",          "500"))
 MAX_PROVIDER_RETRIES: int   = max(1, int(os.getenv("LLM_MAX_RETRIES",   "3")))
 MAX_TOTAL_ATTEMPTS: int     = int(os.getenv("LLM_MAX_TOTAL_ATTEMPTS",   "5"))
 RETRY_BACKOFF_BASE: float   = 2.0          # 초: 1차=2s, 2차=4s, 3차=8s

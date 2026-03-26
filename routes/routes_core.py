@@ -19,12 +19,10 @@ def register_core_routes(app, runtime: AppRuntime) -> None:
 
     @app.route("/api/status")
     def api_status():
-        with runtime.state_obj.engine_lock:
-            return jsonify({
-                **runtime.state,
-                "history": runtime.regime_engine.get_recent_history(120),
-                "night_history": runtime.night_engine.get_recent_history(limit=120),
-            })
+        snap = dict(runtime.state)
+        snap["history"] = runtime.regime_engine.get_recent_history(120)
+        snap["night_history"] = runtime.night_engine.get_recent_history(limit=120)
+        return jsonify(snap)
 
     @app.route("/api/mode", methods=["POST"])
     def api_mode():
@@ -371,6 +369,63 @@ def register_core_routes(app, runtime: AppRuntime) -> None:
             },
         })
 
+    @app.route("/api/llm_pulse")
+    def api_llm_pulse():
+        if runtime.llm_pulse is None:
+            return jsonify({"ok": False, "error": "LLMPulse 비활성", "active": False, "history": [], "stats": {}})
+        try:
+            data = runtime.llm_pulse.get_data()
+            return jsonify({"ok": True, **data})
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e), "active": False, "history": [], "stats": {}})
+
+    @app.route("/api/llm_pulse/analysis")
+    def api_llm_pulse_analysis():
+        """다일간 심층 분석 — ?days=N (기본 30, 최대 365)."""
+        if runtime.llm_pulse is None:
+            return jsonify({"ok": False, "error": "LLMPulse 비활성"})
+        try:
+            days = int(request.args.get("days", 30))
+            days = max(1, min(days, 365))
+            return jsonify(runtime.llm_pulse.get_analysis(days))
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)})
+
+    # ── PulseEngine API ────────────────────────────────────────────────────
+
+    @app.route("/api/pulse")
+    def api_pulse():
+        """PulseEngine 현재 신호 + 오늘 이력 + 통계."""
+        pe = getattr(runtime, "pulse_engine", None)
+        pv = getattr(runtime, "pulse_validator", None)
+        sw = getattr(runtime, "sideways_detector", None)
+        if pe is None:
+            return jsonify({"ok": False, "error": "PulseEngine 비활성"})
+        try:
+            data = pe.get_data()
+            data["validator"] = pv.get_state() if pv else {}
+            data["sideways"]  = {
+                "active": sw.is_hard_block() if sw else False,
+                "reason": (sw.get_state().reason if sw else ""),
+                "lower":  (sw.get_state().range_lower if sw else 0.0),
+                "upper":  (sw.get_state().range_upper if sw else 0.0),
+            }
+            return jsonify({"ok": True, **data})
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)})
+
+    @app.route("/api/pulse/analysis")
+    def api_pulse_analysis():
+        """PulseEngine 누적 분석 — ?days=N (기본 30, 최대 365)."""
+        pa = getattr(runtime, "pulse_analyzer", None)
+        if pa is None:
+            return jsonify({"ok": False, "error": "PulseAnalyzer 비활성"})
+        try:
+            days = max(1, min(int(request.args.get("days", 30)), 365))
+            return jsonify(pa.analyze(days))
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)})
+
     # ------------------------------------------------------------------
     # 시뮬레이션 모드 API (Easy / Expert)
     # ------------------------------------------------------------------
@@ -435,13 +490,25 @@ def register_core_routes(app, runtime: AppRuntime) -> None:
         return jsonify(result)
 
     # ------------------------------------------------------------------
-    # 실행 모드 API (OFF / VIRTUAL / PAPER / LIVE)
+    # 실행 모드 API (AND 구조 — 4개 독립 토글)
+    # exec_data  : 데이터 수집 (항상 활성, UI 표시 전용)
+    # exec_sim   : 내부 시뮬레이션
+    # exec_paper : KIS 모의계좌 주문
+    # exec_live  : KIS 실계좌 주문
     # ------------------------------------------------------------------
+    def _exec_flags_snapshot() -> dict:
+        return {
+            "data":  bool(runtime.state.get("exec_data",  True)),
+            "sim":   bool(runtime.state.get("exec_sim",   False)),
+            "paper": bool(runtime.state.get("exec_paper", False)),
+            "live":  bool(runtime.state.get("exec_live",  False)),
+        }
+
     @app.route("/api/execution/mode", methods=["GET"])
     def api_execution_mode_get():
         return jsonify({
             "ok": True,
-            "execution_mode": runtime.state.get("execution_mode", "OFF"),
+            "exec_flags": _exec_flags_snapshot(),
             "execution_enabled": runtime.settings.get("EXECUTION_ENABLED", False),
             "order_env": runtime.settings.get("ORDER_ENV", "virtual"),
         })
@@ -449,19 +516,26 @@ def register_core_routes(app, runtime: AppRuntime) -> None:
     @app.route("/api/execution/mode", methods=["POST"])
     def api_execution_mode_set():
         payload = request.get_json(silent=True) or {}
-        mode = str(payload.get("mode", "")).strip().upper()
-        if mode not in ("OFF", "VIRTUAL", "PAPER", "LIVE"):
-            return jsonify({"ok": False, "error": "mode 허용값: OFF | VIRTUAL | PAPER | LIVE"}), 400
+        flag = str(payload.get("flag", "")).strip().lower()
+        if flag not in ("sim", "paper", "live"):
+            return jsonify({"ok": False, "error": "flag 허용값: sim | paper | live"}), 400
 
-        # PAPER 전환 게이트: order_state 초기화 여부 확인
-        if mode == "PAPER" and runtime.order_state is None:
+        key = f"exec_{flag}"
+        # 명시적 value 또는 토글
+        if "value" in payload:
+            new_val = bool(payload["value"])
+        else:
+            new_val = not bool(runtime.state.get(key, False))
+
+        # PAPER 활성화 게이트: order_state 초기화 여부 확인
+        if flag == "paper" and new_val and runtime.order_state is None:
             return jsonify({
                 "ok": False,
                 "error": "order_state 미초기화 — HTS_ID 설정 확인 후 재시작",
             }), 503
 
-        # LIVE 전환 게이트 1: 비밀번호 검증
-        if mode == "LIVE":
+        # LIVE 활성화 게이트 1: 비밀번호 검증
+        if flag == "live" and new_val:
             stored_pw = runtime.settings.get("LIVE_PASSWORD", "")
             if not stored_pw:
                 return jsonify({
@@ -470,29 +544,30 @@ def register_core_routes(app, runtime: AppRuntime) -> None:
                 }), 403
             input_pw = str(payload.get("password", ""))
             if not hmac.compare_digest(stored_pw.encode(), input_pw.encode()):
-                runtime.log.warning("실전 모드 전환 비밀번호 불일치 시도")
+                runtime.log.warning("실전 모드 활성화 비밀번호 불일치 시도")
                 return jsonify({"ok": False, "error": "비밀번호가 틀렸습니다"}), 401
 
-        # LIVE 전환 게이트 2: EXECUTION_ENABLED=true 필수
-        if mode == "LIVE" and not runtime.settings.get("EXECUTION_ENABLED", False):
+        # LIVE 활성화 게이트 2: EXECUTION_ENABLED=true 필수
+        if flag == "live" and new_val and not runtime.settings.get("EXECUTION_ENABLED", False):
             return jsonify({
                 "ok": False,
                 "error": "LIVE 모드는 EXECUTION_ENABLED=true 필요 (.env.public 확인)",
             }), 403
 
         with runtime.state_obj.engine_lock:
-            old_mode = runtime.state.get("execution_mode", "OFF")
-            runtime.state["execution_mode"] = mode
-            if mode == "PAPER":
+            old_val = runtime.state.get(key, False)
+            runtime.state[key] = new_val
+            if flag == "paper" and new_val:
                 runtime.settings["ORDER_ENV"] = "virtual"   # 모의계좌 강제
-            elif mode == "LIVE":
+            elif flag == "live" and new_val:
                 runtime.settings["ORDER_ENV"] = os.getenv("KIS_ORDER_ENV", "virtual").lower()
 
-        runtime.log.warning("실행 모드 전환 | %s → %s", old_mode, mode)
+        runtime.log.warning("실행 플래그 전환 | %s: %s → %s", key, old_val, new_val)
         return jsonify({
             "ok": True,
-            "execution_mode": mode,
-            "previous": old_mode,
+            "flag": flag,
+            "value": new_val,
+            "exec_flags": _exec_flags_snapshot(),
             "order_env": runtime.settings.get("ORDER_ENV", "virtual"),
         })
 
