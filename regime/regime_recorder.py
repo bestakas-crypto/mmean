@@ -9,15 +9,29 @@ from typing import Dict
 
 
 class RegimeRecorder:
+    _FLUSH_INTERVAL = 5.0  # 5초마다 commit
+
     def __init__(self, db_path: str) -> None:
-        self.conn = sqlite3.connect(db_path, timeout=30, check_same_thread=False)
+        self.conn = sqlite3.connect(db_path, timeout=2, check_same_thread=False)
         self.conn.execute("PRAGMA journal_mode=WAL")
         self.conn.execute("PRAGMA synchronous=NORMAL")
-        self.conn.execute("PRAGMA busy_timeout=30000")
+        self.conn.execute("PRAGMA busy_timeout=1000")
         self.lock = threading.Lock()
         self.active_regime_id = None
         self.active_regime_bias = None
         self._restore_open_regime()
+        self._stop_flush = threading.Event()
+        self._flush_thread = threading.Thread(target=self._auto_flush, daemon=True)
+        self._flush_thread.start()
+
+    def _auto_flush(self) -> None:
+        """5초마다 pending insert를 commit."""
+        while not self._stop_flush.wait(self._FLUSH_INTERVAL):
+            try:
+                with self.lock:
+                    self.conn.commit()
+            except Exception:
+                pass
 
     def _restore_open_regime(self) -> None:
         with self.lock:
@@ -56,7 +70,9 @@ class RegimeRecorder:
         s = state_dict
         f = self._f
         i = self._i
-        with self.lock:
+        if not self.lock.acquire(timeout=0.5):
+            return  # DB 경합 시 이 틱은 건너뜀 (0.5초 후 다음 틱에서 재시도)
+        try:
             cur = self.conn.cursor()
             cur.execute("""
                 INSERT INTO regime_ticks (
@@ -76,11 +92,15 @@ class RegimeRecorder:
                     llm_filter_ts, llm_call_id,
                     level_no, mode_type, session_phase,
                     night_regime, night_entry, night_confidence, night_raw_score,
-                    today_trade_count, daily_loss_limit_left
+                    today_trade_count, daily_loss_limit_left,
+                    fut_fgn_delta, fut_inst_delta, fut_indiv_delta,
+                    spot_fgn_delta, spot_inst_delta, spot_indiv_delta,
+                    session_high, session_low, price_range_pct
                 ) VALUES (
                     ?,?,?,?,  ?,?,?,?,?,?,  ?,?,?,?,  ?,?,?,?,?,  ?,?,?,
                     ?,?,?,?,  ?,?,?,  ?,
-                    ?,?,?,  ?,  ?,?,?,  ?,?,  ?,?,?,  ?,?,  ?,?,?,  ?,?,?,?,  ?,?
+                    ?,?,?,  ?,  ?,?,?,  ?,?,  ?,?,?,  ?,?,  ?,?,?,  ?,?,?,?,  ?,?,
+                    ?,?,?,  ?,?,?,  ?,?,?
                 )
             """, (
                 # ── 기존 30개 ──────────────────────────────────────────────
@@ -129,7 +149,22 @@ class RegimeRecorder:
                 # ── 일별 운영 상태 ─────────────────────────────────────────
                 i(s.get("today_trade_count")),
                 f(s.get("daily_loss_limit_left")),
+                # ── 6주체 수급 delta ───────────────────────────────────────
+                f(s.get("fut_fgn_delta"),   0.0),
+                f(s.get("fut_inst_delta"),  0.0),
+                f(s.get("fut_indiv_delta"), 0.0),
+                f(s.get("spot_fgn_delta"),  0.0),
+                f(s.get("spot_inst_delta"), 0.0),
+                f(s.get("spot_indiv_delta"),0.0),
+                # ── 당일 레인지 ────────────────────────────────────────────
+                f(s.get("session_high"),     0.0),
+                f(s.get("session_low"),      0.0),
+                f(s.get("price_range_pct"),  0.5),
             ))
+        except Exception:
+            pass
+        finally:
+            self.lock.release()
 
     def update_regime_event(self, ts_text: str, snap, state_dict: Dict[str, object]) -> None:
         bias = snap.bias

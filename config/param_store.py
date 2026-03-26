@@ -305,10 +305,10 @@ class ParamStore:
         # §4 쿨다운 (키별 마지막 변경 시각)
         self._last_patch_time: Dict[str, float] = {}
 
-        self._conn = sqlite3.connect(db_path, timeout=30, check_same_thread=False)
+        self._conn = sqlite3.connect(db_path, timeout=2, check_same_thread=False)
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA synchronous=NORMAL")
-        self._conn.execute("PRAGMA busy_timeout=30000")
+        self._conn.execute("PRAGMA busy_timeout=2000")
         self._ensure_table()
         log.info("ParamStore 초기화 완료 | db=%s", db_path)
 

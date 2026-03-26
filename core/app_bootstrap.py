@@ -17,7 +17,7 @@ from flask import Flask
 
 from app_state import AppRuntime, create_app_state
 from config_manager import ConfigManager, DEFAULT_CONFIG
-from db_setup import setup_all as db_setup_all
+from db_setup import setup_all as db_setup_all, setup_judgment_db
 from night_regime_engine import NightRegimeEngine
 from param_store import get_param_store
 from prompt_manager import PromptManager, VALID_NAMES as PROMPT_VALID_NAMES
@@ -110,7 +110,7 @@ def _acquire_pid_lock(base_dir: str, log: logging.Logger) -> None:
     - PID 파일 존재 시 구 프로세스를 종료하고 현재 PID로 갱신.
     - 프로세스 종료 시 atexit으로 PID 파일 자동 삭제.
     """
-    pid_path = os.path.join(base_dir, "storage", "mmean.pid")
+    pid_path = os.path.join(os.path.dirname(base_dir), "storage", "mmean.pid")
     my_pid = os.getpid()
 
     if os.path.exists(pid_path):
@@ -142,12 +142,17 @@ def _acquire_pid_lock(base_dir: str, log: logging.Logger) -> None:
 
 
 def load_settings(base_dir: str) -> Dict[str, Any]:
-    env_public_path = os.path.join(base_dir, ".env.public")
-    env_secrets_path = os.path.join(base_dir, ".env.secrets")
-    if os.path.exists(env_public_path):
-        load_dotenv(env_public_path, override=False)
-    if os.path.exists(env_secrets_path):
-        load_dotenv(env_secrets_path, override=True)
+    # base_dir = C:\mmean\core — .env 파일은 프로젝트 루트(상위)에 있을 수 있음
+    # 두 위치를 순서대로 탐색: base_dir 먼저, 없으면 부모 디렉토리
+    root_dir = os.path.dirname(base_dir)
+    for search_dir in [base_dir, root_dir]:
+        pub  = os.path.join(search_dir, ".env.public")
+        sec  = os.path.join(search_dir, ".env.secrets")
+        if os.path.exists(pub):
+            load_dotenv(pub, override=False)
+        if os.path.exists(sec):
+            load_dotenv(sec, override=True)
+            break   # secrets 찾으면 상위 탐색 불필요
 
     env = os.getenv("KIS_ENV", "live").lower()
     settings = {
@@ -188,6 +193,8 @@ def load_settings(base_dir: str) -> Dict[str, Any]:
         "INVESTOR_POLL_SEC": float(os.getenv("MMEAN_INVESTOR_POLL_SEC", "60")),
         "INVESTOR_MARKET_CODE": os.getenv("MMEAN_INVESTOR_MARKET_CODE", "K2I"),
         "INVESTOR_SUB_CODE": os.getenv("MMEAN_INVESTOR_SUB_CODE", "F001"),
+        "SPOT_INVESTOR_MARKET_CODE": os.getenv("MMEAN_SPOT_INVESTOR_MARKET_CODE", "KSP"),
+        "SPOT_INVESTOR_SUB_CODE": os.getenv("MMEAN_SPOT_INVESTOR_SUB_CODE", "2001"),
         "FOREIGN_SCALE_DIV": float(os.getenv("MMEAN_FOREIGN_SCALE_DIV", "10.0")),
         "FOREIGN_CUM_WEIGHT": float(os.getenv("MMEAN_FOREIGN_CUM_WEIGHT", "0.4")),
         "FOREIGN_DELTA_WEIGHT": float(os.getenv("MMEAN_FOREIGN_DELTA_WEIGHT", "0.6")),
@@ -235,7 +242,10 @@ def setup_logging(base_dir: str, log_level: str) -> logging.Logger:
     # werkzeug HTTP 접근 로그(200 OK)를 억제 — /api/status 폴링이 매초 찍히는 노이즈 방지
     logging.getLogger("werkzeug").setLevel(logging.WARNING)
     logger = logging.getLogger("MMEAN")
-    log_dir = os.path.join(base_dir, "logs")
+    # 로그는 프로젝트 루트(base_dir의 상위)의 logs/에 기록
+    # base_dir = C:\mmean\core → root_dir = C:\mmean → logs = C:\mmean\logs\
+    root_dir = os.path.dirname(base_dir)
+    log_dir  = os.path.join(root_dir, "logs")
     os.makedirs(log_dir, exist_ok=True)
     log_file = os.path.join(log_dir, "mmean.log")
     handler = logging.handlers.TimedRotatingFileHandler(
@@ -455,8 +465,38 @@ def _auto_detect_contracts(settings: dict, log) -> None:
         log.warning("[계약 감지] MST 파싱 실패 — 기존 설정 유지: %s", e)
 
 
+def _restore_foreign_net_history(state_obj: Any, db_path: str, log: Any) -> None:
+    """
+    재시작 시 오늘 regime_ticks에서 foreign_buy 시계열 복원.
+    investor 폴링(60초)이 채워지기 전 CB2 차단(n<5) 해소 목적.
+    분단위 그룹핑으로 investor poll 1회 ≈ 1분 값을 근사해 최대 30개 복원.
+    """
+    import sqlite3 as _sqlite3
+    from datetime import datetime as _dt
+    today = _dt.now().strftime("%Y-%m-%d")
+    try:
+        conn = _sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=5)
+        rows = conn.execute("""
+            SELECT AVG(foreign_buy) as fb
+            FROM regime_ticks
+            WHERE substr(ts, 1, 10) = ?
+              AND foreign_buy != 0
+            GROUP BY substr(ts, 1, 16)
+            ORDER BY substr(ts, 1, 16) DESC
+            LIMIT 30
+        """, (today,)).fetchall()
+        conn.close()
+        if rows:
+            for (fb,) in reversed(rows):   # 오래된 것부터 추가
+                state_obj.foreign_net_history.append(float(fb))
+            log.info("foreign_net_history 복원 | %d건 | date=%s", len(rows), today)
+    except Exception as e:
+        log.warning("foreign_net_history 복원 실패 (계속): %s", e)
+
+
 def build_runtime(app: Flask) -> AppRuntime:
-    base_dir = os.path.dirname(os.path.abspath(__file__))
+    base_dir = os.path.dirname(os.path.abspath(__file__))  # C:\mmean\core
+    root_dir  = os.path.dirname(base_dir)                  # C:\mmean
     settings = load_settings(base_dir)
     log = setup_logging(base_dir, settings["LOG_LEVEL"])
 
@@ -466,12 +506,16 @@ def build_runtime(app: Flask) -> AppRuntime:
     # ─── MST 파일에서 노멀·미니 최근월물 자동 감지 ────────────────────────
     _auto_detect_contracts(settings, log)
 
-    db_dir = os.path.join(base_dir, "storage")
+    # DB는 프로젝트 루트 storage/ (C:\mmean\storage\) — 기존 위치 유지
+    db_dir = os.path.join(root_dir, "storage")
     os.makedirs(db_dir, exist_ok=True)
     db_path = os.path.join(db_dir, "mmean.db")
+    judgment_db_path = os.path.join(db_dir, "judgment.db")
     db_setup_all(db_path)
+    setup_judgment_db(judgment_db_path)
 
     state_obj = create_app_state(settings)
+    _restore_foreign_net_history(state_obj, db_path, log)
     recorder = RegimeRecorder(db_path)
     cfg_mgr = ConfigManager(db_path=db_path)
     param_store = get_param_store(db_path)
@@ -537,14 +581,15 @@ def build_runtime(app: Flask) -> AppRuntime:
     position_engine_obj = PositionEngine()
     llm_decision_log_obj = LLMDecisionLog(db_path)
     llm_caller_obj = None
-    if LLM_CALLER_AVAILABLE and llm_chain is not None:
+    _llm_caller_enabled = os.getenv("MMEAN_LLM_CALLER_ENABLED", "true").lower() == "true"
+    if LLM_CALLER_AVAILABLE and llm_chain is not None and _llm_caller_enabled:
         llm_caller_obj = LLMCaller(
             llm_chain=llm_chain,
             decision_log=llm_decision_log_obj,
         )
     log.info(
         "FlowEngine 파이프라인 초기화 완료 | llm_caller=%s",
-        "활성" if llm_caller_obj is not None else "비활성(llm_chain 없음)",
+        "활성" if llm_caller_obj is not None else "비활성(설정 또는 llm_chain 없음)",
     )
 
     runtime = AppRuntime(
@@ -576,9 +621,9 @@ def build_runtime(app: Flask) -> AppRuntime:
     )
 
     # ── JudgmentLog 초기화 ───────────────────────────────────────────
-    judgment_log = JudgmentLog(db_path=db_path)
+    judgment_log = JudgmentLog(db_path=judgment_db_path)
     runtime.judgment_log = judgment_log
-    log.info("JudgmentLog 초기화 완료 | db=%s", db_path)
+    log.info("JudgmentLog 초기화 완료 | db=%s", judgment_db_path)
 
     # ── AdoptionViewAdapter 초기화 ────────────────────────────────────
     sim_db_path = os.path.join(db_dir, "sim.db")
@@ -587,16 +632,76 @@ def build_runtime(app: Flask) -> AppRuntime:
     log.info("AdoptionViewAdapter 초기화 완료 | sim_db=%s", sim_db_path)
 
     # ── MarketAnalyst 초기화 및 시작 ─────────────────────────────────
-    market_analyst = MarketAnalyst(runtime, interval_sec=180)
+    market_analyst = MarketAnalyst(runtime)
     market_analyst.start()
     runtime.market_analyst = market_analyst
-    log.info("MarketAnalyst 초기화 완료 | interval=180s")
+    log.info("MarketAnalyst 초기화 완료 | 모드=이벤트트리거")
 
     # ── CheckpointAnalyst 초기화 및 시작 ─────────────────────────────
     checkpoint_analyst = CheckpointAnalyst(runtime)
     checkpoint_analyst.start()
     runtime.checkpoint_analyst = checkpoint_analyst
     log.info("CheckpointAnalyst 초기화 완료 | 체크포인트: 09:15 / 10:30 / 13:00")
+
+    # ── LLMPulse 초기화 및 시작 ──────────────────────────────────────────
+    from engines.llm_pulse import LLMPulse
+    _llm_pulse_interval = int(os.getenv("MMEAN_LLM_PULSE_INTERVAL", "300"))
+    llm_pulse = LLMPulse(runtime, interval_sec=_llm_pulse_interval)
+    llm_pulse.start()
+    runtime.llm_pulse = llm_pulse
+    log.info("LLMPulse 초기화 완료 | interval=%ds", _llm_pulse_interval)
+
+    # ── SidewaysDetector 초기화 ───────────────────────────────────────────
+    from engines.sideways_detector import SidewaysDetector
+    sideways_detector = SidewaysDetector()
+    runtime.sideways_detector = sideways_detector
+    log.info(
+        "SidewaysDetector 초기화 완료 | range=VWAP±ATR×%.1f | enter=%d틱 | exit=%d틱",
+        0.5, 5, 2,
+    )
+
+    # ── PulseEngine 초기화 (규칙 기반 전략 방향) ──────────────────────────
+    from engines.pulse_engine import PulseEngine
+    from engines.pulse_param_loader import PulseParamLoader
+    _pulse_engine_interval = int(os.getenv("MMEAN_PULSE_ENGINE_INTERVAL", "300"))
+    pulse_engine = PulseEngine(runtime, interval_sec=_pulse_engine_interval)
+
+    # pulse_sim.db 최적 파라미터 즉시 로드 (없으면 기본값 유지)
+    _pulse_sim_db = os.path.join(os.path.dirname(runtime.db_path), "pulse_sim.db")
+    _pulse_loader = PulseParamLoader(
+        _pulse_sim_db,
+        top_n=int(os.getenv("MMEAN_PULSE_TOP_N", "5")),
+        method=os.getenv("MMEAN_PULSE_PARAM_METHOD", "ensemble"),
+        min_obj=float(os.getenv("MMEAN_PULSE_MIN_OBJ", "5.0")),
+    )
+    _initial_params = _pulse_loader.load()
+    if _initial_params:
+        pulse_engine.update_params(_initial_params)
+    runtime.pulse_param_loader = _pulse_loader
+
+    pulse_engine.start()
+    runtime.pulse_engine = pulse_engine
+    log.info("PulseEngine 초기화 완료 | interval=%ds | params=%s",
+             _pulse_engine_interval, "pulse_sim 최적화" if _initial_params else "기본값")
+
+    # ── PulseScorer 초기화 (자동 채점) ───────────────────────────────────
+    from engines.pulse_logger import PulseScorer
+    pulse_scorer = PulseScorer(runtime.db_path, interval_sec=_pulse_engine_interval)
+    pulse_scorer.start()
+    runtime.pulse_scorer = pulse_scorer
+    log.info("PulseScorer 초기화 완료 | check_interval=%ds", _pulse_engine_interval)
+
+    # ── PulseValidator 초기화 (30분 LLM 검증) ────────────────────────────
+    from engines.pulse_validator import PulseValidator
+    pulse_validator = PulseValidator(runtime, pulse_engine, interval_sec=1800)
+    pulse_validator.start()
+    runtime.pulse_validator = pulse_validator
+    log.info("PulseValidator 초기화 완료 | interval=1800s")
+
+    # ── PulseAnalyzer 초기화 ─────────────────────────────────────────────
+    from engines.pulse_analyzer import PulseAnalyzer
+    runtime.pulse_analyzer = PulseAnalyzer(runtime.db_path)
+    log.info("PulseAnalyzer 초기화 완료")
 
     # ── 주문 실행 레이어 초기화 ──────────────────────────────────────────
     try:
@@ -753,8 +858,11 @@ def _run_rag_prep_if_stale(db_path: str, log: logging.Logger, runtime=None) -> N
     _last_err = ""
     for step in (1, 2, 4):
         try:
+            cmd = [sys.executable, _rag_script, "--step", str(step), "--db", db_path]
+            if step == 4:
+                cmd += ["--judgment-db", judgment_db_path]
             result = subprocess.run(
-                [sys.executable, _rag_script, "--step", str(step), "--db", db_path],
+                cmd,
                 capture_output=True, text=True, timeout=120,
                 cwd=_proj_dir,
             )

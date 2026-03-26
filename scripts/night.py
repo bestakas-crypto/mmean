@@ -9,10 +9,11 @@ import sys
 from datetime import date, timedelta
 from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR  = Path(__file__).resolve().parent
+_PROJ_DIR = BASE_DIR.parent   # scripts/ → 프로젝트 루트
 SCRIPT_PATH = BASE_DIR / 'night_sim.py'
-DEFAULT_SOURCE_DB = BASE_DIR / 'storage' / 'mmean.db'
-DEFAULT_SIM_DB = BASE_DIR / 'storage' / 'sim.db'
+DEFAULT_SOURCE_DB = _PROJ_DIR / 'storage' / 'mmean.db'
+DEFAULT_SIM_DB    = _PROJ_DIR / 'storage' / 'sim.db'
 DEFAULT_NIGHT_JSON = BASE_DIR.parent / 'workspace' / 'night_levels.json'
 
 

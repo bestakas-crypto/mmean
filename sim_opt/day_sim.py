@@ -57,7 +57,7 @@ def _log_db_preview(tag: str, rows: list, limit: int = 5) -> None:
 
 
 # ── 경로 기본값 ──────────────────────────────────────────────────────
-_STORAGE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "storage")
+_STORAGE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "storage")
 
 _DEFAULT_SOURCE_DB = os.path.join(_STORAGE, "mmean.db")   # 읽기 전용
 _DEFAULT_SIM_DB    = os.path.join(_STORAGE, "sim.db")     # 쓰기 전용
@@ -104,12 +104,20 @@ _CLUSTER_FLOAT_PARAMS = [
     "sim_trailing_activate",
     "sim_trailing_ticks",
     "max_hold_ticks",
+    # 신규: 레인지 위치
+    "range_pos_long_max",
+    "range_pos_short_min",
 ]
 _CLUSTER_BOOL_PARAMS = [
     "llm_required",
     "llm_direction_match_required",
     "price_vs_vwap_gate",
     "flow_required",
+    # 신규: 6주체 + 레인지
+    "range_pos_gate",
+    "fut_fgn_dir_required",
+    "fut_inst_dir_required",
+    "fgn_sync_required",
 ]
 
 # ── 정규장 랜덤 탐색 공간 ───────────────────────────────────────────
@@ -139,12 +147,25 @@ _DAY_SEARCH_SPACE: Dict[str, tuple] = {
 
     # 슬리피지
     "sim_slippage_ticks":           ("int",    1,   2),
+
+    # ── 신규: 레인지 위치 + 6주체 방향 필터 ──────────────────────────
+    # range_pos_gate=True 일 때만 레인지 위치 필터 활성
+    "range_pos_gate":               ("bool",),
+    "range_pos_long_max":           ("float", 0.3, 0.7),   # LONG: 이 값 초과 시 진입 차단
+    "range_pos_short_min":          ("float", 0.3, 0.7),   # SHORT: 이 값 미만 시 진입 차단
+    # 6주체 방향 일치 필터 (데이터 없으면 자동 스킵)
+    "fut_fgn_dir_required":         ("bool",),   # 선물 외국인 delta 방향 일치
+    "fut_inst_dir_required":        ("bool",),   # 선물 기관 delta 방향 일치
+    "fgn_sync_required":            ("bool",),   # 현물-선물 외국인 동조
 }
 
 # ── 기본 정규장 프로파일 ─────────────────────────────────────────────
 _DEFAULT_PROFILES: Dict[int, Dict] = {
     1: dict(
         label="정규장 초보수형",
+        # 신규 기본값 (비활성)
+        range_pos_gate=False, range_pos_long_max=0.5, range_pos_short_min=0.5,
+        fut_fgn_dir_required=False, fut_inst_dir_required=False, fgn_sync_required=False,
         enter_score=5.8,
         enter_gap=1.8,
         min_confidence=0.72,
@@ -165,6 +186,8 @@ _DEFAULT_PROFILES: Dict[int, Dict] = {
     ),
     2: dict(
         label="정규장 보수형",
+        range_pos_gate=False, range_pos_long_max=0.5, range_pos_short_min=0.5,
+        fut_fgn_dir_required=False, fut_inst_dir_required=False, fgn_sync_required=False,
         enter_score=5.0,
         enter_gap=1.4,
         min_confidence=0.66,
@@ -185,6 +208,8 @@ _DEFAULT_PROFILES: Dict[int, Dict] = {
     ),
     3: dict(
         label="정규장 중간형",
+        range_pos_gate=False, range_pos_long_max=0.5, range_pos_short_min=0.5,
+        fut_fgn_dir_required=False, fut_inst_dir_required=False, fgn_sync_required=False,
         enter_score=4.5,
         enter_gap=1.1,
         min_confidence=0.60,
@@ -205,6 +230,8 @@ _DEFAULT_PROFILES: Dict[int, Dict] = {
     ),
     4: dict(
         label="정규장 적극형",
+        range_pos_gate=False, range_pos_long_max=0.5, range_pos_short_min=0.5,
+        fut_fgn_dir_required=False, fut_inst_dir_required=False, fgn_sync_required=False,
         enter_score=4.0,
         enter_gap=0.9,
         min_confidence=0.55,
@@ -225,6 +252,8 @@ _DEFAULT_PROFILES: Dict[int, Dict] = {
     ),
     5: dict(
         label="정규장 공격형",
+        range_pos_gate=False, range_pos_long_max=0.5, range_pos_short_min=0.5,
+        fut_fgn_dir_required=False, fut_inst_dir_required=False, fgn_sync_required=False,
         enter_score=3.6,
         enter_gap=0.7,
         min_confidence=0.50,
@@ -413,6 +442,33 @@ class DaySimEngine:
                 if llm_direction not in ("LONG", "SHORT"):
                     return None
                 if llm_direction != direction:
+                    return None
+
+        # ── 신규: 레인지 위치 필터 ──────────────────────────────────────
+        # price_range_pct: 0=당일 저점, 1=당일 고점 / NULL이면 0.5(기본값)
+        price_range_pct = float(row.get("price_range_pct") if row.get("price_range_pct") is not None else 0.5)
+        if self.cfg.get("range_pos_gate"):
+            if direction == "LONG" and price_range_pct > self._cf("range_pos_long_max", 1.0):
+                return None
+            if direction == "SHORT" and price_range_pct < self._cf("range_pos_short_min", 0.0):
+                return None
+
+        # ── 신규: 6주체 방향 필터 ────────────────────────────────────────
+        # delta 모두 0이면 수집 전 데이터(old row) → 필터 전체 스킵
+        fut_fgn_delta   = float(row.get("fut_fgn_delta")  or 0.0)
+        fut_inst_delta  = float(row.get("fut_inst_delta") or 0.0)
+        spot_fgn_delta  = float(row.get("spot_fgn_delta") or 0.0)
+        _has_flow_data  = (abs(fut_fgn_delta) + abs(fut_inst_delta) + abs(spot_fgn_delta)) > 0.5
+        if _has_flow_data:
+            if self.cfg.get("fut_fgn_dir_required"):
+                if direction == "LONG"  and fut_fgn_delta  < 0: return None
+                if direction == "SHORT" and fut_fgn_delta  > 0: return None
+            if self.cfg.get("fut_inst_dir_required"):
+                if direction == "LONG"  and fut_inst_delta < 0: return None
+                if direction == "SHORT" and fut_inst_delta > 0: return None
+            if self.cfg.get("fgn_sync_required"):
+                sync = (fut_fgn_delta >= 0) == (spot_fgn_delta >= 0)
+                if not sync:
                     return None
 
         return direction

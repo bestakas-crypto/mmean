@@ -755,6 +755,15 @@ class SimEngine:
                 raw_pnl_pt    = (futures_price - pos.entry_price) * pos.direction
                 profit_ticks  = round(raw_pnl_pt / TICK_UNIT)
 
+                # ── FLAT/SIDEWAYS 즉시 청산 ───────────────────────────────
+                # snap에 sideways_force_exit=True 이면 손익 무관 즉시 청산
+                _snap_sw_exit = bool((snap or {}).get("sideways_force_exit", False))
+                if _snap_sw_exit and data_gate_ok:
+                    trade = self._close(
+                        ts, futures_price, bias, "FLAT_EXIT", snap, data_gate_ok
+                    )
+                # ──────────────────────────────────────────────────────────
+
                 # data_gate=False(simulated/stale)일 때 trailing 갱신 차단
                 # 재연결 직후 쓰레기 가격(350, 0 등)으로 extreme/SL이 오염되는 것을 방지
                 if data_gate_ok:

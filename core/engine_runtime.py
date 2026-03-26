@@ -3,11 +3,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import threading
 import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Tuple
+
+log = logging.getLogger("MMEAN")
 
 import requests
 import websockets
@@ -17,9 +20,10 @@ from regime_engine import BiasInputs, BIAS_LONG, BIAS_SHORT
 
 # ── KIS API 계층 ─────────────────────────────────────────────────────────────
 # 데이터(실계좌): 토큰·approval_key·투자자 REST
-from kis_data_api import get_data_token, issue_approval_key, fetch_investor_once
+from kis_data_api import get_data_token, issue_approval_key, fetch_investor_once, fetch_investor_by_market
+from order.kis_auth_order import get_order_token  # noqa: F401  (core/kis_order_api 경유 제거)
 # 주문(모의/실전): 토큰 — core 계층
-from kis_order_api import get_order_token  # noqa: F401
+# get_order_token → order.kis_auth_order 로 이전 (위 import 참조)
 # 잔고 조회 — order 레이어 (get_balance는 order/kis_order_api.py에 있음)
 try:
     from order.kis_order_api import get_balance  # noqa: F401
@@ -51,6 +55,8 @@ ERROR_CIRCUIT_OPEN_COUNT = 3    # 동일 에러 N회 연속 → 서킷 오픈 (p
 ERROR_HARD_STOP_COUNT    = 5    # 동일 에러 N회 연속 → 하드스톱 (수동 resume 필요)
 CIRCUIT_HALF_OPEN_SEC    = 60   # 서킷 오픈 후 N초 뒤 자동 반개방(half-open) 재시도
 INVESTOR_FOREIGN_BUY_CANDIDATES = ["stot_frgn_ntby_qty", "frgn_ntby_qty", "frgn_ntby_tr_pbmn"]
+INVESTOR_INST_CANDIDATES  = ["stot_orgn_ntby_qty", "orgn_ntby_qty",  "orgn_ntby_tr_pbmn"]
+INVESTOR_INDIV_CANDIDATES = ["stot_prsn_ntby_qty", "prsn_ntby_qty",  "prsn_ntby_tr_pbmn"]
 INVESTOR_OI_CANDIDATES = ["opint_qty", "hts_otst_stpl_qty", "unsettled_qty", "open_interest"]
 INVESTOR_STRENGTH_CANDIDATES = ["cntg_isrt", "cttr", "trade_strength"]
 TREND_PARAM_KEYS = {
@@ -512,24 +518,26 @@ class LiveOrderExecutor:
                 return False
             self._active = True
 
-        env       = self.runtime.settings.get("ORDER_ENV", "virtual")
-        exec_mode = str(self.runtime.state.get("execution_mode", "OFF")).upper()
+        env        = self.runtime.settings.get("ORDER_ENV", "virtual")
+        exec_paper = bool(self.runtime.state.get("exec_paper", False))
+        exec_live  = bool(self.runtime.state.get("exec_live",  False))
 
-        # VIRTUAL = 내부 시뮬레이션 전용 — KIS API 호출 없음
-        if exec_mode == "VIRTUAL":
+        # KIS 주문 플래그 미활성 — 내부 시뮬/데이터 전용
+        if not (exec_paper or exec_live):
             self.runtime.log.debug(
-                "[EXEC-VIRTUAL] entry | side=%s qty=%d → 내부 시뮬레이션 모드, KIS 주문 미전송",
-                side, qty,
+                "[EXEC-SKIP] entry | side=%s qty=%d → KIS 주문 비활성"
+                " (exec_paper=%s exec_live=%s)",
+                side, qty, exec_paper, exec_live,
             )
             with self._lock:
                 self._active = False
             return False
 
-        # LIVE 모드는 EXECUTION_ENABLED=true 이중 게이트 (실계좌 안전장치)
-        if exec_mode == "LIVE" and not bool(self.runtime.settings.get("EXECUTION_ENABLED", False)):
+        # exec_live=True이면 EXECUTION_ENABLED=true 이중 게이트 (실계좌 안전장치)
+        if exec_live and not bool(self.runtime.settings.get("EXECUTION_ENABLED", False)):
             self.runtime.log.warning(
                 "[EXEC-DRY] entry | side=%s qty=%d price=%.2f env=%s"
-                " → LIVE 모드이지만 EXECUTION_ENABLED=false (주문 미전송)",
+                " → exec_live=True이지만 EXECUTION_ENABLED=false (주문 미전송)",
                 side, qty, price, env,
             )
             with self._lock:
@@ -556,23 +564,26 @@ class LiveOrderExecutor:
                 return False
             self._active = True
 
-        env       = self.runtime.settings.get("ORDER_ENV", "virtual")
-        exec_mode = str(self.runtime.state.get("execution_mode", "OFF")).upper()
+        env        = self.runtime.settings.get("ORDER_ENV", "virtual")
+        exec_paper = bool(self.runtime.state.get("exec_paper", False))
+        exec_live  = bool(self.runtime.state.get("exec_live",  False))
 
-        # VIRTUAL = 내부 시뮬레이션 전용 — KIS API 호출 없음
-        if exec_mode == "VIRTUAL":
+        # KIS 주문 플래그 미활성 — 내부 시뮬/데이터 전용
+        if not (exec_paper or exec_live):
             self.runtime.log.debug(
-                "[EXEC-VIRTUAL] exit | qty=%d → 내부 시뮬레이션 모드, KIS 주문 미전송", qty,
+                "[EXEC-SKIP] exit | qty=%d → KIS 주문 비활성"
+                " (exec_paper=%s exec_live=%s)",
+                qty, exec_paper, exec_live,
             )
             with self._lock:
                 self._active = False
             return False
 
-        # LIVE 모드는 EXECUTION_ENABLED=true 이중 게이트 (실계좌 안전장치)
-        if exec_mode == "LIVE" and not bool(self.runtime.settings.get("EXECUTION_ENABLED", False)):
+        # exec_live=True이면 EXECUTION_ENABLED=true 이중 게이트 (실계좌 안전장치)
+        if exec_live and not bool(self.runtime.settings.get("EXECUTION_ENABLED", False)):
             self.runtime.log.warning(
                 "[EXEC-DRY] exit | qty=%d price=%.2f env=%s"
-                " → LIVE 모드이지만 EXECUTION_ENABLED=false (주문 미전송)",
+                " → exec_live=True이지만 EXECUTION_ENABLED=false (주문 미전송)",
                 qty, price, env,
             )
             with self._lock:
@@ -677,7 +688,8 @@ class LiveOrderExecutor:
         if self.is_active:
             return
         if runtime := self.runtime:
-            if str(runtime.state.get("execution_mode", "OFF")).upper() not in ("PAPER", "LIVE"):
+            if not (bool(runtime.state.get("exec_paper", False))
+                    or bool(runtime.state.get("exec_live", False))):
                 return
             if runtime.order_state is None:
                 return
@@ -763,7 +775,9 @@ def _pick_foreign_buy_qty(output: dict) -> float:
 
 
 def fetch_investor_data(runtime: AppRuntime) -> None:
-    """투자자 매매 폴링 루프 — kis_data_api.fetch_investor_once() 로 HTTP 위임.
+    """투자자 매매 폴링 루프 — 선물·현물 3주체 delta 수집.
+
+    선물(K2I/F001) + 현물(KSP/2001) 각각 호출 → 외국인/기관/개인 절대값 + delta 계산.
     state 업데이트·에러 추적·슬립은 엔진 책임.
     """
     st = runtime.settings
@@ -771,24 +785,79 @@ def fetch_investor_data(runtime: AppRuntime) -> None:
         return
 
     runtime.log.info(
-        "investor 폴링 시작 | market=%s sub=%s",
-        st["INVESTOR_MARKET_CODE"],
-        st["INVESTOR_SUB_CODE"],
+        "investor 폴링 시작 | 선물=%s/%s 현물=%s/%s",
+        st["INVESTOR_MARKET_CODE"], st["INVESTOR_SUB_CODE"],
+        st["SPOT_INVESTOR_MARKET_CODE"], st["SPOT_INVESTOR_SUB_CODE"],
     )
+
+    # ── 이전값 초기화 (delta 계산용) ────────────────────────────────────────
+    _prev_fut  = {"fgn": None, "inst": None, "indiv": None}
+    _prev_spot = {"fgn": None, "inst": None, "indiv": None}
+
     while True:
         try:
-            out = fetch_investor_once(runtime)   # kis_data_api — HTTP I/O 전담
-            runtime.state_obj.investor_cache.update({
-                "foreign_buy":    _pick_foreign_buy_qty(out),
-                "oi_value":       _first_nonzero(out, INVESTOR_OI_CANDIDATES),
-                "trade_strength": _first_nonzero(out, INVESTOR_STRENGTH_CANDIDATES),
-                "updated_at":     time.time(),
-            })
-            # FlowEngine 시계열 누적 — 폴링마다 외국인 순매수 추가
-            runtime.state_obj.foreign_net_history.append(
-                runtime.state_obj.investor_cache["foreign_buy"]
+            # ── 선물 투자자 3주체 조회 ──────────────────────────────────────
+            out_fut = fetch_investor_by_market(
+                runtime,
+                st["INVESTOR_MARKET_CODE"],
+                st["INVESTOR_SUB_CODE"],
             )
+            fut_fgn   = _pick_foreign_buy_qty(out_fut)
+            fut_inst  = _first_nonzero(out_fut, INVESTOR_INST_CANDIDATES)
+            fut_indiv = _first_nonzero(out_fut, INVESTOR_INDIV_CANDIDATES)
+
+            # ── 현물 투자자 3주체 조회 ──────────────────────────────────────
+            out_spot = fetch_investor_by_market(
+                runtime,
+                st["SPOT_INVESTOR_MARKET_CODE"],
+                st["SPOT_INVESTOR_SUB_CODE"],
+            )
+            spot_fgn   = _pick_foreign_buy_qty(out_spot)
+            spot_inst  = _first_nonzero(out_spot, INVESTOR_INST_CANDIDATES)
+            spot_indiv = _first_nonzero(out_spot, INVESTOR_INDIV_CANDIDATES)
+
+            # ── delta 계산 (첫 폴링은 0.0 처리) ─────────────────────────────
+            def _delta(cur: float, prev) -> float:
+                return 0.0 if prev is None else cur - prev
+
+            fut_fgn_d   = _delta(fut_fgn,   _prev_fut["fgn"])
+            fut_inst_d  = _delta(fut_inst,   _prev_fut["inst"])
+            fut_indiv_d = _delta(fut_indiv,  _prev_fut["indiv"])
+            spot_fgn_d   = _delta(spot_fgn,  _prev_spot["fgn"])
+            spot_inst_d  = _delta(spot_inst, _prev_spot["inst"])
+            spot_indiv_d = _delta(spot_indiv,_prev_spot["indiv"])
+
+            _prev_fut  = {"fgn": fut_fgn,  "inst": fut_inst,  "indiv": fut_indiv}
+            _prev_spot = {"fgn": spot_fgn, "inst": spot_inst, "indiv": spot_indiv}
+
+            # ── investor_cache 갱신 ──────────────────────────────────────────
+            runtime.state_obj.investor_cache.update({
+                # 기존 필드 (호환성 유지)
+                "foreign_buy":    fut_fgn,
+                "oi_value":       _first_nonzero(out_fut, INVESTOR_OI_CANDIDATES),
+                "trade_strength": _first_nonzero(out_fut, INVESTOR_STRENGTH_CANDIDATES),
+                "updated_at":     time.time(),
+                # 선물 3주체 절대값
+                "fut_fgn_buy":    fut_fgn,
+                "fut_inst_buy":   fut_inst,
+                "fut_indiv_buy":  fut_indiv,
+                # 선물 3주체 delta
+                "fut_fgn_delta":   fut_fgn_d,
+                "fut_inst_delta":  fut_inst_d,
+                "fut_indiv_delta": fut_indiv_d,
+                # 현물 3주체 절대값
+                "spot_fgn_buy":   spot_fgn,
+                "spot_inst_buy":  spot_inst,
+                "spot_indiv_buy": spot_indiv,
+                # 현물 3주체 delta
+                "spot_fgn_delta":   spot_fgn_d,
+                "spot_inst_delta":  spot_inst_d,
+                "spot_indiv_delta": spot_indiv_d,
+            })
+            # FlowEngine 시계열 누적
+            runtime.state_obj.foreign_net_history.append(fut_fgn)
             runtime.error_tracker.record("", "investor_error")
+
         except Exception as e:
             runtime.error_tracker.record(f"investor 오류: {e}")
         time.sleep(st["INVESTOR_POLL_SEC"])
@@ -1070,6 +1139,53 @@ def _map_llm_action(direction: int, risk_view: str) -> str:
     return "nothing"
 
 
+def _save_llm_caller_log(runtime: AppRuntime, action: str, risk_view: str,
+                         confidence: float, weight_adjust: float,
+                         reason_main: str, reason_against: str,
+                         direction: int, futures_price: float,
+                         entry_signal: str) -> None:
+    """LLMCaller 결과를 intraday.db llm_caller_log에 저장."""
+    try:
+        import os as _os
+        import sqlite3 as _sq
+        from datetime import datetime as _dt
+        db = _os.path.join(_os.path.dirname(runtime.db_path), "intraday.db")
+        conn = _sq.connect(db, timeout=3)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS llm_caller_log (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_date  TEXT NOT NULL,
+                ts            TEXT NOT NULL,
+                action        TEXT,
+                risk_view     TEXT,
+                confidence    REAL,
+                weight_adjust REAL,
+                reason_main   TEXT,
+                reason_against TEXT,
+                direction     INTEGER,
+                futures_price REAL,
+                entry_signal  TEXT
+            )
+        """)
+        conn.execute(
+            "INSERT INTO llm_caller_log "
+            "(session_date,ts,action,risk_view,confidence,weight_adjust,"
+            "reason_main,reason_against,direction,futures_price,entry_signal) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                _dt.now().strftime("%Y-%m-%d"),
+                _dt.now().strftime("%H:%M:%S"),
+                action, risk_view, confidence, weight_adjust,
+                reason_main, reason_against, direction, futures_price,
+                entry_signal,
+            )
+        )
+        conn.commit()
+        conn.close()
+    except Exception as _e:
+        runtime.log.warning("llm_caller_log 저장 실패: %s", _e)
+
+
 def _llm_call_in_bg(
     runtime: AppRuntime,
     net_series: List[float],
@@ -1244,6 +1360,13 @@ def _llm_call_in_bg(
                     "confidence": round(result.confidence, 2),
                 })
                 runtime.state["llm_signal_history"] = _hist[:5]
+            _save_llm_caller_log(
+                runtime, _action, result.risk_view, result.confidence,
+                result.weight_adjust, result.reason_main or "",
+                result.reason_against or "", direction,
+                float(state_snap.get("futures_price", 0.0)),
+                str(state_snap.get("entry_signal", "")),
+            )
         else:
             runtime.log.info(
                 "LLM bg 실패 [FALLBACK wa=0] | error=%s | key=%s",
@@ -1267,6 +1390,12 @@ def _llm_call_in_bg(
                     "confidence": 0.0,
                 })
                 runtime.state["llm_signal_history"] = _hist[:5]
+            _save_llm_caller_log(
+                runtime, _action, "failure", 0.0, 0.0,
+                result.error_type or "unknown", "", direction,
+                float(state_snap.get("futures_price", 0.0)),
+                str(state_snap.get("entry_signal", "")),
+            )
     except Exception as e:
         runtime.log.warning("_llm_call_in_bg 예외: %s", e)
         with runtime.state_obj.engine_lock:
@@ -1328,12 +1457,27 @@ def engine_loop(runtime: AppRuntime) -> None:
                     data_quality = "stale"
                 else:
                     vd = max(0.0, float(snap_rt["cum_volume"]) - float(state["cum_volume"])) if float(state["cum_volume"]) > 0 else 0.0
+                    _ic = runtime.state_obj.investor_cache
                     raw = {
                         **snap_rt,
-                        "foreign_buy": runtime.state_obj.investor_cache["foreign_buy"],
+                        "foreign_buy": _ic["foreign_buy"],
                         "oi_delta": float(snap_rt["oi_value"]) - float(state["oi_value"]),
                         "volume_delta": vd,
                         "volume_burst": compute_volume_burst(runtime, vd),
+                        # 선물 3주체
+                        "fut_fgn_buy":    _ic.get("fut_fgn_buy",    0.0),
+                        "fut_inst_buy":   _ic.get("fut_inst_buy",   0.0),
+                        "fut_indiv_buy":  _ic.get("fut_indiv_buy",  0.0),
+                        "fut_fgn_delta":  _ic.get("fut_fgn_delta",  0.0),
+                        "fut_inst_delta": _ic.get("fut_inst_delta", 0.0),
+                        "fut_indiv_delta":_ic.get("fut_indiv_delta",0.0),
+                        # 현물 3주체
+                        "spot_fgn_buy":    _ic.get("spot_fgn_buy",   0.0),
+                        "spot_inst_buy":   _ic.get("spot_inst_buy",  0.0),
+                        "spot_indiv_buy":  _ic.get("spot_indiv_buy", 0.0),
+                        "spot_fgn_delta":  _ic.get("spot_fgn_delta", 0.0),
+                        "spot_inst_delta": _ic.get("spot_inst_delta",0.0),
+                        "spot_indiv_delta":_ic.get("spot_indiv_delta",0.0),
                     }
 
             # ─── PriceGuard: 가격 신뢰도 방어층 ──────────────────────────
@@ -1520,6 +1664,13 @@ def engine_loop(runtime: AppRuntime) -> None:
                     runtime.recorder.update_regime_event(state["timestamp"], res, state)
                     runtime.recorder.insert_entry_event(state["timestamp"], res, state)
 
+                # ── MarketAnalyst 이벤트 트리거 체크 ──────────────────────
+                if getattr(runtime, "market_analyst", None) is not None:
+                    try:
+                        runtime.market_analyst.check_trigger(state)
+                    except Exception:
+                        pass
+
                 with runtime.state_obj.today_stats_lock:
                     ts_cache = dict(runtime.state_obj.today_stats)
                 state.update({
@@ -1566,8 +1717,8 @@ def engine_loop(runtime: AppRuntime) -> None:
                         entry_signal  = res.entry_signal,
                     )
                     if _cb_reason:
-                        log.warning("이상징후 차단 | reason=%s | signal=%s → WAIT",
-                                    _cb_reason, res.entry_signal)
+                        runtime.log.warning("이상징후 차단 | reason=%s | signal=%s → WAIT",
+                                            _cb_reason, res.entry_signal)
                     else:
                         # CB4 타이머 갱신 (차단 없이 통과했을 때만)
                         _cb4_last_signal    = res.entry_signal
@@ -1587,7 +1738,14 @@ def engine_loop(runtime: AppRuntime) -> None:
                                 _j_id = runtime.judgment_log.open_event(
                                     state_snap=dict(state),
                                     entry_signal=res.entry_signal,
-                                    exec_mode=str(state.get("execution_mode", "OFF")),
+                                    exec_mode="|".join(
+                                        k for k, v in [
+                                            ("data",  state.get("exec_data",  True)),
+                                            ("sim",   state.get("exec_sim",   False)),
+                                            ("paper", state.get("exec_paper", False)),
+                                            ("live",  state.get("exec_live",  False)),
+                                        ] if v
+                                    ) or "data",
                                 )
                                 state["active_judgment_event_id"] = _j_id
                             except Exception as _je:
@@ -1698,6 +1856,22 @@ def engine_loop(runtime: AppRuntime) -> None:
                 except Exception as _eg_err:
                     log.debug("entry_gate 계산 실패 (ALLOW 유지): %s", _eg_err)
 
+                # ── FLAT / SIDEWAYS 하드 블록 ─────────────────────────────
+                # SidewaysDetector(하드블록) 또는 MarketAnalyst FLAT_HIGH/FLAT_LOW
+                # → 신규 진입 완전 차단 (RAG 패턴 경고보다 우선)
+                _flat_block   = False
+                _mv_view      = (state.get("market_view") or {}).get("view", "")
+                _sw_active    = bool(state.get("sideways_active", False))
+                if _sw_active or _mv_view in ("FLAT_HIGH", "FLAT_LOW"):
+                    if _entry_gate != "REJECT":
+                        _entry_gate = "REJECT"
+                        _flat_block = True
+                        log.info(
+                            "entry_gate=REJECT [FLAT_BLOCK] | sideways=%s mv_view=%s",
+                            _sw_active, _mv_view,
+                        )
+                # ──────────────────────────────────────────────────────────
+
                 # entry_gate 우선순위 적용 — LLM weight_adjust 덮어씀
                 if _entry_gate == "REJECT":
                     _wa_scaled = 0.0
@@ -1750,9 +1924,9 @@ def engine_loop(runtime: AppRuntime) -> None:
                         _sess_dt = _now_iso[:10]
                         # lazy init: runtime._gate_log_conn 에 연결 캐싱
                         if not getattr(runtime, "_gate_log_conn", None):
-                            _gc = _sqlite3.connect(runtime.db_path, check_same_thread=False)
-                            _gc.execute("PRAGMA journal_mode=WAL")
+                            _gc = _sqlite3.connect(runtime.db_path, timeout=2, check_same_thread=False)
                             _gc.execute("PRAGMA synchronous=NORMAL")
+                            _gc.execute("PRAGMA busy_timeout=1000")
                             runtime._gate_log_conn = _gc
                         runtime._gate_log_conn.execute("""
                             INSERT INTO entry_gate_log
@@ -1806,7 +1980,7 @@ def engine_loop(runtime: AppRuntime) -> None:
                 elif _cb_reason:
                     _final_gate_reason = "cb_block:" + str(_cb_reason)[:30]
                 elif _entry_gate == "REJECT":
-                    _final_gate_reason = "entry_gate_reject"
+                    _final_gate_reason = "flat_block" if _flat_block else "entry_gate_reject"
                 elif _entry_gate == "HALF":
                     _final_gate_reason = "entry_gate_half"
                 else:
@@ -1839,26 +2013,47 @@ def engine_loop(runtime: AppRuntime) -> None:
                         state["flow_size_before_llm"] = 0.0
 
                 # ── 실주문 실행 배선 ───────────────────────────────────────────
-                # execution_mode="OFF"     → 건너뜀 (데이터 수집 전용)
-                # execution_mode="VIRTUAL" → 내부 sim_engine만, KIS API 없음
-                # execution_mode="PAPER"   → KIS 모의계좌 주문 (ORDER_ENV=virtual)
-                # execution_mode="LIVE"    → KIS 실계좌 주문 (EXECUTION_ENABLED=true 필요)
-                _exec_mode = str(state.get("execution_mode", "OFF")).upper()
+                # exec_data  : 데이터 수집 (항상 활성)
+                # exec_sim   : 내부 sim_engine 가상 주문
+                # exec_paper : KIS 모의계좌 주문 (ORDER_ENV=virtual)
+                # exec_live  : KIS 실계좌 주문 (EXECUTION_ENABLED=true 필요)
+                _exec_paper = bool(state.get("exec_paper", False))
+                _exec_live  = bool(state.get("exec_live",  False))
                 if (data_gate_ok
                         and runtime.order_state is not None
                         and not _live_executor.is_active
-                        and _exec_mode in ("PAPER", "LIVE")):
+                        and (_exec_paper or _exec_live)):
                     # TP/SL 체크 — 신호 판단보다 먼저 실행 (가격 기반 청산 우선)
                     _live_executor.check_tp_sl(float(raw["futures_price"]))
 
-                    # opening_char size_filter=skip / 이상징후 차단기 / entry_gate=REJECT → 진입 차단
+                    # ── PulseEngine 진입 허용 / PulseValidator 사이즈 팩터 조회 ────
+                    _pulse_entry_ok = True   # 기본: 허용 (엔진 없으면 무시)
+                    _pulse_val_sf   = 1.0    # 기본: 1.0× (validator 없으면 무시)
+                    if getattr(runtime, "pulse_engine", None):
+                        try:
+                            _ps = runtime.pulse_engine.get_signal()
+                            _pulse_entry_ok = bool(_ps.entry_allowed)
+                        except Exception:
+                            pass
+                    if getattr(runtime, "pulse_validator", None):
+                        try:
+                            _pulse_val_sf = float(
+                                runtime.pulse_validator.get_size_factor()
+                            )
+                        except Exception:
+                            pass
+
+                    # opening_char size_filter=skip / 이상징후 차단기 / entry_gate=REJECT
+                    # / PulseEngine 진입 불허 / PulseValidator 진입 차단(sf=0.0) → WAIT
                     _gated_signal = (
                         "WAIT"
-                        if (_oc_sf == "skip" or _cb_reason or _entry_gate == "REJECT")
+                        if (_oc_sf == "skip" or _cb_reason or _entry_gate == "REJECT"
+                                or not _pulse_entry_ok or _pulse_val_sf == 0.0)
                         else res.entry_signal
                     )
-                    # flow_order_size: PositionEngine 출력 → 최소 1계약 보정
-                    _raw_size  = float(state.get("flow_order_size", 0.0))
+                    # flow_order_size × PulseValidator 사이즈 팩터 → 최소 1계약 보정
+                    # (sf=0.5: half 모드, sf=1.0: 정상)
+                    _raw_size  = float(state.get("flow_order_size", 0.0)) * _pulse_val_sf
                     _order_qty = max(1, round(_raw_size)) if _raw_size >= 0.5 else 0
                     _live_pos  = runtime.order_state.get_position()
 
@@ -1893,8 +2088,36 @@ def engine_loop(runtime: AppRuntime) -> None:
                         _llm_meta = runtime.llm_filter.get_latest_meta()
                         state["llm_filter_ts"]  = _llm_meta.get("created_at")
                         state["llm_call_id"]    = _llm_meta.get("llm_call_id")
+                    # ── 당일 레인지 내 현재가 위치 계산 ─────────────────────
+                    _fp = float(state.get("futures_price", 0.0))
+                    if _fp > 0:
+                        _today_str = state["timestamp"][:10]
+                        if state.get("session_date") != _today_str:
+                            state["session_date"] = _today_str
+                            state["session_high"] = _fp
+                            state["session_low"]  = _fp
+                        else:
+                            if _fp > state.get("session_high", 0.0):
+                                state["session_high"] = _fp
+                            if _fp < state.get("session_low", 999999.0):
+                                state["session_low"] = _fp
+                        _sh = state["session_high"]
+                        _sl = state["session_low"]
+                        state["price_range_pct"] = (
+                            (_fp - _sl) / (_sh - _sl) if _sh > _sl else 0.5
+                        )
                     runtime.recorder.insert_tick(state["timestamp"], res, state)
-                    runtime.recorder.flush_tick_batch()
+
+                # ── SidewaysDetector 업데이트 ─────────────────────────────
+                if getattr(runtime, "sideways_detector", None):
+                    try:
+                        _sw_state = runtime.sideways_detector.update(state)
+                        state["sideways_active"]  = _sw_state.is_sideways
+                        state["sideways_reason"]  = _sw_state.reason
+                        state["sideways_lower"]   = _sw_state.range_lower
+                        state["sideways_upper"]   = _sw_state.range_upper
+                    except Exception as _sw_e:
+                        log.warning("SidewaysDetector 업데이트 실패 (계속): %s", _sw_e)
 
                 if runtime.sim_engine:
                     # close_event 감지용: on_tick 전 포지션 상태 저장
@@ -1909,6 +2132,23 @@ def engine_loop(runtime: AppRuntime) -> None:
                         if (data_gate_ok and not _cb_reason and _entry_gate != "REJECT")
                         else "WAIT"
                     )
+
+                    # ── FLAT 청산 플래그 ─────────────────────────────────
+                    # 횡보 진입 시점에만 1회 즉시 청산 트리거
+                    # _sw_active: 이번 틱에서 처음으로 sideways=True 가 된 경우
+                    _prev_sw = bool(state.get("_prev_sideways_active", False))
+                    _flat_just_entered = _sw_active and not _prev_sw
+                    state["_prev_sideways_active"] = _sw_active
+                    _snap_for_sim = dict(state)
+                    if _flat_just_entered and _prev_sim_has_pos:
+                        _snap_for_sim["sideways_force_exit"] = True
+                        log.info(
+                            "FLAT_EXIT 트리거 | 횡보 진입 감지, 포지션 즉시 청산 시도"
+                            " | sw_reason=%s mv_view=%s",
+                            state.get("sideways_reason", ""), _mv_view,
+                        )
+                    # ──────────────────────────────────────────────────────
+
                     runtime.sim_engine.on_tick(
                         state["timestamp"],
                         float(raw["futures_price"]),
@@ -1916,7 +2156,7 @@ def engine_loop(runtime: AppRuntime) -> None:
                         gated_entry,
                         res.long_score,
                         res.short_score,
-                        snap=dict(state),
+                        snap=_snap_for_sim,
                         data_gate_ok=data_gate_ok,
                     )
                     sim_st = runtime.sim_engine.get_state()

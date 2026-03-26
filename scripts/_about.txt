@@ -33,6 +33,17 @@ git_push.py
   18:00  → analyzer_app.py 시작 (야간장 시작)
   06:00  → 자동 종료 (engine_runtime 내장 watchdog)
 
+build_entry_snapshots.py
+  - Entry RAG Phase 0 — 진입 직전 스냅샷 추출 파이프라인
+  - 소스: sim(sim.db 배치 수만건, 기본) / trades(mmean.db 실거래)
+  - sim_trades(sim.db) × regime_ticks(mmean.db) 조인
+  - 진입 open_ts 직전 45초 틱을 집계 → entry_snapshots 테이블(mmean.db) 저장
+  - 피처: volume_burst / basis_ema_delta / price_vs_vwap / flow_score /
+          fut_fgn_delta / ema_fast_slope / oi_delta (각각 last/mean/slope)
+  - 레이블: outcome_class (1=SUCCESS/0=NEUTRAL/-1=FAILURE, session_phase별 임계값)
+  - CLI 옵션: --source sim|trades / --since/--until/--window/--dry-run/--reset/--summary
+  - 실행 예: python scripts/build_entry_snapshots.py --since 2026-03-01
+
 의존 관계
 ---------
   scripts → sim_opt(day_sim, night_sim), core

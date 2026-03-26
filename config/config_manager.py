@@ -40,9 +40,9 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "trade_strength_mid":     112.0,   # 체결강도 중간 기준
 
     # ── EMA 추세 점수 (trend score) ──────────────────────────────
-    "trend_ema_period_fast":   20,     # 단기 EMA 기간
+    "trend_ema_period_fast":   10,     # 단기 EMA 기간
     "trend_ema_period_slow":   60,     # 장기 EMA 기간
-    "trend_ema_slope_window":   5,     # slope 계산 틱 수
+    "trend_ema_slope_window":   3,     # slope 계산 틱 수
     "trend_ema_slope_threshold": 0.02, # slope 유효 기준 (절대값)
     "trend_ema_align_score":    1.5,   # EMA 정배열/역배열 기본 점수
     "trend_ema_slope_score":    0.5,   # EMA slope 보조 점수
@@ -102,9 +102,9 @@ class ConfigManager:
         self._cfg: Dict[str, Any] = dict(DEFAULT_CONFIG)
         self._hash: str = _make_hash(self._cfg)
         self._db_path = db_path
-        self._conn = sqlite3.connect(db_path, timeout=30, check_same_thread=False)
+        self._conn = sqlite3.connect(db_path, timeout=2, check_same_thread=False)
         self._conn.execute("PRAGMA journal_mode=WAL")
-        self._conn.execute("PRAGMA busy_timeout=30000")
+        self._conn.execute("PRAGMA busy_timeout=2000")
         self._create_table()
         self._save_snapshot("init")
 

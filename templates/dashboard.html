@@ -379,6 +379,79 @@
             line-height: 1.5;
             word-break: break-all;
         }
+
+        /* ── 장세/장중 상태 요약 강조 ───────────────────────────── */
+        .state-main-box {
+            display:flex;
+            align-items:stretch;
+            gap:12px;
+            background:#0a0f1e;
+            border-radius:8px;
+            padding:16px 20px;
+            min-height:110px;
+        }
+        .state-main-left {
+            min-width:170px;
+            display:flex;
+            flex-direction:column;
+            justify-content:center;
+        }
+        .state-main-right {
+            flex:0 1 980px;
+            display:flex;
+            flex-direction:column;
+            justify-content:center;
+            min-width:0;
+            background:#111827;
+            border:1px solid #334155;
+            border-radius:8px;
+            padding:20px 24px;
+        }
+        .state-summary-label {
+            font-size:10px;
+            color:#94a3b8;
+            text-transform:uppercase;
+            letter-spacing:0.5px;
+            margin-bottom:6px;
+        }
+        .state-summary-text {
+            font-size:38px;
+            line-height:1.35;
+            font-weight:700;
+            color:#fbbf24;
+            word-break:keep-all;
+        }
+        .state-subline {
+            font-size:13px;
+            color:#cbd5e1;
+            margin-top:8px;
+            line-height:1.5;
+        }
+
+    /* ── 섹션 접기/펼치기 ────────────────────────────────────────── */
+    .sec-wrap { margin:12px 0; }
+    .sec-hdr {
+        display:flex; align-items:center; gap:8px;
+        padding:6px 12px;
+        background:#1e293b; border:1px solid #334155; border-radius:8px;
+        cursor:pointer; user-select:none;
+        font-size:11px; font-weight:700; color:#94a3b8;
+        letter-spacing:0.5px; text-transform:uppercase;
+        transition:background 0.15s;
+    }
+    .sec-hdr:hover { background:#273549; color:#cbd5e1; }
+    .sec-hdr .sec-toggle {
+        margin-left:auto; font-size:12px; color:#475569;
+        transition:transform 0.2s;
+    }
+    .sec-hdr.collapsed .sec-toggle { transform:rotate(-90deg); }
+    .sec-body {
+        overflow:hidden;
+        transition:max-height 0.25s ease, opacity 0.2s ease;
+        max-height:9999px; opacity:1;
+    }
+    .sec-body.collapsed { max-height:0 !important; opacity:0; }
+
     </style>
 </head>
 <body>
@@ -411,7 +484,13 @@
         <a href="/analytics" style="margin-left:4px;background:#eff6ff;color:#2563eb;border:1px solid #93c5fd;padding:6px 14px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;letter-spacing:0.5px">📊 분석 리포트</a>
     </div>
 
-    <!-- ── LLM 레짐 판단 패널 ─────────────────────────────────────────── -->
+    <!-- ── [1] LLM 레짐 판단 + 진입 게이트 ─────────────────────────────── -->
+    <div class="sec-wrap">
+    <div class="sec-hdr" id="sec-hdr-1" onclick="toggleSec(1)">
+        <span>① LLM 레짐 판단 — 현재 시장 패턴 / 진입 게이트</span>
+        <span class="sec-toggle">▼</span>
+    </div>
+    <div class="sec-body" id="sec-body-1">
     <div class="llm-regime-panel">
         <div class="llm-regime-title">LLM 레짐 판단 — 현재 시장 패턴</div>
         <div class="llm-regime-grid">
@@ -531,8 +610,15 @@
             </table>
         </div>
     </div>
+    </div></div><!-- /sec-body-1 /sec-wrap -->
 
-    <!-- ── RAG Prep 헬스 패널 ──────────────────────────────────────── -->
+    <!-- ── [2] RAG Prep 헬스 패널 ──────────────────────────────────────── -->
+    <div class="sec-wrap">
+    <div class="sec-hdr" id="sec-hdr-2" onclick="toggleSec(2)">
+        <span>② RAG PREP / 실행 옵션</span>
+        <span class="sec-toggle">▼</span>
+    </div>
+    <div class="sec-body" id="sec-body-2">
     <div style="margin-bottom:12px;background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 16px;box-shadow:0 1px 3px rgba(0,0,0,0.06);display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
         <span style="font-size:11px;color:#475569;font-weight:600;letter-spacing:0.4px;text-transform:uppercase;white-space:nowrap;">RAG Prep</span>
         <span id="ragPrepStatus" style="font-size:12px;font-weight:700;font-family:monospace;padding:2px 9px;border-radius:4px;background:#f1f5f9;color:#94a3b8;border:1px solid #e2e8f0;">idle</span>
@@ -601,23 +687,31 @@
             </div>
         </div>
 
-        <!-- 실행 모드 (시뮬레이션 모드 옆) -->
+        <!-- 실행 모드 (AND 구조 — 독립 토글) -->
         <div class="opt-group">
             <div class="opt-group-title">실행 모드</div>
             <div class="opt-group-hint">
-                <span id="execModeStatus" style="font-weight:600">OFF</span>
-                &nbsp;·&nbsp;데이터수집=항상ON · 모의=KIS모의계좌 · 실전=비밀번호필요
+                <span id="execModeStatus" style="font-weight:600">데이터수집</span>
+                &nbsp;·&nbsp;데이터수집=항상ON · 복수 동시 활성 가능 · 실전=비밀번호필요
             </div>
             <div class="opt-btns">
-                <button id="execBtn_OFF"     class="opt-btn" onclick="setExecMode('OFF')">데이터 수집</button>
-                <button id="execBtn_VIRTUAL" class="opt-btn" onclick="setExecMode('VIRTUAL')">내부 시뮬</button>
-                <button id="execBtn_PAPER"   class="opt-btn" onclick="setExecMode('PAPER')">모의 거래</button>
-                <button id="execBtn_LIVE"    class="opt-btn" onclick="setExecMode('LIVE')">실전 매매</button>
+                <button id="execBtn_data"  class="opt-btn opt-btn-active" disabled title="데이터 수집은 항상 활성">데이터 수집</button>
+                <button id="execBtn_sim"   class="opt-btn" onclick="toggleExecFlag('sim')">내부 시뮬</button>
+                <button id="execBtn_paper" class="opt-btn" onclick="toggleExecFlag('paper')">모의 거래</button>
+                <button id="execBtn_live"  class="opt-btn" onclick="toggleExecFlag('live')">실전 매매</button>
             </div>
         </div>
 
     </div>
+    </div></div><!-- /sec-body-2 /sec-wrap -->
 
+    <!-- ── [3] 현황 지표 ────────────────────────────────────────────────── -->
+    <div class="sec-wrap">
+    <div class="sec-hdr" id="sec-hdr-3" onclick="toggleSec(3)">
+        <span>③ 현황 지표</span>
+        <span class="sec-toggle">▼</span>
+    </div>
+    <div class="sec-body" id="sec-body-3">
     <div class="grid">
         <div class="card">
             <div class="label">시장 방향</div>
@@ -660,11 +754,6 @@
         </div>
 
         <div class="card">
-            <div class="label">베이시스 기울기</div>
-            <div id="basisSlope" class="value">0</div>
-            <div class="sublabel">양수=확대추세 / 음수=축소추세</div>
-        </div>
-        <div class="card">
             <div class="label">외국인 순매수</div>
             <div id="foreignBuy" class="value">0</div>
             <div class="sublabel">양수=순매수(매수우위) / 음수=순매도</div>
@@ -681,31 +770,32 @@
         </div>
 
         <div class="card">
-            <div class="label">누적 거래량</div>
-            <div id="cumVolume" class="value">0</div>
-        </div>
-        <div class="card">
-            <div class="label">거래량 변화</div>
-            <div id="volumeDelta" class="value">0</div>
-        </div>
-        <div class="card">
             <div class="label">거래량 급증</div>
             <div id="volumeBurst" class="value">0</div>
             <div class="sublabel">현재거래량/평균거래량 배수 — 1.0=평균</div>
         </div>
-        <div class="card">
-            <div class="label">체결 수량</div>
-            <div id="tradeQty" class="value">0</div>
-        </div>
 
         <div class="card">
-            <div class="label">최우선 매도호가</div>
-            <div id="bestAsk" class="value">0</div>
+            <div class="label">레인지 위치</div>
+            <div id="priceRangePct" class="value">0</div>
+            <div class="sublabel">당일 고저 범위 내 현재가 위치 % (0=저점 / 1=고점)</div>
         </div>
         <div class="card">
-            <div class="label">최우선 매수호가</div>
-            <div id="bestBid" class="value">0</div>
+            <div class="label">기관 선물</div>
+            <div id="futInstDelta" class="value">0</div>
+            <div class="sublabel">선물 기관 순매수 변화량 (양수=매수증가)</div>
         </div>
+        <div class="card">
+            <div class="label">현물 외인</div>
+            <div id="spotFgnDelta" class="value">0</div>
+            <div class="sublabel">현물 외국인 순매수 변화량 (양수=매수증가)</div>
+        </div>
+        <div class="card">
+            <div class="label">현선 동조</div>
+            <div id="spotFutSync" class="value">-</div>
+            <div class="sublabel">현물외인 ↔ 선물외인 방향 일치 여부</div>
+        </div>
+
         <div class="card">
             <div class="label">상승 점수</div>
             <div id="longScore" class="value">0</div>
@@ -746,8 +836,15 @@
             <div id="lastError" class="value" style="font-size:12px;font-weight:normal;color:#fca5a5;">-</div>
         </div>
     </div>
+    </div></div><!-- /sec-body-3 /sec-wrap -->
 
-    <!-- ── 장중 LLM 분석 패널 (MarketAnalyst + CheckpointAnalyst) ── -->
+    <!-- ── [4] 장중 LLM 분석 패널 ────────────────────────────────────── -->
+    <div class="sec-wrap">
+    <div class="sec-hdr" id="sec-hdr-4" onclick="toggleSec(4)">
+        <span>④ 장중 LLM 분석 (체크포인트 · 10분 펄스 · 이벤트 감지)</span>
+        <span class="sec-toggle">▼</span>
+    </div>
+    <div class="sec-body" id="sec-body-4">
     <div style="margin:12px 0;background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;padding:12px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
         <div style="font-size:11px;color:#475569;margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">장중 LLM 분석</div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;">
@@ -787,6 +884,152 @@
         </div>
     </div>
 
+    <!-- ── 5분 전략 펄스 패널 (PulseEngine) ─────────────────────────── -->
+    <div id="pulsePanel" style="margin:12px 0;background:#0f172a;border:1px solid #1e3a5f;border-radius:10px;padding:12px;box-shadow:0 1px 4px rgba(0,0,0,0.2);">
+        <!-- 헤더 -->
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+            <span style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">5분 전략 펄스</span>
+            <span id="pulseActiveTag" style="font-size:9px;background:#1e3a5f;color:#38bdf8;padding:1px 6px;border-radius:8px;display:none;">● LIVE</span>
+            <!-- 횡보 하드블록 -->
+            <span id="pulseSidewaysTag" style="font-size:9px;background:#7c3aed;color:#e9d5ff;padding:1px 6px;border-radius:8px;display:none;">⬛ RANGE</span>
+            <!-- Validator 상태 -->
+            <span id="pulseValidatorTag" style="font-size:9px;padding:1px 6px;border-radius:8px;display:none;"></span>
+            <span id="pulseLastTs" style="font-size:10px;color:#475569;margin-left:auto;">-</span>
+        </div>
+
+        <!-- 최신 판정 박스 -->
+        <div id="pulseMainBox" style="display:flex;align-items:center;gap:10px;margin-bottom:10px;padding:12px 16px;background:#1e293b;border-radius:7px;border:1px solid #334155;min-height:90px;">
+            <div style="min-width:140px;display:flex;flex-direction:column;justify-content:center;">
+                <div id="pulseDir" style="font-size:40px;font-weight:900;letter-spacing:1px;line-height:1;">-</div>
+                <div id="pulseStatus" style="font-size:10px;margin-top:4px;color:#64748b;">-</div>
+                <div id="pulseConf" style="font-size:10px;color:#64748b;margin-top:2px;">신뢰도 -</div>
+            </div>
+            <div style="flex:1;min-width:0;">
+                <!-- 추세 확정 상태 -->
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">
+                    <span style="font-size:9px;color:#64748b;">추세</span>
+                    <span id="pulseTrendDir" style="font-size:10px;font-weight:700;">-</span>
+                    <span id="pulseTrendCount" style="font-size:9px;color:#64748b;">-/3</span>
+                    <span id="pulseTrendConfirmed" style="font-size:9px;padding:1px 5px;border-radius:4px;display:none;">확정</span>
+                </div>
+                <!-- 스코어 바 -->
+                <div style="margin-bottom:4px;">
+                    <div style="display:flex;align-items:center;gap:4px;margin-bottom:2px;">
+                        <span style="font-size:8px;color:#64748b;width:30px;">방향A</span>
+                        <div style="flex:1;background:#0f172a;border-radius:3px;height:6px;overflow:hidden;">
+                            <div id="pulseScoreABar" style="height:100%;transition:width 0.3s;border-radius:3px;"></div>
+                        </div>
+                        <span id="pulseScoreA" style="font-size:9px;color:#94a3b8;width:28px;text-align:right;">-</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:4px;">
+                        <span style="font-size:8px;color:#64748b;width:30px;">신뢰B</span>
+                        <div style="flex:1;background:#0f172a;border-radius:3px;height:6px;overflow:hidden;">
+                            <div id="pulseScoreBBar" style="height:100%;transition:width 0.3s;border-radius:3px;"></div>
+                        </div>
+                        <span id="pulseScoreB" style="font-size:9px;color:#94a3b8;width:28px;text-align:right;">-</span>
+                    </div>
+                </div>
+                <!-- 진입 허용 -->
+                <div id="pulseEntryState" style="font-size:9px;color:#64748b;">-</div>
+            </div>
+        </div>
+
+        <!-- 통계 바 -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px;">
+            <div style="background:#1e293b;border-radius:5px;padding:6px;text-align:center;border:1px solid #334155;">
+                <div style="font-size:9px;color:#64748b;margin-bottom:2px;">BULLISH</div>
+                <div id="pulseBullishPct" style="font-size:14px;font-weight:700;color:#22d3ee;">-</div>
+                <div style="font-size:8px;color:#475569;">%</div>
+            </div>
+            <div style="background:#1e293b;border-radius:5px;padding:6px;text-align:center;border:1px solid #334155;">
+                <div style="font-size:9px;color:#64748b;margin-bottom:2px;">NEUTRAL</div>
+                <div id="pulseNeutralPct" style="font-size:14px;font-weight:700;color:#94a3b8;">-</div>
+                <div style="font-size:8px;color:#475569;">%</div>
+            </div>
+            <div style="background:#1e293b;border-radius:5px;padding:6px;text-align:center;border:1px solid #334155;">
+                <div style="font-size:9px;color:#64748b;margin-bottom:2px;">BEARISH</div>
+                <div id="pulseBearishPct" style="font-size:14px;font-weight:700;color:#f87171;">-</div>
+                <div style="font-size:8px;color:#475569;">%</div>
+            </div>
+            <div style="background:#1e293b;border-radius:5px;padding:6px;text-align:center;border:1px solid #334155;">
+                <div style="font-size:9px;color:#64748b;margin-bottom:2px;">오늘 판정</div>
+                <div id="pulseTotalCnt" style="font-size:14px;font-weight:700;color:#f59e0b;">-</div>
+                <div style="font-size:8px;color:#475569;">회</div>
+            </div>
+        </div>
+
+        <!-- 타임라인 -->
+        <div style="font-size:9px;color:#475569;margin-bottom:4px;font-weight:600;">최근 이력 (최대 10개)</div>
+        <div id="pulseTimeline" style="display:flex;flex-direction:column;gap:3px;max-height:200px;overflow-y:auto;">
+            <div style="color:#475569;font-size:10px;text-align:center;padding:8px 0;">데이터 없음</div>
+        </div>
+    </div>
+
+    <!-- ── LLMPulse 패널 (5분 장세) ──────────────────────────────── -->
+    <!-- ── LLMPulse 패널 (5분 장세) ──────────────────────────────── -->
+    <div id="llmPulsePanel" style="margin:12px 0;background:#0f172a;border:1px solid #1e3a5f;border-radius:10px;padding:12px;box-shadow:0 1px 4px rgba(0,0,0,0.2);">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+            <span style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">5분 장세 펄스 (LLM)</span>
+            <span style="font-size:9px;background:#1e3a5f;color:#94a3b8;padding:1px 6px;border-radius:8px;">Haiku · 5min</span>
+            <span id="llmPulseLastTs" style="font-size:10px;color:#475569;margin-left:auto;">-</span>
+        </div>
+        <div style="display:flex;gap:10px;">
+            <div class="state-main-box" style="flex:1;">
+                <div class="state-main-left">
+                    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                        <span id="llmPulseDir" style="font-size:40px;font-weight:900;color:#64748b;line-height:1;letter-spacing:1px;">-</span>
+                        <span id="llmPulseConf" style="font-size:11px;padding:2px 8px;border-radius:6px;background:#1e293b;color:#94a3b8;">-</span>
+                    </div>
+                </div>
+                <div class="state-main-right">
+                    <div class="state-summary-label">현재 요약</div>
+                    <div id="llmPulseSummary" class="state-summary-text">대기 중</div>
+                </div>
+            </div>
+            <div style="width:180px;background:#0a0f1e;border-radius:8px;padding:8px 10px;">
+                <div style="font-size:9px;color:#475569;margin-bottom:5px;">최근 이력</div>
+                <div id="llmPulseTimeline" style="display:flex;flex-direction:column;gap:3px;font-size:9px;color:#64748b;">
+                    <div style="color:#334155;text-align:center;padding:6px 0;">-</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── MarketAnalyst 패널 (이벤트 감지 장중 상태) ──────────────── -->
+    <div id="maPanel" style="margin:12px 0;background:#0f172a;border:1px solid #1e3a5f;border-radius:10px;padding:12px;box-shadow:0 1px 4px rgba(0,0,0,0.2);">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+            <span style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">장중 상태 (MarketAnalyst)</span>
+            <span style="font-size:9px;background:#1e3a5f;color:#94a3b8;padding:1px 6px;border-radius:8px;">Haiku · 이벤트감지</span>
+            <span id="maTrackBadge" style="font-size:9px;padding:1px 7px;border-radius:8px;background:#0f172a;color:#334155;display:none;">IDLE</span>
+            <span id="maHealthBar" style="font-size:9px;color:#475569;font-family:monospace;display:none;"></span>
+            <span id="maTrigger" style="font-size:9px;color:#475569;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">-</span>
+            <span id="maTs" style="font-size:10px;color:#475569;margin-left:auto;">-</span>
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:10px;">
+            <!-- 현재 view -->
+            <div class="state-main-box" style="flex:1;">
+                <div class="state-main-left">
+                    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                        <span id="maView" style="font-size:20px;font-weight:900;color:#64748b;line-height:1;letter-spacing:1px;">-</span>
+                        <span id="maConf" style="font-size:11px;padding:2px 8px;border-radius:6px;background:#1e293b;color:#94a3b8;">-</span>
+                    </div>
+                    <div id="maDir" class="state-subline">-</div>
+                </div>
+                <div class="state-main-right">
+                    <div class="state-summary-label">현재 해석</div>
+                    <div id="maReason" class="state-summary-text">-</div>
+                </div>
+            </div>
+            <!-- 이력 -->
+            <div style="width:180px;background:#0a0f1e;border-radius:8px;padding:8px 10px;">
+                <div style="font-size:9px;color:#475569;margin-bottom:5px;">최근 이력</div>
+                <div id="maHistory" style="display:flex;flex-direction:column;gap:3px;font-size:9px;color:#64748b;">
+                    <div style="color:#334155;text-align:center;padding:6px 0;">-</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="reason-box">
         <strong style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#475569;">판정 사유</strong><br />
         <span id="reasonText">-</span>
@@ -794,8 +1037,15 @@
 
     <!-- error-box: 네트워크/fetch 오류 전용 (서버 last_error 중복 제거) -->
     <div class="error-box" id="errorBox"></div>
+    </div></div><!-- /sec-body-4 /sec-wrap -->
 
-    <!-- ── 전략 파라미터 설정 패널 ── -->
+    <!-- ── [5] 전략 파라미터 설정 패널 ──────────────────────────────────── -->
+    <div class="sec-wrap">
+    <div class="sec-hdr" id="sec-hdr-5" onclick="toggleSec(5)">
+        <span>⑤ 전략 파라미터 설정</span>
+        <span class="sec-toggle">▼</span>
+    </div>
+    <div class="sec-body" id="sec-body-5">
     <div id="configPanel" style="margin-top:20px;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
             <strong style="font-size:14px;">⚙ 전략 파라미터 설정</strong>
@@ -894,6 +1144,7 @@
             </div>
         </div>
     </div>
+    </div></div><!-- /sec-body-5 /sec-wrap -->
 
     <style>
         .cfg-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; gap:8px; }
@@ -903,6 +1154,55 @@
         .cfg-row input { width:80px; flex-shrink:0; background:#f1f5f9; border:1px solid #cbd5e1; color:#1e293b; border-radius:4px; padding:3px 6px; font-size:12px; font-family:monospace; text-align:right; }
         .cfg-row input:focus { outline:none; border-color:#3b82f6; }
         .cfg-row input:focus { outline:none; border-color:#22c55e; }
+
+        /* ── 장세/장중 상태 요약 강조 ───────────────────────────── */
+        .state-main-box {
+            display:flex;
+            align-items:stretch;
+            gap:12px;
+            background:#0a0f1e;
+            border-radius:8px;
+            padding:16px 20px;
+            min-height:110px;
+        }
+        .state-main-left {
+            min-width:170px;
+            display:flex;
+            flex-direction:column;
+            justify-content:center;
+        }
+        .state-main-right {
+            flex:0 1 980px;
+            display:flex;
+            flex-direction:column;
+            justify-content:center;
+            min-width:0;
+            background:#111827;
+            border:1px solid #334155;
+            border-radius:8px;
+            padding:20px 24px;
+        }
+        .state-summary-label {
+            font-size:10px;
+            color:#94a3b8;
+            text-transform:uppercase;
+            letter-spacing:0.5px;
+            margin-bottom:6px;
+        }
+        .state-summary-text {
+            font-size:12px;
+            line-height:1.65;
+            font-weight:700;
+            color:#f8fafc;
+            word-break:keep-all;
+        }
+        .state-subline {
+            font-size:13px;
+            color:#cbd5e1;
+            margin-top:8px;
+            line-height:1.5;
+        }
+
     </style>
 
     <script>
@@ -1073,9 +1373,14 @@
         }
 
         // ── 메인 상태 폴링 (1초) ─────────────────────────────────────────
+        let _statusFetching = false;
         async function fetchStatus() {
+            if (_statusFetching) return;
+            _statusFetching = true;
+            const _ctrl = new AbortController();
+            const _tid  = setTimeout(() => _ctrl.abort(), 3000);
             try {
-                const res  = await fetch("/api/status");
+                const res  = await fetch("/api/status", { signal: _ctrl.signal });
                 const data = await res.json();
 
                 if (data.foreign_signal_mode)    updateFsgButtons(data.foreign_signal_mode);
@@ -1083,6 +1388,13 @@
                 if (data.llm_intraday_influence) updateInfluenceButtons(data.llm_intraday_influence);
                 if (data.simulation_mode)        updateSimModeButtons(data.simulation_mode);
                 if (data.selected_level != null) updateSimLevelButtons(data.selected_level);
+                // 실행 플래그 (AND 구조) — state에 직접 포함
+                updateExecFlags({
+                    data:  data.exec_data  !== false,
+                    sim:   !!data.exec_sim,
+                    paper: !!data.exec_paper,
+                    live:  !!data.exec_live,
+                });
 
                 document.getElementById("sourceText").innerText  = `데이터 소스: ${data.data_source}`;
                 document.getElementById("envText").innerText     = `실행 환경: ${data.env}`;
@@ -1100,16 +1412,25 @@
                 document.getElementById("spotPrice").innerText     = formatNum(data.spot_price, 4);
                 document.getElementById("basis").innerText         = formatNum(data.basis, 4);
                 document.getElementById("basisEma").innerText      = formatNum(data.basis_ema, 4);
-                document.getElementById("basisSlope").innerText    = formatNum(data.basis_slope, 5);
                 document.getElementById("foreignBuy").innerText    = formatNum(data.foreign_buy, 2);
                 document.getElementById("oiValue").innerText       = formatNum(data.oi_value, 2);
                 document.getElementById("oiDelta").innerText       = formatNum(data.oi_delta, 2);
-                document.getElementById("cumVolume").innerText     = formatNum(data.cum_volume, 2);
-                document.getElementById("volumeDelta").innerText   = formatNum(data.volume_delta, 2);
                 document.getElementById("volumeBurst").innerText   = formatNum(data.volume_burst, 3);
-                document.getElementById("tradeQty").innerText      = formatNum(data.trade_qty, 2);
-                document.getElementById("bestAsk").innerText       = formatNum(data.best_ask, 4);
-                document.getElementById("bestBid").innerText       = formatNum(data.best_bid, 4);
+                // ── 신규 지표 4개 ──────────────────────────────────────────
+                const pct = (data.price_range_pct != null) ? data.price_range_pct : null;
+                document.getElementById("priceRangePct").innerText =
+                    pct != null ? (pct * 100).toFixed(1) + "%" : "-";
+                document.getElementById("futInstDelta").innerText  = formatNum(data.fut_inst_delta, 0);
+                document.getElementById("spotFgnDelta").innerText  = formatNum(data.spot_fgn_delta, 0);
+                // 현선 동조: 선물외인(foreign_buy delta) vs 현물외인(spot_fgn_delta)
+                (function() {
+                    const fd = data.fut_fgn_delta, sd = data.spot_fgn_delta;
+                    const el = document.getElementById("spotFutSync");
+                    if (fd == null || sd == null) { el.innerText = "-"; el.style.color = "#94a3b8"; return; }
+                    const sync = (fd >= 0 && sd >= 0) || (fd < 0 && sd < 0);
+                    el.innerText    = sync ? "동조 ✓" : "비동조 ✗";
+                    el.style.color  = sync ? "#22c55e" : "#ef4444";
+                })();
                 document.getElementById("longScore").innerText     = formatNum(data.long_score, 2);
                 document.getElementById("shortScore").innerText    = formatNum(data.short_score, 2);
                 document.getElementById("basisEmaDelta").innerText = formatNum(data.basis_ema_delta, 4);
@@ -1130,7 +1451,7 @@
                 );
 
                 // ── 장중 LLM 분석 패널 업데이트 ─────────────────────────
-                // MarketAnalyst (3분 미시)
+                // MarketAnalyst (3분 미시) — 소형 박스
                 const mv = data.market_view;
                 if (mv) {
                     const mvEl = document.getElementById("mvView");
@@ -1142,6 +1463,77 @@
                 } else {
                     ["mvView","mvDir","mvTs"].forEach(id => document.getElementById(id).innerText = "-");
                 }
+                // MarketAnalyst 전용 패널 (maPanel)
+                try {
+                    var _mv  = data.market_view;
+                    var _mts = data.market_view_ts || "-";
+                    var _mhist = data.market_view_history || [];
+                    document.getElementById("maTs").textContent = _mts;
+                    // 트리거 사유 표시
+                    var _mTrigger = data.market_view_trigger || "";
+                    document.getElementById("maTrigger").textContent = _mTrigger ? "⚡ " + _mTrigger : "대기 중";
+                    document.getElementById("maTrigger").style.color = _mTrigger ? "#fbbf24" : "#334155";
+                    // 추세 추적 상태 배지
+                    var _trk = data.market_view_track;
+                    var _trkBadge = document.getElementById("maTrackBadge");
+                    var _trkBar   = document.getElementById("maHealthBar");
+                    if (_trk && _trk.status && _trk.status !== "IDLE") {
+                        _trkBadge.style.display = "inline";
+                        _trkBar.style.display   = "inline";
+                        var _h = _trk.health || 0;
+                        var _trkColor = _h >= 0.6 ? "#22c55e" : _h >= 0.3 ? "#fbbf24" : "#ef4444";
+                        var _trkBg    = _h >= 0.6 ? "#14532d" : _h >= 0.3 ? "#78350f" : "#450a0a";
+                        _trkBadge.textContent = _trk.status + " " + _trk.elapsed_sec + "s";
+                        _trkBadge.style.background = _trkBg;
+                        _trkBadge.style.color = _trkColor;
+                        // 건강도 막대 (10칸)
+                        var _bars = Math.round(_h * 10);
+                        _trkBar.textContent = "health:" + ("█".repeat(_bars) + "░".repeat(10-_bars)) + " " + Math.round(_h*100) + "%";
+                        _trkBar.style.color = _trkColor;
+                    } else {
+                        _trkBadge.style.display = "none";
+                        _trkBar.style.display   = "none";
+                    }
+                    if (_mv) {
+                        var _vEl = document.getElementById("maView");
+                        _vEl.textContent = _mv.view || "-";
+                        var _vc = (_mv.view||"");
+                        _vEl.style.color = _vc.indexOf("UP")>-1 ? "#22c55e" :
+                                           _vc.indexOf("DOWN")>-1 ? "#ef4444" :
+                                           _vc.indexOf("SPIKE")>-1 ? "#f97316" :
+                                           _vc.indexOf("VOLATILE")>-1 ? "#fbbf24" :
+                                           _vc.indexOf("FLAT")>-1 ? "#94a3b8" : "#94a3b8";
+                        var _cEl = document.getElementById("maConf");
+                        _cEl.textContent = _mv.confidence || "-";
+                        _cEl.style.background = _mv.confidence==="HIGH" ? "#14532d" : _mv.confidence==="MID" ? "#78350f" : "#1e293b";
+                        _cEl.style.color      = _mv.confidence==="HIGH" ? "#4ade80" : _mv.confidence==="MID" ? "#fde68a" : "#94a3b8";
+                        var _dEl = document.getElementById("maDir");
+                        _dEl.textContent = _mv.direction==="LONG_BIAS" ? "▲ LONG_BIAS" : _mv.direction==="SHORT_BIAS" ? "▼ SHORT_BIAS" : "— NEUTRAL";
+                        _dEl.style.color = _mv.direction==="LONG_BIAS" ? "#22c55e" : _mv.direction==="SHORT_BIAS" ? "#ef4444" : "#94a3b8";
+                        document.getElementById("maReason").textContent = _mv.reason || "-";
+                    } else {
+                        document.getElementById("maView").textContent   = "-";
+                        document.getElementById("maView").style.color   = "#64748b";
+                        document.getElementById("maConf").textContent   = "-";
+                        document.getElementById("maDir").textContent    = "-";
+                        document.getElementById("maReason").textContent = "이벤트 대기 중...";
+                    }
+                    var _hEl = document.getElementById("maHistory");
+                    if (_mhist.length) {
+                        var _hRows = "";
+                        var _mhRev = _mhist.slice().reverse();
+                        for (var _hi=0; _hi<_mhRev.length; _hi++) {
+                            var _hv = _mhRev[_hi];
+                            var _vc = (_hv.view||"").indexOf("UP")>-1 ? "#22c55e" : (_hv.view||"").indexOf("DOWN")>-1 ? "#ef4444" : "#94a3b8";
+                            _hRows += "<div style='display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid #1e293b;'>" +
+                                      "<span style='color:" + _vc + ";font-weight:600;'>" + (_hv.view||"-") + "</span>" +
+                                      "<span style='color:#475569;'>" + (_hv.ts||"") + "</span></div>";
+                        }
+                        _hEl.innerHTML = _hRows;
+                    } else {
+                        _hEl.innerHTML = "<div style='color:#334155;text-align:center;padding:6px 0;'>-</div>";
+                    }
+                } catch(e) { console.warn("maPanel update error:", e); }
                 // CheckpointAnalyst 09:15 아침장
                 const oc = data.opening_char;
                 if (oc) {
@@ -1197,9 +1589,13 @@
                 updateRagPrepHealth(data);
 
             } catch (err) {
-                console.error(err);
-                // errorBox는 네트워크/fetch 오류 전용
-                document.getElementById("errorBox").innerText = `데이터 로드 실패: ${err}`;
+                if (err.name !== "AbortError") {
+                    console.error(err);
+                    document.getElementById("errorBox").innerText = `데이터 로드 실패: ${err}`;
+                }
+            } finally {
+                clearTimeout(_tid);
+                _statusFetching = false;
             }
         }
 
@@ -1661,39 +2057,58 @@
             } catch (err) { console.error("옵션 패널 초기화 실패:", err); }
         }
 
-        // ── 실행 모드 전환 ────────────────────────────────────────────────
-        function updateExecModeButtons(mode) {
-            ["OFF","VIRTUAL","PAPER","LIVE"].forEach(m => {
-                const btn = document.getElementById("execBtn_" + m);
+        // ── 실행 모드 전환 (AND 구조 — 독립 토글) ───────────────────────────
+        function updateExecFlags(flags) {
+            // flags: {data:bool, sim:bool, paper:bool, live:bool}
+            const colorMap = {sim:"#38bdf8", paper:"#fb923c", live:"#f87171"};
+            ["sim","paper","live"].forEach(f => {
+                const btn = document.getElementById("execBtn_" + f);
                 if (!btn) return;
-                btn.classList.remove("active-exec-off","active-exec-virtual","active-exec-live");
-                if (m === mode) btn.classList.add("active-exec-" + m.toLowerCase());
+                if (flags[f]) {
+                    btn.classList.add("opt-btn-active");
+                    btn.style.borderColor = colorMap[f] || "";
+                    btn.style.color       = colorMap[f] || "";
+                } else {
+                    btn.classList.remove("opt-btn-active");
+                    btn.style.borderColor = "";
+                    btn.style.color       = "";
+                }
             });
+            // 상태 텍스트: 활성 플래그 목록
             const statusEl = document.getElementById("execModeStatus");
             if (statusEl) {
-                const labels = {OFF:"● 데이터수집", VIRTUAL:"◎ 내부시뮬", PAPER:"◑ 모의거래", LIVE:"▶ 실전매매"};
-                statusEl.textContent = labels[mode] || mode;
-                statusEl.style.color = mode==="LIVE" ? "#f87171" : mode==="PAPER" ? "#fb923c" : mode==="VIRTUAL" ? "#38bdf8" : "#94a3b8";
+                const parts = ["데이터수집"];
+                if (flags.sim)   parts.push("내부시뮬");
+                if (flags.paper) parts.push("모의거래");
+                if (flags.live)  parts.push("실전매매");
+                statusEl.textContent = parts.join(" + ");
+                statusEl.style.color = flags.live ? "#f87171" : flags.paper ? "#fb923c" : "#94a3b8";
             }
         }
 
-        async function setExecMode(mode) {
-            if (mode === "LIVE") {
-                document.getElementById("livePwModal").style.display = "flex";
-                document.getElementById("livePwInput").value = "";
-                document.getElementById("livePwError").textContent = "";
-                setTimeout(() => document.getElementById("livePwInput").focus(), 50);
-                return;
+        async function toggleExecFlag(flag) {
+            if (flag === "live") {
+                // live 활성화 시도인지 비활성화 시도인지 확인
+                const btn = document.getElementById("execBtn_live");
+                const isActive = btn && btn.classList.contains("opt-btn-active");
+                if (!isActive) {
+                    // 활성화 → 비밀번호 모달 표시
+                    document.getElementById("livePwModal").style.display = "flex";
+                    document.getElementById("livePwInput").value = "";
+                    document.getElementById("livePwError").textContent = "";
+                    setTimeout(() => document.getElementById("livePwInput").focus(), 50);
+                    return;
+                }
             }
             try {
                 const r = await fetch("/api/execution/mode", {
                     method: "POST",
                     headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify({mode}),
+                    body: JSON.stringify({flag}),
                 });
                 const d = await r.json();
-                if (!d.ok) { alert("모드 전환 실패: " + (d.error || "오류")); return; }
-                updateExecModeButtons(d.execution_mode);
+                if (!d.ok) { alert("전환 실패: " + (d.error || "오류")); return; }
+                updateExecFlags(d.exec_flags);
             } catch(e) { console.error(e); }
         }
 
@@ -1705,7 +2120,7 @@
                 const r = await fetch("/api/execution/mode", {
                     method: "POST",
                     headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify({mode: "LIVE", password: pw}),
+                    body: JSON.stringify({flag: "live", value: true, password: pw}),
                 });
                 const d = await r.json();
                 if (!d.ok) {
@@ -1715,13 +2130,47 @@
                     return;
                 }
                 closeLiveModal();
-                updateExecModeButtons(d.execution_mode);
+                updateExecFlags(d.exec_flags);
             } catch(e) { errEl.textContent = "통신 오류"; }
         }
 
         function closeLiveModal() {
             document.getElementById("livePwModal").style.display = "none";
         }
+
+        // ── 섹션 접기/펼치기 ──────────────────────────────────────────
+        const _SEC_KEY = "mmean_sec_collapsed";
+        function _loadSecState() {
+            try { return JSON.parse(localStorage.getItem(_SEC_KEY) || "{}"); }
+            catch(e) { return {}; }
+        }
+        function _saveSecState(st) {
+            try { localStorage.setItem(_SEC_KEY, JSON.stringify(st)); } catch(e) {}
+        }
+        function toggleSec(id) {
+            const hdr  = document.getElementById("sec-hdr-" + id);
+            const body = document.getElementById("sec-body-" + id);
+            if (!hdr || !body) return;
+            const closing = !body.classList.contains("collapsed");
+            body.classList.toggle("collapsed", closing);
+            hdr.classList.toggle("collapsed", closing);
+            const st = _loadSecState();
+            st[id] = closing;
+            _saveSecState(st);
+        }
+        function _initSecs() {
+            const st = _loadSecState();
+            Object.keys(st).forEach(id => {
+                if (!st[id]) return;
+                const hdr  = document.getElementById("sec-hdr-" + id);
+                const body = document.getElementById("sec-body-" + id);
+                if (hdr && body) {
+                    body.classList.add("collapsed");
+                    hdr.classList.add("collapsed");
+                }
+            });
+        }
+        _initSecs();
 
         document.addEventListener("DOMContentLoaded", () => {
             const inp = document.getElementById("livePwInput");
@@ -1737,9 +2186,221 @@
         initOptionPanels();
         // 실행 모드 초기 상태 로드
         fetch("/api/execution/mode").then(r=>r.json()).then(d=>{
-            if(d.ok) updateExecModeButtons(d.execution_mode);
+            if(d.ok) updateExecFlags(d.exec_flags);
         }).catch(()=>{});
         setInterval(fetchStatus, 1000);
+
+        // ── 5분 전략 펄스 폴링 (30초마다 UI 갱신) ─────────────────────────
+        const _DIR_COLOR = {BULLISH:"#22d3ee", NEUTRAL:"#94a3b8", BEARISH:"#f87171"};
+        const _DIR_LABEL = {BULLISH:"▲ BULLISH", NEUTRAL:"◆ NEUTRAL", BEARISH:"▼ BEARISH"};
+        const _STATUS_LABEL = {confirmed:"✔ 확정", weak:"〜 약함", transition:"⟳ 전환중"};
+        const _STATUS_COLOR = {confirmed:"#22c55e", weak:"#f59e0b", transition:"#94a3b8"};
+
+        function _setText(id, v) { const el=document.getElementById(id); if(el) el.textContent=v; }
+        function _setColor(id, c) { const el=document.getElementById(id); if(el) el.style.color=c; }
+
+        function _scoreBar(barId, score, maxScore) {
+            const el = document.getElementById(barId);
+            if (!el) return;
+            const pct = Math.min(100, Math.abs(score) / maxScore * 100);
+            const color = score >= 0 ? "#22d3ee" : "#f87171";
+            el.style.width  = pct + "%";
+            el.style.background = color;
+            el.style.marginLeft = score >= 0 ? "50%" : (50 - pct) + "%";
+        }
+
+        function updatePulsePanel(data) {
+            if (!data || !data.ok) return;
+
+            const cur    = data.current || {};
+            const stats  = data.stats   || {};
+            const vld    = data.validator || {};
+            const sw     = data.sideways  || {};
+            const history = data.history  || [];
+
+            // LIVE / RANGE / Validator 태그
+            const liveTag = document.getElementById("pulseActiveTag");
+            if (liveTag) liveTag.style.display = data.active ? "inline" : "none";
+
+            const swTag = document.getElementById("pulseSidewaysTag");
+            if (swTag) swTag.style.display = sw.active ? "inline" : "none";
+
+            const vldTag = document.getElementById("pulseValidatorTag");
+            if (vldTag) {
+                if (vld.entry_blocked) {
+                    vldTag.style.display = "inline";
+                    vldTag.textContent   = "★ 검증 불일치";
+                    vldTag.style.background = "rgba(248,113,113,0.2)";
+                    vldTag.style.color      = "#f87171";
+                } else if (vld.half_mode) {
+                    vldTag.style.display = "inline";
+                    vldTag.textContent   = "◑ 검증 half";
+                    vldTag.style.background = "rgba(245,158,11,0.2)";
+                    vldTag.style.color      = "#f59e0b";
+                } else {
+                    vldTag.style.display = "none";
+                }
+            }
+
+            // 최신 판정
+            const dir   = cur.direction || "NEUTRAL";
+            const color = _DIR_COLOR[dir] || "#94a3b8";
+            const box   = document.getElementById("pulseMainBox");
+            if (box) box.style.borderColor = color;
+
+            _setText("pulseDir",    _DIR_LABEL[dir] || dir);
+            _setColor("pulseDir",   color);
+            _setText("pulseStatus", _STATUS_LABEL[cur.status] || cur.status || "-");
+            _setColor("pulseStatus",_STATUS_COLOR[cur.status] || "#64748b");
+            _setText("pulseConf",   `신뢰도 ${Math.round((cur.confidence||0)*100)}%`);
+            _setText("pulseLastTs", cur.ts || "-");
+
+            // 추세 상태
+            const trendDir = stats.trend_direction || "NEUTRAL";
+            const trendCnt = stats.consecutive     || 0;
+            const trendOk  = stats.trend_confirmed || false;
+            _setText("pulseTrendDir",       _DIR_LABEL[trendDir] || trendDir);
+            _setColor("pulseTrendDir",      _DIR_COLOR[trendDir] || "#94a3b8");
+            _setText("pulseTrendCount",     `${trendCnt}/3`);
+            const tce = document.getElementById("pulseTrendConfirmed");
+            if (tce) {
+                tce.style.display     = trendOk ? "inline" : "none";
+                tce.textContent       = "★ 추세확정";
+                tce.style.background  = "rgba(34,197,94,0.2)";
+                tce.style.color       = "#22c55e";
+            }
+
+            // 스코어 바 (A: max ±9, B: max ±4)
+            const sa = cur.score_direction  || 0;
+            const sb = cur.score_confidence || 0;
+            _scoreBar("pulseScoreABar", sa, 9);
+            _scoreBar("pulseScoreBBar", sb, 4);
+            _setText("pulseScoreA", (sa >= 0 ? "+" : "") + sa.toFixed(1));
+            _setText("pulseScoreB", (sb >= 0 ? "+" : "") + sb.toFixed(1));
+            _setColor("pulseScoreA", sa >= 0 ? "#22d3ee" : "#f87171");
+            _setColor("pulseScoreB", sb >= 0 ? "#22d3ee" : "#f87171");
+
+            // 진입 상태
+            const entryEl = document.getElementById("pulseEntryState");
+            if (entryEl) {
+                if (sw.active) {
+                    entryEl.textContent = "⬛ RANGE 하드블록 — 진입 전면 금지";
+                    entryEl.style.color = "#a78bfa";
+                } else if (vld.entry_blocked) {
+                    entryEl.textContent = "★ Validator 불일치 — 진입 금지";
+                    entryEl.style.color = "#f87171";
+                } else if (cur.entry_allowed) {
+                    entryEl.textContent = "✔ 진입 허용";
+                    entryEl.style.color = "#22c55e";
+                } else {
+                    entryEl.textContent = `✗ 진입 제한: ${cur.entry_block_reason || "-"}`;
+                    entryEl.style.color = "#f59e0b";
+                }
+            }
+
+            // 통계
+            _setText("pulseBullishPct", stats.bullish_pct ?? "-");
+            _setText("pulseNeutralPct", stats.neutral_pct ?? "-");
+            _setText("pulseBearishPct", stats.bearish_pct ?? "-");
+            _setText("pulseTotalCnt",   stats.total       ?? "-");
+
+            // 타임라인 (최근 10개, 최신이 위)
+            const tl = document.getElementById("pulseTimeline");
+            if (!tl || !history.length) return;
+            tl.innerHTML = [...history].reverse().map(s => {
+                const dc  = _DIR_COLOR[s.direction] || "#94a3b8";
+                const dl  = _DIR_LABEL[s.direction] || s.direction;
+                const stc = _STATUS_COLOR[s.status] || "#64748b";
+                const stl = _STATUS_LABEL[s.status] || s.status || "";
+                const sa2 = (s.score_direction  || 0).toFixed(1);
+                const sb2 = (s.score_confidence || 0).toFixed(1);
+                return `<div style="display:flex;align-items:center;gap:6px;padding:4px 6px;background:#1e293b;border-radius:4px;border-left:2px solid ${dc};">
+                    <div style="min-width:52px;font-size:9px;color:#64748b;">${s.ts||""}</div>
+                    <div style="min-width:80px;font-size:11px;font-weight:700;color:${dc};">${dl}</div>
+                    <div style="min-width:44px;font-size:9px;color:${stc};">${stl}</div>
+                    <div style="min-width:32px;font-size:9px;color:#94a3b8;">${Math.round((s.confidence||0)*100)}%</div>
+                    <div style="font-size:9px;color:#64748b;flex:1;">A:${sa2} B:${sb2}</div>
+                </div>`;
+            }).join("");
+        }
+
+        let _pulseFetching = false;
+        async function fetchPulse() {
+            if (_pulseFetching) return;
+            _pulseFetching = true;
+            const _ctrl = new AbortController();
+            const _tid  = setTimeout(() => _ctrl.abort(), 5000);
+            try {
+                const r = await fetch("/api/pulse", { signal: _ctrl.signal });
+                const d = await r.json();
+                updatePulsePanel(d);
+            } catch(e) { /* 무시 */ } finally {
+                clearTimeout(_tid);
+                _pulseFetching = false;
+            }
+        }
+
+        fetchPulse();
+        setInterval(fetchPulse, 30000);  // 30초마다 갱신
+
+        // ── LLMPulse 패널 (5분 장세) ────────────────────────────────────
+        function updateLLMPulsePanel(d) {
+            if (!d || !d.ok) return;
+            const cur = d.current || {};
+
+            document.getElementById("llmPulseLastTs").textContent = cur.ts || "-";
+
+            const dirEl = document.getElementById("llmPulseDir");
+            const dir = (cur.direction || "").toUpperCase();
+            if (dir === "BULLISH") {
+                dirEl.textContent = "▲ 강세"; dirEl.style.color = "#38bdf8";
+            } else if (dir === "BEARISH") {
+                dirEl.textContent = "▼ 약세"; dirEl.style.color = "#f87171";
+            } else {
+                dirEl.textContent = "— 중립"; dirEl.style.color = "#94a3b8";
+            }
+
+            const conf = cur.confidence != null ? Math.round(cur.confidence * 100) + "%" : "-";
+            document.getElementById("llmPulseConf").textContent = conf;
+            document.getElementById("llmPulseSummary").textContent = cur.summary || "-";
+
+            const hist = (d.history || []).slice().reverse().slice(0, 5);
+            const tl = document.getElementById("llmPulseTimeline");
+            if (!hist.length) {
+                tl.innerHTML = '<div style="color:#334155;text-align:center;padding:6px 0;">-</div>';
+                return;
+            }
+            tl.innerHTML = hist.map(h => {
+                const hDir = (h.direction || "").toUpperCase();
+                const col = hDir === "BULLISH" ? "#38bdf8" : hDir === "BEARISH" ? "#f87171" : "#94a3b8";
+                const sym = hDir === "BULLISH" ? "▲" : hDir === "BEARISH" ? "▼" : "—";
+                const c = h.confidence != null ? Math.round(h.confidence * 100) + "%" : "?";
+                const lbl = hDir === "BULLISH" ? "강세" : hDir === "BEARISH" ? "약세" : "중립";
+                return `<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid #1e293b;">
+                    <span style="color:${col};font-weight:600;">${sym} ${lbl} ${c}</span>
+                    <span style="color:#475569;">${h.ts || ""}</span>
+                </div>`;
+            }).join("");
+        }
+
+        let _llmPulseFetching = false;
+        async function fetchLLMPulse() {
+            if (_llmPulseFetching) return;
+            _llmPulseFetching = true;
+            const _ctrl = new AbortController();
+            const _tid  = setTimeout(() => _ctrl.abort(), 5000);
+            try {
+                const r = await fetch("/api/llm_pulse", { signal: _ctrl.signal });
+                const d = await r.json();
+                updateLLMPulsePanel(d);
+            } catch(e) { /* 무시 */ } finally {
+                clearTimeout(_tid);
+                _llmPulseFetching = false;
+            }
+        }
+
+        fetchLLMPulse();
+        setInterval(fetchLLMPulse, 30000);  // 30초마다 갱신
 
         // ── 종목 선택 패널 ───────────────────────────────────────────────
         let _symbolContracts = [];
@@ -1823,6 +2484,64 @@
 
         initSymbolPanel();
     </script>
+
+    <!-- ── [6] 구현 대기 목록 (after.txt 기반) ──────────────────────────── -->
+    <div class="sec-wrap">
+    <div class="sec-hdr" id="sec-hdr-6" onclick="toggleSec(6)">
+        <span>⑥ 구현 대기 목록</span>
+        <span class="sec-toggle">▼</span>
+    </div>
+    <div class="sec-body" id="sec-body-6">
+    <div style="margin:24px 0 12px 0;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <span style="font-size:13px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.5px;">📋 구현 대기 목록</span>
+            <span style="font-size:10px;color:#334155;background:#f1f5f9;border:1px solid #cbd5e1;padding:2px 8px;border-radius:8px;">처리 완료 시 코드에서 삭제</span>
+        </div>
+        <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:11px;background:#0f172a;border:1px solid #1e3a5f;border-radius:10px;overflow:hidden;">
+            <thead>
+                <tr style="background:#0a0f1e;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">
+                    <th style="padding:7px 10px;text-align:left;font-weight:600;border-bottom:1px solid #1e3a5f;width:40px;">중요도</th>
+                    <th style="padding:7px 10px;text-align:left;font-weight:600;border-bottom:1px solid #1e3a5f;width:110px;">분류</th>
+                    <th style="padding:7px 10px;text-align:left;font-weight:600;border-bottom:1px solid #1e3a5f;">내용</th>
+                    <th style="padding:7px 10px;text-align:left;font-weight:600;border-bottom:1px solid #1e3a5f;width:90px;">처리 가능 시점</th>
+                    <th style="padding:7px 10px;text-align:left;font-weight:600;border-bottom:1px solid #1e3a5f;width:60px;">상태</th>
+                </tr>
+            </thead>
+            <tbody id="todoTableBody">
+                <tr style="border-bottom:1px solid #1e293b;">
+                    <td style="padding:7px 10px;color:#f59e0b;font-weight:700;">★★★</td>
+                    <td style="padding:7px 10px;color:#94a3b8;">자동보정</td>
+                    <td style="padding:7px 10px;color:#cbd5e1;">PulseCalibrator 구현 — 누적 로그 기반 지표 가중치·임계값 자동 산출 (PulseEngine v2 진화)</td>
+                    <td style="padding:7px 10px;color:#f59e0b;">3~4주 후</td>
+                    <td style="padding:7px 10px;"><span style="background:#1e293b;color:#64748b;padding:2px 7px;border-radius:8px;">데이터 대기</span></td>
+                </tr>
+                <tr style="border-bottom:1px solid #1e293b;">
+                    <td style="padding:7px 10px;color:#94a3b8;font-weight:700;">★★</td>
+                    <td style="padding:7px 10px;color:#94a3b8;">정리</td>
+                    <td style="padding:7px 10px;color:#cbd5e1;">LLMPulse 최종 비활성화 — 1~2주 병행 운영 후 PulseEngine 성능 확인하고 종료</td>
+                    <td style="padding:7px 10px;color:#f59e0b;">1~2주 후</td>
+                    <td style="padding:7px 10px;"><span style="background:#1e293b;color:#64748b;padding:2px 7px;border-radius:8px;">병행 운영</span></td>
+                </tr>
+                <tr style="border-bottom:1px solid #1e293b;">
+                    <td style="padding:7px 10px;color:#94a3b8;font-weight:700;">★★</td>
+                    <td style="padding:7px 10px;color:#94a3b8;">재검토</td>
+                    <td style="padding:7px 10px;color:#cbd5e1;">PulseValidator strong_miss 처리 단계형 전환 검토 — 축소→손절타이트→전량청산 순서로. 오탐률 30% 초과 시 변경</td>
+                    <td style="padding:7px 10px;color:#f59e0b;">2~3주 후</td>
+                    <td style="padding:7px 10px;"><span style="background:#1e293b;color:#64748b;padding:2px 7px;border-radius:8px;">로그 대기</span></td>
+                </tr>
+                <tr>
+                    <td style="padding:7px 10px;color:#64748b;font-weight:700;">★</td>
+                    <td style="padding:7px 10px;color:#94a3b8;">데이터</td>
+                    <td style="padding:7px 10px;color:#cbd5e1;">선물·현물 3주체 delta → PulseEngine 지표 실제 반영 (현재 state에 수집은 되나 PulseEngine 스코어링에 미연결)</td>
+                    <td style="padding:7px 10px;color:#f59e0b;">2주 후</td>
+                    <td style="padding:7px 10px;"><span style="background:#1e293b;color:#64748b;padding:2px 7px;border-radius:8px;">수집 중</span></td>
+                </tr>
+            </tbody>
+        </table>
+        </div>
+    </div>
+    </div></div><!-- /sec-body-6 /sec-wrap -->
 
     <!-- ── 실전 매매 전환 비밀번호 모달 ─────────────────────────────── -->
     <div id="livePwModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;align-items:center;justify-content:center;">

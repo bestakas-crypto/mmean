@@ -34,7 +34,7 @@ from typing import Dict, List, Optional
 log = logging.getLogger("MMEAN.NightSim")
 
 # ── 경로 기본값 ──────────────────────────────────────────────────────
-_STORAGE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "storage")
+_STORAGE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "storage")
 
 _DEFAULT_SOURCE_DB  = os.path.join(_STORAGE, "mmean.db")   # 읽기 전용
 _DEFAULT_SIM_DB     = os.path.join(_STORAGE, "sim.db")     # 쓰기 전용

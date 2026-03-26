@@ -174,6 +174,37 @@ def fetch_investor_once(runtime: AppRuntime) -> Dict[str, Any]:
     return raw[0] if isinstance(raw, list) else (raw or {})
 
 
+def fetch_investor_by_market(
+    runtime: AppRuntime,
+    market_code: str,
+    sub_code: str,
+) -> Dict[str, Any]:
+    """시장코드·세부코드 지정 투자자 매매동향 단건 조회.
+
+    fetch_investor_once()의 범용 버전 — 선물(K2I/F001)·현물(KSP/2001) 등
+    모든 시장에 재사용 가능.
+    """
+    url = get_data_base_url(runtime) + EP_INVESTOR_TIME_BY_MARKET
+    res = requests.get(
+        url,
+        headers=_data_headers(runtime, TR_INVESTOR_TIME_BY_MARKET),
+        params={
+            "fid_input_iscd":   market_code,
+            "fid_input_iscd_2": sub_code,
+        },
+        timeout=10,
+    )
+    res.raise_for_status()
+    body = res.json()
+    if body.get("rt_cd") != "0":
+        raise RuntimeError(
+            f"투자자 API 오류 market={market_code} "
+            f"rt_cd={body.get('rt_cd')} msg={body.get('msg1','')}"
+        )
+    raw = body.get("output", {})
+    return raw[0] if isinstance(raw, list) else (raw or {})
+
+
 # ── 외국계 순매수 추이 [국내주식-164] ────────────────────────────────────────
 def fetch_foreign_flow_trend(
     runtime: AppRuntime,

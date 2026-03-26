@@ -11,7 +11,7 @@ from typing import Any, Deque, Dict, Optional, Tuple
 @dataclass
 class AppState:
     state: Dict[str, object]
-    engine_lock: threading.Lock = field(default_factory=threading.Lock)
+    engine_lock: threading.RLock = field(default_factory=threading.RLock)
     today_stats: Dict[str, object] = field(default_factory=dict)
     today_stats_lock: threading.Lock = field(default_factory=threading.Lock)
     token_cache: Dict[str, object] = field(default_factory=dict)
@@ -75,6 +75,12 @@ class AppRuntime:
     fill_ws_client: Optional[Any] = None      # KISFillNoticeClient
     # ── 웹훅 클라이언트 레지스트리 ───────────────────────────────────────
     webhook_clients: list = field(default_factory=list)  # List[WebhookClient]
+    llm_pulse: Optional[Any] = None              # LLMPulse (5분 장세 평가, 병행 운영)
+    sideways_detector: Optional[Any] = None      # SidewaysDetector (횡보 감지)
+    pulse_engine: Optional[Any] = None           # PulseEngine (규칙 기반 전략 방향)
+    pulse_scorer: Optional[Any] = None           # PulseScorer (자동 채점)
+    pulse_validator: Optional[Any] = None        # PulseValidator (30분 LLM 검증)
+    pulse_analyzer: Optional[Any] = None         # PulseAnalyzer (누적 분석)
 
     @property
     def state(self) -> Dict[str, object]:
@@ -112,6 +118,25 @@ def create_app_state(settings: Dict[str, Any]) -> AppState:
         "foreign_buy": 0.0,
         "oi_value": 0.0,
         "oi_delta": 0.0,
+        # 선물 3주체 절대값 + delta
+        "fut_fgn_buy":    0.0,
+        "fut_inst_buy":   0.0,
+        "fut_indiv_buy":  0.0,
+        "fut_fgn_delta":  0.0,
+        "fut_inst_delta": 0.0,
+        "fut_indiv_delta":0.0,
+        # 현물 3주체 절대값 + delta
+        "spot_fgn_buy":    0.0,
+        "spot_inst_buy":   0.0,
+        "spot_indiv_buy":  0.0,
+        "spot_fgn_delta":  0.0,
+        "spot_inst_delta": 0.0,
+        "spot_indiv_delta":0.0,
+        # 당일 레인지 추적
+        "session_date":      "",
+        "session_high":      0.0,
+        "session_low":       999999.0,
+        "price_range_pct":   0.5,
         "basis": 0.0,
         "basis_ema": 0.0,
         "basis_ema_delta": 0.0,
@@ -198,6 +223,11 @@ def create_app_state(settings: Dict[str, Any]) -> AppState:
         "llm_last_model":          "",   # 마지막 성공 공급자 이름 (Claude/GPT/Gemini)
         # ── JudgmentLog (판단 사건 단위 기록) ─────────────────────────────
         "active_judgment_event_id": None,   # 현재 열린 판단 사건 id (청산 시 None)
+        # ── SidewaysDetector ───────────────────────────────────────────
+        "sideways_active":  False,  # 횡보 하드 블록 활성 여부
+        "sideways_reason":  "",     # 현재 횡보 상태 요약
+        "sideways_lower":   0.0,    # 레인지 하단
+        "sideways_upper":   0.0,    # 레인지 상단
         # ── MarketAnalyst (3분 인터벌 시장 분석) ──────────────────────────
         # view: TREND_UP|TREND_DOWN|VOLATILE|CHOPPY|SPIKE_REVERSAL|REVERSAL_UP|REVERSAL_DOWN
         "market_view":             None,   # dict | None
@@ -232,11 +262,15 @@ def create_app_state(settings: Dict[str, Any]) -> AppState:
         "simulation_mode":         "expert",
         "selected_level":          None,
         # ── 실행 모드 ────────────────────────────────────────────────────
-        # OFF     = 데이터 수집만 (주문 없음, sim_engine 비활성)
-        # VIRTUAL = 내부 시뮬레이션 (sim_engine만, KIS API 호출 없음)
-        # PAPER   = KIS 모의계좌 실제 주문 (ORDER_ENV=virtual, 비밀번호 불필요)
-        # LIVE    = KIS 실계좌 실제 주문 (EXECUTION_ENABLED=true + 비밀번호 필요)
-        "execution_mode":          "OFF",
+        # ── 실행 모드 플래그 (AND 구조 — 독립 토글, 복수 동시 활성 가능) ──────
+        # exec_data  : 데이터 수집 (항상 활성, UI 표시 전용)
+        # exec_sim   : 내부 시뮬레이션 (sim_engine 가상 주문 기록)
+        # exec_paper : KIS 모의계좌 주문 (ORDER_ENV=virtual)
+        # exec_live  : KIS 실계좌 주문 (EXECUTION_ENABLED=true + 비밀번호 필요)
+        "exec_data":               True,
+        "exec_sim":                True,
+        "exec_paper":              False,
+        "exec_live":               False,
         # ── 실주문 최근 체결 정보 ─────────────────────────────────────────
         "live_last_ord_no":        "",
         "live_last_side":          "",
@@ -265,6 +299,20 @@ def create_app_state(settings: Dict[str, Any]) -> AppState:
             "oi_value": 0.0,
             "trade_strength": 0.0,
             "updated_at": 0.0,
+            # 선물 3주체
+            "fut_fgn_buy":    0.0,
+            "fut_inst_buy":   0.0,
+            "fut_indiv_buy":  0.0,
+            "fut_fgn_delta":  0.0,
+            "fut_inst_delta": 0.0,
+            "fut_indiv_delta":0.0,
+            # 현물 3주체
+            "spot_fgn_buy":    0.0,
+            "spot_inst_buy":   0.0,
+            "spot_indiv_buy":  0.0,
+            "spot_fgn_delta":  0.0,
+            "spot_inst_delta": 0.0,
+            "spot_indiv_delta":0.0,
         },
         ema_fast_history=deque(maxlen=int(settings["TREND_EMA_SLOW"]) + 20),
         atr_history=deque(maxlen=int(settings["ATR_PERIOD"]) + 1),

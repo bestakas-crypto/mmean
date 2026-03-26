@@ -53,7 +53,7 @@ log = logging.getLogger("MMEAN.CheckpointAnalyst")
 _HAIKU_MODEL   = "claude-haiku-4-5-20251001"
 _HAIKU_URL     = "https://api.anthropic.com/v1/messages"
 _HAIKU_TIMEOUT = 15
-_MAX_TOKENS    = 200
+_MAX_TOKENS    = 300
 _LOOP_SEC      = 30   # 체크포인트 체크 주기 (초)
 
 # ── 체크포인트 정의 ────────────────────────────────────────────────────────
@@ -127,6 +127,54 @@ class CheckpointAnalyst:
 
         if not self._api_key:
             log.warning("CheckpointAnalyst: ANTHROPIC_API_KEY 없음 — 비활성 상태")
+
+        # 재시작 시 오늘 이미 실행된 체크포인트 복원 (중복 LLM 호출 방지)
+        self._restore_today()
+
+    # ── 복원 / 저장 ────────────────────────────────────────────────────────
+
+    def _restore_today(self) -> None:
+        """재시작 시 checkpoint_today 테이블에서 오늘 결과 복원."""
+        today = datetime.now().strftime("%Y-%m-%d")
+        try:
+            conn = sqlite3.connect(self._runtime.db_path, timeout=5)
+            rows = conn.execute(
+                "SELECT name, result FROM checkpoint_today WHERE date=?", (today,)
+            ).fetchall()
+            conn.close()
+        except Exception as e:
+            log.warning("CheckpointAnalyst 복원 실패 (계속): %s", e)
+            return
+
+        for name, result_json in rows:
+            fired_key = f"{today}:{name}"
+            self._fired[fired_key] = True
+            # 체크포인트별 state_key 매핑
+            state_key = next(
+                (sk for n, _t, sk, _ws, _we in _CHECKPOINTS if n == name), None
+            )
+            if state_key:
+                try:
+                    result = json.loads(result_json)
+                    with self._runtime.state_obj.engine_lock:
+                        self._runtime.state[state_key] = result
+                except Exception:
+                    pass
+        if rows:
+            log.info("CheckpointAnalyst 오늘 이력 복원 | %d건 | date=%s", len(rows), today)
+
+    def _save_result(self, name: str, today: str, result: Dict) -> None:
+        """체크포인트 실행 결과를 DB에 저장 (재시작 대비)."""
+        try:
+            conn = sqlite3.connect(self._runtime.db_path, timeout=5)
+            conn.execute(
+                "INSERT OR REPLACE INTO checkpoint_today (date, name, result, ts) VALUES (?,?,?,?)",
+                (today, name, json.dumps(result, ensure_ascii=False), result.get("ts", "")),
+            )
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            log.warning("CheckpointAnalyst 결과 저장 실패 (계속): %s", e)
 
     # ── 수명 주기 ──────────────────────────────────────────────────────────
 
@@ -212,6 +260,8 @@ class CheckpointAnalyst:
 
         with self._runtime.state_obj.engine_lock:
             self._runtime.state[state_key] = result
+
+        self._save_result(name, today, result)
 
         log.info(
             "CheckpointAnalyst [%s] | %s %s",

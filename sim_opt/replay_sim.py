@@ -35,8 +35,8 @@ _DEFAULT_LEVEL_JSON = os.path.join(
     "workspace", "levels_v2.json",
 )
 
-# DB 기본 경로
-_DEFAULT_DB = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+# DB 기본 경로 (sim_opt/ → 프로젝트 루트 / storage)
+_DEFAULT_DB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                            "storage", "mmean.db")
 
 # 재생 시 레짐 엔진 웜업 제외 틱 수 (BiasRegimeEngine history_limit 기준)
