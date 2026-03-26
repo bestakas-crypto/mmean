@@ -35,8 +35,9 @@ logging.basicConfig(
 )
 log = logging.getLogger("MMEAN.RAGPrep")
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH  = os.path.join(BASE_DIR, "storage", "mmean.db")
+BASE_DIR  = os.path.dirname(os.path.abspath(__file__))
+_PROJ_DIR = os.path.dirname(BASE_DIR)   # rag/ → 프로젝트 루트
+DB_PATH   = os.path.join(_PROJ_DIR, "storage", "mmean.db")
 
 # pattern_schema 임포트 (선택적 — 없어도 step1 기본 동작은 유지)
 try:
@@ -77,6 +78,24 @@ def _volume_zone(volume_burst: float) -> str:
     return "normal"
 
 
+def _foreign_zone(foreign_buy: float) -> str:
+    """외국인 선물 순매수 방향 분류."""
+    if foreign_buy >=  5000: return "strong_buy"
+    if foreign_buy >=  1000: return "buy"
+    if foreign_buy >= -1000: return "neutral"
+    if foreign_buy >= -5000: return "sell"
+    return "strong_sell"
+
+
+def _flow_zone(flow_score: float) -> str:
+    """flow_score 방향 분류."""
+    if flow_score >=  0.10: return "strong_bull"
+    if flow_score >=  0.02: return "bull"
+    if flow_score >= -0.02: return "neutral"
+    if flow_score >= -0.10: return "bear"
+    return "strong_bear"
+
+
 def _daily_pnl_zone(daily_pnl: float) -> str:
     if daily_pnl > 100_000:   return "profit"
     if daily_pnl < -100_000:  return "drawdown"
@@ -96,7 +115,10 @@ def step1_compute_features(conn: sqlite3.Connection, days: int = 30) -> int:
                rt.basis_ema_delta, rt.foreign_buy,
                rt.flow_score, rt.flow_long_weight, rt.flow_short_weight,
                rt.llm_filter_valid, rt.llm_filter_direction,
-               rt.entry_signal, rt.confidence, rt.session_phase
+               rt.entry_signal, rt.confidence, rt.session_phase,
+               COALESCE(rt.fut_fgn_delta,  0.0) AS fut_fgn_delta,
+               COALESCE(rt.fut_inst_delta, 0.0) AS fut_inst_delta,
+               COALESCE(rt.price_range_pct, 0.5) AS price_range_pct
         FROM regime_ticks rt
         LEFT JOIN market_features mf ON mf.tick_id = rt.id
         WHERE rt.ts >= ? AND mf.id IS NULL
@@ -117,7 +139,8 @@ def step1_compute_features(conn: sqlite3.Connection, days: int = 30) -> int:
          basis_delta, foreign_buy,
          flow_score, flow_l, flow_s,
          llm_valid, llm_dir,
-         entry_signal, confidence, session_phase) = row
+         entry_signal, confidence, session_phase,
+         fut_fgn_delta, fut_inst_delta, price_range_pct) = row
         session_date = ts[:10]
 
         if session_date not in daily_pnl_cache:
@@ -158,6 +181,8 @@ def step1_compute_features(conn: sqlite3.Connection, days: int = 30) -> int:
 
         # bias_streak: 간단 추정 (배치에서는 연속 카운트 생략, 0으로 채움)
         # 실시간 streak는 analyzer_app이 직접 기록하는 게 정확함
+        fgn_zone  = _foreign_zone(float(foreign_buy or 0.0))
+        fl_zone   = _flow_zone(float(flow_score or 0.0))
         fv = json.dumps({
             "time_bucket":    tb,
             "basis_zone":     bz,
@@ -166,6 +191,10 @@ def step1_compute_features(conn: sqlite3.Connection, days: int = 30) -> int:
             "long_score":     round(float(l_score or 0.0), 2),
             "short_score":    round(float(s_score or 0.0), 2),
             "bias":           bias or "NEUTRAL",
+            "foreign_zone":   fgn_zone,
+            "flow_zone":      fl_zone,
+            "price_range_pct": round(float(price_range_pct or 0.5), 2),
+            "inst_delta_zone": _flow_zone(float(fut_inst_delta or 0.0)),
         }, ensure_ascii=False)
 
         batch.append((tick_id, ts, session_date, tb, bz, vz, 0, dpz, fv, tags_json))
@@ -199,8 +228,9 @@ def step1_compute_features(conn: sqlite3.Connection, days: int = 30) -> int:
 # -------------------------------------------------------------------
 # Step 2: trades → pattern_memory 집계
 # -------------------------------------------------------------------
-def _cluster_key(basis_zone: str, volume_zone: str, time_bucket: str) -> str:
-    return f"{basis_zone}|{volume_zone}|{time_bucket}"
+def _cluster_key(basis_zone: str, volume_zone: str, time_bucket: str,
+                 foreign_zone: str = "neutral", flow_zone: str = "neutral") -> str:
+    return f"{basis_zone}|{volume_zone}|{time_bucket}|{foreign_zone}|{flow_zone}"
 
 
 def _warning_level(win_rate: float, sample_count: int, avg_pnl: float) -> str:
@@ -223,6 +253,8 @@ def step2_aggregate_patterns(conn: sqlite3.Connection, days: int = 20) -> int:
     since = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
 
     # 진입 시점의 market_feature와 trades 조인
+    # ※ 각 trade에 대해 진입 직전 가장 가까운 market_feature 1건만 매칭 (1:1 JOIN)
+    #   mf.ts <= t.open_ts 단독 조건은 1:N 카테시안 폭발 버그 → LIMIT 1 서브쿼리로 교체
     rows = conn.execute("""
         SELECT
             mf.basis_zone,
@@ -232,11 +264,17 @@ def step2_aggregate_patterns(conn: sqlite3.Connection, days: int = 20) -> int:
             COALESCE(t.pnl_ticks, 0) AS pnl_ticks,
             COALESCE(t.max_adverse_excursion, 0) AS mae,
             COALESCE(t.max_favorable_pt, 0) AS mfe,
-            t.open_ts
+            t.open_ts,
+            json_extract(mf.feature_vector, '$.foreign_zone') AS foreign_zone,
+            json_extract(mf.feature_vector, '$.flow_zone')    AS flow_zone
         FROM trades t
-        JOIN market_features mf ON mf.ts <= t.open_ts
+        JOIN market_features mf ON mf.tick_id = (
+            SELECT mf2.tick_id FROM market_features mf2
+            WHERE mf2.session_date = substr(t.open_ts, 1, 10)
+              AND mf2.ts <= t.open_ts
+            ORDER BY mf2.ts DESC LIMIT 1
+        )
         WHERE t.open_ts >= ?
-          AND mf.session_date = substr(t.open_ts, 1, 10)
           AND mf.basis_zone IS NOT NULL
         ORDER BY t.open_ts
     """, (since,)).fetchall()
@@ -247,8 +285,9 @@ def step2_aggregate_patterns(conn: sqlite3.Connection, days: int = 20) -> int:
 
     # 클러스터별 집계
     clusters: Dict[str, Dict[str, Any]] = {}
-    for bz, vz, tb, direction, pnl, mae, mfe, open_ts in rows:
-        key = _cluster_key(bz or "neutral", vz or "normal", tb or "unknown")
+    for bz, vz, tb, direction, pnl, mae, mfe, open_ts, fgn_z, fl_z in rows:
+        key = _cluster_key(bz or "neutral", vz or "normal", tb or "unknown",
+                           fgn_z or "neutral", fl_z or "neutral")
         if key not in clusters:
             clusters[key] = {
                 "total": 0, "wins": 0, "losses": 0,
@@ -487,17 +526,20 @@ def _aggregate_combo(rows: list, key_fn) -> Dict[str, Dict]:
 
 
 def step4_build_failure_patterns(conn: sqlite3.Connection,
+                                  judgment_conn: sqlite3.Connection = None,
                                   days: int = _SHADOW_DAYS) -> int:
     """
     judgment_events → failure_patterns UPSERT.
 
+    judgment_conn: judgment.db 연결 (None이면 conn과 동일 DB)
     집계 기간: 최근 N일 (기본 90일) — 구 패턴 과적합 방지.
     최소 샘플: 5건 미만 건너뜀.
     대상 패턴: forbidden(WR<30%) / failure(30-45%, pnl<0) / success(WR>=50%, pnl>0).
     """
+    src = judgment_conn if judgment_conn is not None else conn
     since = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
 
-    rows = conn.execute("""
+    rows = src.execute("""
         SELECT opening_char, prov_regime, afternoon_regime, pnl_pt
         FROM judgment_events
         WHERE date(ts) >= ?
@@ -715,6 +757,8 @@ def main() -> None:
                         help="처리 기간 (일)")
     parser.add_argument("--db", type=str, default=DB_PATH,
                         help="DB 경로")
+    parser.add_argument("--judgment-db", type=str, default=None,
+                        help="judgment.db 경로 (step4 전용)")
     args = parser.parse_args()
 
     conn = sqlite3.connect(args.db, check_same_thread=False)
@@ -729,7 +773,14 @@ def main() -> None:
         if args.step in (0, 3):
             step3_evaluate_llm(conn, days=args.days)
         if args.step in (0, 4):
-            step4_build_failure_patterns(conn, days=90)  # 항상 90일 고정
+            judgment_db = args.judgment_db or args.db
+            j_conn = sqlite3.connect(judgment_db, check_same_thread=False)
+            j_conn.row_factory = sqlite3.Row
+            j_conn.execute("PRAGMA journal_mode=WAL")
+            try:
+                step4_build_failure_patterns(conn, j_conn, days=90)
+            finally:
+                j_conn.close()
 
         # 요약 출력
         pm_cnt  = conn.execute("SELECT COUNT(*) FROM pattern_memory").fetchone()[0]

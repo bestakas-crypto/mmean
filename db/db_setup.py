@@ -104,6 +104,17 @@ _MIGRATIONS: List[Tuple[str, str, str]] = [
 
     # ── market_features: regime_tags 보강 (2026-03) ──────────────────
     ("market_features", "regime_tags", "TEXT"),  # JSON 배열 문자열
+
+    # ── regime_ticks: 6주체 수급 delta + 당일 레인지 (2026-03-23) ────
+    ("regime_ticks", "fut_fgn_delta",    "REAL DEFAULT 0"),
+    ("regime_ticks", "fut_inst_delta",   "REAL DEFAULT 0"),
+    ("regime_ticks", "fut_indiv_delta",  "REAL DEFAULT 0"),
+    ("regime_ticks", "spot_fgn_delta",   "REAL DEFAULT 0"),
+    ("regime_ticks", "spot_inst_delta",  "REAL DEFAULT 0"),
+    ("regime_ticks", "spot_indiv_delta", "REAL DEFAULT 0"),
+    ("regime_ticks", "session_high",     "REAL DEFAULT 0"),
+    ("regime_ticks", "session_low",      "REAL DEFAULT 0"),
+    ("regime_ticks", "price_range_pct",  "REAL DEFAULT 0.5"),
 ]
 
 
@@ -117,15 +128,38 @@ def setup_all(db_path: str) -> None:
         _create_llm_tables(conn)
         _create_prompt_tables(conn)
         _create_rag_tables(conn)
-        _create_judgment_table(conn)
         _create_failure_pattern_table(conn)
         _create_entry_gate_log_table(conn)
         _create_replay_tables(conn)
         _create_pattern_tables(conn)
+        _create_checkpoint_today_table(conn)
         _run_migrations(conn)
         _create_indexes(conn)
         conn.commit()
         log.info("DB setup 완료 | path=%s", db_path)
+    finally:
+        conn.close()
+
+
+def setup_judgment_db(db_path: str) -> None:
+    """judgment.db 전용 초기화 — judgment_events 테이블 + 인덱스."""
+    conn = sqlite3.connect(db_path, check_same_thread=False)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    try:
+        _create_judgment_table(conn)
+        for name, sql in [
+            ("idx_judgment_ts",     "CREATE INDEX IF NOT EXISTS idx_judgment_ts ON judgment_events(ts)"),
+            ("idx_judgment_signal", "CREATE INDEX IF NOT EXISTS idx_judgment_signal ON judgment_events(entry_signal, final_signal)"),
+            ("idx_judgment_prov",   "CREATE INDEX IF NOT EXISTS idx_judgment_prov ON judgment_events(prov_regime, afternoon_regime)"),
+            ("idx_judgment_llm",    "CREATE INDEX IF NOT EXISTS idx_judgment_llm ON judgment_events(llm_was_right, llm_risk_view)"),
+        ]:
+            try:
+                conn.execute(sql)
+            except Exception:
+                pass
+        conn.commit()
+        log.info("DBSetup judgment.db 완료 | path=%s", db_path)
     finally:
         conn.close()
 
@@ -193,7 +227,18 @@ def _create_core_tables(conn: sqlite3.Connection) -> None:
         night_confidence        REAL,
         night_raw_score         REAL,
         today_trade_count       INTEGER,
-        daily_loss_limit_left   REAL
+        daily_loss_limit_left   REAL,
+        -- 6주체 수급 delta (2026-03-23)
+        fut_fgn_delta    REAL DEFAULT 0,
+        fut_inst_delta   REAL DEFAULT 0,
+        fut_indiv_delta  REAL DEFAULT 0,
+        spot_fgn_delta   REAL DEFAULT 0,
+        spot_inst_delta  REAL DEFAULT 0,
+        spot_indiv_delta REAL DEFAULT 0,
+        -- 당일 레인지 내 현재가 위치
+        session_high     REAL DEFAULT 0,
+        session_low      REAL DEFAULT 0,
+        price_range_pct  REAL DEFAULT 0.5
     );
 
     CREATE TABLE IF NOT EXISTS regime_events (
@@ -568,6 +613,24 @@ def _create_failure_pattern_table(conn: sqlite3.Connection) -> None:
     """)
 
 
+def _create_checkpoint_today_table(conn: sqlite3.Connection) -> None:
+    """
+    checkpoint_today — CheckpointAnalyst 당일 실행 결과 영속화.
+
+    재시작 시 이 테이블에서 오늘 결과를 복원해 중복 LLM 호출을 방지한다.
+    date + name이 PK이므로 하루에 체크포인트당 1건만 유지된다.
+    """
+    conn.executescript("""
+    CREATE TABLE IF NOT EXISTS checkpoint_today (
+        date   TEXT NOT NULL,
+        name   TEXT NOT NULL,
+        result TEXT NOT NULL,
+        ts     TEXT NOT NULL,
+        PRIMARY KEY (date, name)
+    );
+    """)
+
+
 def _create_entry_gate_log_table(conn: sqlite3.Connection) -> None:
     """
     entry_gate_log — REJECT/HALF 발동 이력 기록.
@@ -667,10 +730,6 @@ def _create_indexes(conn: sqlite3.Connection) -> None:
         ("idx_llm_calls_prompt_hash",   "CREATE INDEX IF NOT EXISTS idx_llm_calls_prompt_hash ON llm_calls(prompt_hash)"),
         ("idx_llm_param_events_layer",  "CREATE INDEX IF NOT EXISTS idx_llm_param_events_layer ON llm_param_events(layer, ts)"),
         ("idx_llm_param_events_type",   "CREATE INDEX IF NOT EXISTS idx_llm_param_events_type ON llm_param_events(event_type, ts)"),
-        ("idx_judgment_ts",             "CREATE INDEX IF NOT EXISTS idx_judgment_ts ON judgment_events(ts)"),
-        ("idx_judgment_signal",         "CREATE INDEX IF NOT EXISTS idx_judgment_signal ON judgment_events(entry_signal, final_signal)"),
-        ("idx_judgment_prov",           "CREATE INDEX IF NOT EXISTS idx_judgment_prov ON judgment_events(prov_regime, afternoon_regime)"),
-        ("idx_judgment_llm",            "CREATE INDEX IF NOT EXISTS idx_judgment_llm ON judgment_events(llm_was_right, llm_risk_view)"),
         ("idx_cvc_ts",                  "CREATE INDEX IF NOT EXISTS idx_cvc_ts ON champion_vs_challenger(ts)"),
         ("idx_cvc_session",             "CREATE INDEX IF NOT EXISTS idx_cvc_session ON champion_vs_challenger(session_date)"),
         ("idx_cvc_diverged",            "CREATE INDEX IF NOT EXISTS idx_cvc_diverged ON champion_vs_challenger(session_date, diverged)"),

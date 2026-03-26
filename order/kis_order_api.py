@@ -313,6 +313,164 @@ def get_balance(runtime: AppRuntime) -> Dict[str, Any]:
     return {"positions": all_pos, "summary": summary}
 
 
+# ── 주문 정정 ────────────────────────────────────────────────────────────────
+
+def modify_order(
+    runtime:    AppRuntime,
+    org_ord_no: str,
+    new_price:  float,
+    qty:        int,
+) -> bool:
+    """
+    선물 주문 정정 (가격·수량 변경). 성공 시 True.
+
+    Args:
+        org_ord_no : 원주문번호 (place_order 반환값)
+        new_price  : 변경 가격 (시장가=0.0)
+        qty        : 변경 수량
+    """
+    env  = _env(runtime)
+    sess = _session(runtime)
+    tr_name = "ORDER_CANCEL_NIGHT" if sess == "night" else "ORDER_CANCEL_DAY"
+    tr_id   = get_tr_id(tr_name, env)
+    url     = get_url(tr_name)
+    cano, prdt = _cano(runtime)
+
+    price_str = f"{new_price:.2f}" if new_price > 0 else "0"
+    ord_dvsn  = "02" if new_price == 0.0 else "01"
+
+    params = {
+        "ORD_PRCS_DVSN_CD":  "02",
+        "CANO":              cano,
+        "ACNT_PRDT_CD":      prdt,
+        "RVSE_CNCL_DVSN_CD": "01",        # 01=정정
+        "ORGN_ODNO":         org_ord_no,
+        "ORD_QTY":           str(qty),
+        "UNIT_PRICE":        price_str,
+        "NMPR_TYPE_CD":      ord_dvsn,
+        "KRX_NMPR_CNDT_CD":  "0",
+        "RMN_QTY_YN":        "N",
+        "ORD_DVSN_CD":       ord_dvsn,
+        "FUOP_ITEM_DVSN_CD": "01" if sess == "night" else "",
+    }
+
+    data = _post(runtime, url, tr_id, params)
+    ok   = data.get("rt_cd") == "0"
+    if not ok:
+        log.error("정정 실패 | org_no=%s | msg=%s | code=%s",
+                  org_ord_no, data.get("msg1"), data.get("msg_cd"))
+    else:
+        log.info("정정 완료 | org_no=%s new_price=%s qty=%d", org_ord_no, price_str, qty)
+    return ok
+
+
+# ── 주문가능 조회 ─────────────────────────────────────────────────────────────
+
+def get_orderable_qty(
+    runtime: AppRuntime,
+    side:    str   = "LONG",    # LONG / SHORT
+    price:   float = 0.0,       # 0.0 = 시장가
+    pdno:    str   = "",
+) -> Dict[str, Any]:
+    """
+    선물 주문가능 수량 조회.
+
+    Returns:
+        dict 주요 키:
+          tot_psbl_qty  : 총 가능 수량
+          lqd_psbl_qty1 : 청산 가능 수량
+          ord_psbl_qty  : 주문 가능 수량
+    """
+    env  = _env(runtime)
+    tr_id = get_tr_id("ORDERABLE", env)
+    url   = get_url("ORDERABLE")
+    cano, prdt = _cano(runtime)
+    _pdno = pdno or runtime.settings.get("FUTURES_CODE", "")
+
+    sll_buy  = "02" if side.upper() == "LONG" else "01"
+    ord_dvsn = "02" if price == 0.0 else "01"
+
+    data = _get(runtime, url, tr_id, {
+        "CANO":            cano,
+        "ACNT_PRDT_CD":    prdt,
+        "PDNO":            _pdno,
+        "SLL_BUY_DVSN_CD": sll_buy,
+        "UNIT_PRICE":      str(price),
+        "ORD_DVSN_CD":     ord_dvsn,
+    })
+
+    if data.get("rt_cd") != "0":
+        raise RuntimeError(f"주문가능 조회 실패 | {data.get('msg1')}")
+    return data.get("output", {}) or {}
+
+
+# ── 주문체결내역 조회 (날짜 범위, 연속조회) ────────────────────────────────────
+
+def get_order_history(
+    runtime:  AppRuntime,
+    start_dt: str = "",           # YYYYMMDD (미입력=당일)
+    end_dt:   str = "",           # YYYYMMDD (미입력=당일)
+    side:     str = "ALL",        # ALL / LONG / SHORT
+    filled:   str = "ALL",        # ALL / FILLED / UNFILLED
+    pdno:     str = "",
+    sort:     str = "DS",         # DS=역순(최신순) / AS=정순
+) -> List[Dict]:
+    """
+    선물 주문체결내역 조회 (날짜 범위 지정, 연속조회 자동 처리).
+    get_fill_history_today()의 확장 버전.
+
+    Returns:
+        list of dict (output1)
+        주요 키: odno, ord_dt, sll_buy_dvsn_cd, pdno, prdt_name,
+                 ord_qty, tot_ccld_qty, avg_idx, tot_ccld_amt, ord_tmd
+    """
+    env  = _env(runtime)
+    tr_id = get_tr_id("FILL_HISTORY", env)
+    url   = get_url("FILL_HISTORY")
+    cano, prdt = _cano(runtime)
+    today = datetime.now().strftime("%Y%m%d")
+    _s = start_dt or today
+    _e = end_dt   or today
+
+    sll_buy_map = {"ALL": "00", "LONG": "02", "SHORT": "01"}
+    ccld_map    = {"ALL": "00", "FILLED": "01", "UNFILLED": "02"}
+
+    all_rows: List[Dict] = []
+    fk200 = nk200 = tr_cont = ""
+
+    for _ in range(10):   # 최대 10페이지
+        data = _get(runtime, url, tr_id, {
+            "CANO":            cano,
+            "ACNT_PRDT_CD":    prdt,
+            "STRT_ORD_DT":     _s,
+            "END_ORD_DT":      _e,
+            "SLL_BUY_DVSN_CD": sll_buy_map.get(side.upper(), "00"),
+            "CCLD_NCCS_DVSN":  ccld_map.get(filled.upper(), "00"),
+            "SORT_SQN":        sort,
+            "STRT_ODNO":       "",
+            "PDNO":            pdno,
+            "MKET_ID_CD":      "",
+            "CTX_AREA_FK200":  fk200,
+            "CTX_AREA_NK200":  nk200,
+        }, tr_cont=tr_cont)
+
+        if data.get("rt_cd") != "0":
+            log.error("체결내역 조회 실패: %s", data.get("msg1"))
+            break
+
+        all_rows.extend(data.get("output1") or [])
+
+        if data.get("tr_cont") in ("M", "F"):
+            fk200   = data.get("ctx_area_fk200", "")
+            nk200   = data.get("ctx_area_nk200", "")
+            tr_cont = "N"
+        else:
+            break
+
+    log.info("체결내역 조회 | count=%d date=%s~%s env=%s", len(all_rows), _s, _e, env)
+    return all_rows
+
+
 # ── 체결내역 조회 (예외·디버그 전용) ─────────────────────────────────────────
 
 def get_fill_history_today(runtime: AppRuntime) -> List[Dict]:

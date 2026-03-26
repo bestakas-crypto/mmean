@@ -29,6 +29,7 @@ RAG 검색기 — 현재 장중 상태 → 유사 사례 검색 → LLM 프롬�
 from __future__ import annotations
 
 import logging
+import sqlite3
 from pathlib import Path
 from typing import Dict, List, Optional
 
