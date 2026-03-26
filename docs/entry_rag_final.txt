@@ -1,0 +1,290 @@
+================================================================================
+MMEAN Entry RAG — 최종 종합 설계안
+작성일: 2026-03-26
+기반: Gemini + ChatGPT + Perplexity + Grok + Claude 5개 보고서 종합
+================================================================================
+
+이 문서는 5개 AI 보고서를 검토한 후,
+MMEAN 실제 코드 구조와 운영 현실에 맞춰
+"지금 당장 무엇을 어떻게 할 것인가"를 결정한 최종 설계안이다.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[0] 5개 AI 최종 평가표
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ┌──────────────┬──────┬────────────────────────────────────────────────┐
+  │ AI           │ 점수 │ 총평                                           │
+  ├──────────────┼──────┼────────────────────────────────────────────────┤
+  │ Grok         │ ★★★★★│ 가장 실용적. 45초·ATR 레이블·ChromaDB·        │
+  │              │      │ A/B 수치 전환 기준 모두 독자적으로 우수.       │
+  ├──────────────┼──────┼────────────────────────────────────────────────┤
+  │ Perplexity   │ ★★★★ │ 4계층 구조 설계 명확. 역할 분담 표 우수.      │
+  │              │      │ 데이터량 추정 누락.                            │
+  ├──────────────┼──────┼────────────────────────────────────────────────┤
+  │ Claude       │ ★★★★★│ DB 분리(sim.db/mmean.db), entry_events 활용,  │
+  │              │      │ 정확한 코드 삽입점(라인 1812), 스레드 위험     │
+  │              │      │ 등 MMEAN 고유 사실 반영. 코드 레벨 최고.       │
+  ├──────────────┼──────┼────────────────────────────────────────────────┤
+  │ Gemini       │ ★★★  │ 피처 우선순위 실용적. KPI 명확.               │
+  │              │      │ MMEAN 구조 모름. 낙관적 기대치.                │
+  ├──────────────┼──────┼────────────────────────────────────────────────┤
+  │ ChatGPT      │ ★★   │ Gemini와 거의 동일. 독창성 부족.              │
+  └──────────────┴──────┴────────────────────────────────────────────────┘
+
+  종합 채택 기준:
+  - 코드 구조 사실: Claude
+  - 설계 아키텍처: Grok + Perplexity
+  - 수치 기준: Grok (A/B 전환) + Claude (KPI 보완)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[1] 핵심 설계 결정 (왜 이 방식인가)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+결정 1: "레짐 ≠ 진입"으로 분리
+  현재 MMEAN: [레짐 확정] = [진입 결정] → 5~12분 후행 구조적 한계
+  Entry RAG 역할: 레짐이 LONG/SHORT를 결정한 뒤,
+                  "지금 이 45초가 진입 적합 타이밍인가?"를 마이크로 신호로 판단
+
+결정 2: 2단계 구현 (Phase 1 → 2)
+  Phase 1 — XGBoost 단독 (데이터 800건 후)
+    이유: 벡터 RAG는 데이터 부족 시 오히려 노이즈. 모델 하나가 가볍고 빠름.
+  Phase 2 — ChromaDB RAG 추가 (2,000건 후)
+    이유: 충분한 사례가 쌓이면 "왜 이 패턴이 실패했나" 설명 가능.
+
+결정 3: 스냅샷 윈도우 45초
+  60초: LLM 응답 지연(3~5초)과 겹쳐 오염 가능성
+  30초: 너무 짧아 노이즈 우세
+  45초: Grok 추천 채택 (근거 가장 명확)
+
+결정 4: 레이블 = ATR 기반 상대값
+  절대값(pnl_ticks) 레이블은 변동성 큰 날과 횡보장을 같은 기준으로 판정 → 부당
+  pnl_atr_ratio = pnl_ticks / session_ATR (오늘 ATR 중앙값)
+  session_phase별 SUCCESS 기준 차등 (MORNING ±2ATR / MIDDAY ±1.5ATR / LATE ±1ATR)
+
+결정 5: entry_snapshots는 mmean.db에 저장
+  intraday.db는 휘발성 → 학습 데이터 손실
+  mmean.db의 entry_snapshots에 영구 보존 (Claude 고유 판단)
+
+결정 6: 기존 entry_gate 구조에 통합
+  신규 4번째 상태 불필요. 기존 REJECT/HALF/ALLOW 구조 안에 Entry RAG 결과 주입.
+  whipsaw_risk > 0.70 → REJECT (강제), > 0.45 → HALF (ALLOW인 경우만)
+  초기에는 경고 플래그만 발행 (패턴 분석 우선), 실제 REJECT는 A/B 검증 후
+
+결정 7: 새 스레드 금지 — 메인 틱 루프 인라인 호출
+  TRACK_CHECK_SEC=30 freeze 버그 미수정 상태에서 스레드 추가는 위험
+  Entry RAG scorer는 모델 파일 로드 후 predict() 직접 호출 (< 1ms)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2] 최종 진입 결정 흐름 (변경 후)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ┌─────────────────────────────────────────────────────────────────┐
+  │ 매 틱 (약 1초)                                                  │
+  │                                                                 │
+  │  ① FlowEngine → bias(방향) 결정          [기존, 후행 허용]     │
+  │  ② entry_signal = LONG_READY / SHORT_READY                      │
+  │  ③ CB1~CB4 이상징후 차단기               [기존]                │
+  │  ④ LLM weight_adjust 스케일링            [기존]                │
+  │                                                                 │
+  │  ⑤ ★ Entry RAG scorer (신규) ──────────────────────────────── │
+  │     · 직전 45초 regime_ticks 로드 (READ-ONLY)                   │
+  │     · 피처 추출 (vol_burst_slope, basis_delta_accel, ...)       │
+  │     · XGBoost predict → whipsaw_risk, enter_confidence          │
+  │     · whipsaw_risk > 0.70 → _entry_gate = REJECT                │
+  │     · whipsaw_risk > 0.45 (ALLOW인 경우만) → HALF               │
+  │     · 결과 state["entry_rag_*"] 에 저장                         │
+  │                                                                 │
+  │  ⑥ Warning Signal Entry Gate (기존 pattern_memory RAG)         │
+  │  ⑦ FLAT/SIDEWAYS 하드블록               [기존]                │
+  │  ⑧ 최종 주문 실행                       [기존]                │
+  └─────────────────────────────────────────────────────────────────┘
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[3] 최종 피처 목록 (45초 윈도우)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  우선순위 | 피처명                | 출처              | 근거
+  ─────────┼───────────────────────┼───────────────────┼──────────────────────
+  1        │ vol_burst_slope       │ regime_ticks      │ 거래 폭발 속도 (선행)
+  2        │ basis_delta_accel     │ regime_ticks      │ 선현물 괴리 가속도
+  3        │ fgn_delta_slope       │ fut_fgn_delta     │ 외인 수급 변화 속도
+             (fut_fgn_delta 사용, foreign_buy 누적 금지)
+  4        │ flow_slope            │ flow_score        │ 수급 종합 방향
+  5        │ price_vwap_slope      │ price_vs_vwap     │ VWAP 이격 변화
+  6        │ vol_burst_std         │ volume_burst[-15] │ 거래량 안정성
+  7        │ flow_score_max        │ flow_score[-45]   │ 피크 강도
+  8        │ ema_fast_slope        │ regime_ticks      │ 단기 추세
+  9        │ session_phase_code    │ session_phase     │ 시간대 구분
+  10       │ price_range_pct       │ regime_ticks      │ 당일 레인지 위치
+  11       │ bias_code             │ bias              │ 현재 레짐
+  12       │ entry_confidence      │ engine output     │ 엔진 신뢰도
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[4] 최종 DB 스키마
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  [mmean.db 신규] entry_snapshots — 학습 데이터 영구 보존
+  ─────────────────────────────────────────────────────────
+  CREATE TABLE IF NOT EXISTS entry_snapshots (
+      id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+      entry_ts              TEXT NOT NULL,
+      session_date          TEXT NOT NULL,
+      session_phase         TEXT,
+      bias                  TEXT,
+      features_json         TEXT,          -- 피처 벡터 JSON (45초 집계)
+      pnl_ticks             REAL,          -- 사후 레이블 (NULL → 미완료)
+      pnl_atr_ratio         REAL,          -- pnl_ticks / session_ATR
+      max_adverse_excursion REAL,
+      exit_reason           TEXT,
+      outcome_class         TEXT,          -- SUCCESS / NEUTRAL / FAILURE
+      atr_at_entry          REAL,          -- 레이블링 기준 ATR 값
+      model_version         TEXT DEFAULT 'none',
+      created_at            TEXT DEFAULT (datetime('now','localtime'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_es_date ON entry_snapshots(session_date);
+  CREATE INDEX IF NOT EXISTS idx_es_phase ON entry_snapshots(session_phase);
+
+  [intraday.db 신규] entry_rag_infer_log — 당일 추론 이력 (휘발 가능)
+  ─────────────────────────────────────────────────────────
+  CREATE TABLE IF NOT EXISTS entry_rag_infer_log (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_date     TEXT NOT NULL,
+      ts               TEXT NOT NULL,
+      enter_confidence REAL,
+      whipsaw_risk     REAL,
+      gate_result      TEXT,   -- ALLOW / HALF / REJECT
+      features_json    TEXT,
+      model_version    TEXT
+  );
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[5] 최종 파일 구조
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  C:/mmean/
+  ├── entry_rag/
+  │   ├── __init__.py
+  │   ├── feature_builder.py  ← 45초 regime_ticks → 피처 dict
+  │   ├── scorer.py           ← 모델 로드 + whipsaw_risk / enter_confidence
+  │   ├── model_trainer.py    ← XGBoost 학습 (장 종료 후 실행)
+  │   └── rag_store.py        ← [Phase 2] ChromaDB 관리
+  ├── scripts/
+  │   └── build_entry_snapshots.py  ← ATTACH JOIN → entry_snapshots 빌드
+  ├── models/
+  │   └── entry_rag_model.pkl       ← 학습된 XGBoost 모델
+  └── db/
+      └── db_setup.py               ← entry_snapshots 테이블 추가
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[6] 최종 로드맵
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  지금 (즉시)
+  ┌─────────────────────────────────────────────────────────┐
+  │ Phase 0: 스냅샷 파이프라인 구축                         │
+  │  · db_setup.py → entry_snapshots 테이블 추가            │
+  │  · scripts/build_entry_snapshots.py 작성                │
+  │    (sim.db ATTACH + entry_events × regime_ticks JOIN)   │
+  │  · 장 종료 후 매일 실행 → 데이터 자동 적재              │
+  │  · 코딩: 1~2일                                          │
+  └─────────────────────────────────────────────────────────┘
+                         ↓  약 6~8주 (sim_trades 800건 달성)
+  ┌─────────────────────────────────────────────────────────┐
+  │ Phase 1: 피처 분석 + XGBoost 기초 모델                  │
+  │  · scripts/analyze_entry_features.py 작성               │
+  │  · XGBoost 학습 → models/entry_rag_model.pkl            │
+  │  · "vol_burst_slope이 실제로 1위인가?" 검증             │
+  │  · 코딩: 3~5일                                          │
+  └─────────────────────────────────────────────────────────┘
+                         ↓  약 3~5개월 (2,000건 달성)
+  ┌─────────────────────────────────────────────────────────┐
+  │ Phase 2: EntryTimingEngine 실시간 통합                  │
+  │  · entry_rag/scorer.py 작성                             │
+  │  · engine_runtime.py 라인 1812 이후 삽입                │
+  │  · 초기: 경고 플래그만 (state["entry_rag_*"])           │
+  │  · intraday.db entry_rag_infer_log 저장                 │
+  │  · 코딩: 3~5일                                          │
+  └─────────────────────────────────────────────────────────┘
+                         ↓  30일 관찰
+  ┌─────────────────────────────────────────────────────────┐
+  │ Phase 3: A/B 테스트 + 전환 결정                        │
+  │  · REJECT/HALF 실제 연동                                │
+  │  · 전환 기준: pnl_atr_ratio +15% AND whipsaw -20%      │
+  │                AND False REJECT Rate < 15%              │
+  └─────────────────────────────────────────────────────────┘
+                         ↓  5,000건 이상 (8~12개월 후)
+  ┌─────────────────────────────────────────────────────────┐
+  │ Phase 4: ChromaDB 추가 (하이브리드 완성)                │
+  │  · entry_rag/rag_store.py 작성                          │
+  │  · "왜 이 타이밍이 실패했나" 설명 가능해짐              │
+  └─────────────────────────────────────────────────────────┘
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[7] Cold Start 단계별 Entry RAG 동작
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  데이터량      │ Entry RAG 동작                          │ 실제 진입 영향
+  ─────────────┼─────────────────────────────────────────┼──────────────────
+  0~800건      │ 비활성 (scorer 미호출)                   │ 없음 (기존 동일)
+  800~2,000건  │ XGBoost 단독, 경고 플래그만              │ 없음 (모니터링)
+  2,000~5,000건│ XGBoost + 실제 gate 반영 (보수적)        │ REJECT/HALF 적용
+               │  whipsaw_risk > 0.80만 REJECT            │
+  5,000건~     │ ChromaDB RAG 추가, 기준 0.70으로 강화    │ 본격 운영
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[8] 각 AI별 채택/기각 결정 요약
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  항목                        │ 채택안        │ 출처     │ 기각 이유
+  ────────────────────────────┼───────────────┼──────────┼──────────────────
+  스냅샷 윈도우               │ 45초          │ Grok     │ 60초는 LLM 오염
+  레이블 단계 구분            │ 2단계         │ Grok     │ 초기 단일 부족
+  레이블 기준                 │ ATR 상대값    │ Grok     │ 절대값은 불공정
+  최소 학습 데이터            │ 800건         │ Grok     │ 300건은 과낙관
+  벡터 DB                     │ ChromaDB      │ Grok     │ FAISS 초기 부담
+  A/B 전환 기준 수치          │ +15% / -20%   │ Grok+C   │ 수치 없는 안 기각
+  계층 구조 설계              │ 4계층         │ Perplexity│              -
+  pattern_mem vs Entry 분담   │ 역할 분리 표  │ Perplexity│              -
+  DB 분리 구조                │ mmean.db 보존 │ Claude   │ intraday 휘발 위험
+  코드 삽입 지점              │ 라인 1812     │ Claude   │ 다른 AI 미파악
+  스레드 금지                 │ 인라인 동기   │ Claude   │ freeze 버그 현존
+  False REJECT Rate KPI       │ < 15%         │ Claude   │ 다른 AI 미언급
+  외국인 피처                 │ fut_fgn_delta │ Claude   │ 누적 총량 기각
+  휩쏘 정의 보완              │ 10틱 내 반전  │ Claude   │ MAE만으로 부족
+  session_phase 처리          │ 모델 분기     │ Claude   │ 피처로 쓰면 약함
+  SMOTE 금지                  │ 층화추출      │ Claude   │ 시계열 위반
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[결론]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Entry RAG는 구조적으로 올바른 방향이다.
+  그러나 데이터 없이 만들면 기존 entry_gate보다 나빠진다.
+
+  지금 해야 할 단 하나:
+    scripts/build_entry_snapshots.py 작성 →
+    매일 장 종료 후 실행 → entry_snapshots 자동 축적 →
+    800건 이후 XGBoost 학습 시작.
+
+  "방향은 잘 잡히는데 타이밍이 늦다"는 문제는
+  Entry RAG가 본격 가동되는 2~3개월 후부터 개선이 체감될 것이다.
+  그 전까지는 LLMCaller 청산 권한 확대(WA_MAX_DOWN=-0.20)가
+  현재 할 수 있는 가장 현실적인 보완책이다.
+
+================================================================================
+관련 파일:
+  entry_rag_prompt.txt     ← 프롬프트 원문
+  entry_rag_report.txt     ← Gemini/GPT/Perplexity/Grok 4개 AI 보고서
+  entry_rag_claude_report.txt ← Claude 단독 보고서
+  entry_rag_final.txt      ← 이 파일 (5개 AI 종합 최종안)
+================================================================================

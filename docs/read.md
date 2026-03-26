@@ -111,7 +111,7 @@ C:\mmean\
 ├─ docs/                       문서
 │   POLICY.md                  운영 정책서 (진입/청산/포지션/LLM 역할 정의)
 │   after.txt                  후속 작업 목록 (B/A/C 카테고리)
-│   makelog.txt                작업 이력
+│   history.txt                작업 이력
 │   read.md                    이 파일 — 디렉토리 구조 설명
 │
 ├─ storage/  (gitignore)       DB 파일

@@ -1,0 +1,400 @@
+================================================================================
+MMEAN Entry RAG 설계 방법론 보고서
+작성일: 2026-03-26
+작성자: Claude (코드베이스 직접 분석 기반)
+참조 파일: core/engine_runtime.py, db/db_setup.py, db/db_setup_sim.py,
+           engines/market_analyst.py, rag/rag_prep.py
+================================================================================
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+0. 다른 AI들이 모른 MMEAN 코드 구조 사실 (전제 조건)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Entry RAG를 설계하기 전, 4개 AI가 모두 가정한 것과 실제 코드 사이의
+결정적 차이를 먼저 짚는다.
+
+[사실 1] DB가 분리되어 있다
+  - regime_ticks → mmean.db
+  - sim_trades   → sim.db  (별개 파일)
+  - intraday.db  → 당일 휘발성 (market_view_log, llm_caller_log, llm_pulse_log)
+  → 결론: sim_trades × regime_ticks 조인 = ATTACH 필요.
+           다른 AI가 "JOIN 스크립트 작성"이라 했지만 실제로는
+           ATTACH DATABASE '/path/sim.db' AS sim; 구문이 필요.
+
+[사실 2] entry_events 테이블이 이미 존재한다
+  - mmean.db의 entry_events 테이블 (db_setup.py 259~273행):
+    ts, bias, entry_signal, futures_price, basis, basis_slope,
+    basis_ema_delta, volume_burst, confidence, long_score, short_score, reason
+  → 결론: "진입 시점 스냅샷 저장" 인프라가 이미 있다.
+           Entry RAG Phase 0는 새 테이블 생성이 아니라
+           entry_events를 레이블링하는 것에서 시작한다.
+
+[사실 3] feature_json 컬럼이 regime_ticks에 이미 있다
+  - regime_ticks.feature_json TEXT (db_setup.py 206행)
+  → 결론: 피처 추출 파이프라인이 일부 이미 구현되어 있을 수 있다.
+           중복 구현 전 해당 컬럼의 실제 저장값 확인이 우선이다.
+
+[사실 4] 정확한 진입 결정 흐름 (engine_runtime.py 1709~1880행)
+  실제 순서:
+  ① CB1~CB4 이상징후 차단기 (라인 1709~1725)
+  ② LLM weight_adjust TTL 소비 + JudgmentLog (라인 1727~1759)
+  ③ LLM 스케일링 + 영향도 조정 (라인 1800~1812)
+  ④ Warning Signal Entry Gate — pattern_memory RAG + failure_patterns (라인 1814~1857)
+  ⑤ FLAT/SIDEWAYS 하드블록 (라인 1859~1872)
+  ⑥ entry_gate 결과로 _wa_scaled 최종 결정 (라인 1875~1880)
+  ⑦ 실제 주문 실행 (라인 이후)
+
+  → Entry RAG 삽입 지점: ③과 ④ 사이, 또는 ④의 내부 확장
+    (entry_gate를 Entry RAG 결과로 보강하는 방식)
+
+[사실 5] entry_gate는 REJECT/HALF/ALLOW 3값만 처리한다
+  - 현재 코드: REJECT→ _wa_scaled=0, HALF→ _wa_scaled=-_WA_MAX_DOWN
+  - Entry RAG의 whipsaw_risk, enter_confidence를 이 구조에 맵핑해야 한다
+  - 새로운 4번째 상태를 만들 필요 없이 기존 구조에 통합 가능
+
+[사실 6] TRACK_CHECK_SEC=30 freeze 버그 미수정 상태
+  - 새 비동기 스레드(Entry RAG inference) 추가 시 DB 잠금 충돌 위험
+  - Entry RAG는 반드시 동기(sync) 인라인 호출 또는 DB read-only 모드로 설계해야 함
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. 진입 RAG의 필요성 — 코드 레벨에서 본 실제 원인
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+현재 entry_gate(pattern_memory RAG)의 판단 기준:
+  - _bz = basis_zone (MID/HIGH/LOW 버킷)
+  - _vz = volume_zone (버킷)
+  - _tb = time_bucket (시간대 버킷)
+  → 3개 버킷 조합으로 과거 패턴 조회 → danger/warning/caution/none
+
+이 설계의 구조적 한계:
+  - basis_zone, volume_zone이 "지금 상태의 버킷"이지 "변화 속도"가 아님
+  - 즉, 방향성(현재 상태)은 보지만 가속도(변화 속도)를 보지 않음
+  - 같은 basis_zone=MID라도 "빠르게 확대 중"과 "수렴 중"은 전혀 다른 진입 타이밍
+
+Entry RAG가 추가해야 할 것:
+  "지금 상태"가 아닌 "지금 직전 45초의 변화 패턴"으로 판단.
+  basis_ema_delta의 기울기, volume_burst 가속, fut_fgn_delta 속도가
+  과거 성공/실패 진입 시점과 얼마나 유사한가.
+
+기대 효과 (보수적 가설):
+  - 초기 단계 (800건): whipsaw 진입 10~15% 감소
+  - 충분 단계 (5,000건): pnl_ticks 평균 +15~25%, MAE 10~20% 축소
+  ※ 30~40% 개선은 과도한 낙관 — 시장 구조 변화와 과적합 위험 감안
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. 학습 데이터 설계 — DB 구조 현실을 반영한 실용적 설계
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[2.1] 실제 JOIN 전략
+
+  -- Step 1: entry_events와 sim_trades 연결 (open_ts 기준)
+  ATTACH DATABASE '/mmean/storages/sim.db' AS sim;
+
+  SELECT
+      e.ts               AS entry_ts,
+      e.bias, e.entry_signal,
+      e.futures_price, e.basis, e.basis_slope,
+      e.basis_ema_delta, e.volume_burst,
+      e.long_score, e.short_score,
+      s.pnl_ticks, s.max_adverse_excursion,
+      s.exit_reason, s.entry_session_phase
+  FROM entry_events e
+  JOIN sim.sim_trades s
+    ON s.open_ts BETWEEN e.ts AND datetime(e.ts, '+3 seconds')
+  WHERE s.session_date >= '2026-01-01'
+  ORDER BY e.ts;
+
+  -- Step 2: 해당 진입 ts 직전 45초 regime_ticks 추출
+  SELECT *
+  FROM regime_ticks
+  WHERE ts BETWEEN datetime(:entry_ts, '-45 seconds') AND :entry_ts
+  ORDER BY ts;
+
+[2.2] 스냅샷 윈도우
+
+  45초 채택 (Grok과 동일).
+  근거: regime_ticks가 약 1초 단위 → 45행의 시계열.
+  60초는 LLM 응답 지연(3~5초)과 겹쳐 오염 가능성 있음.
+  30초는 CB4 쿨다운(기본 180초)보다 짧아 연속 신호를 놓침.
+
+[2.3] 레이블링 전략
+
+  초기 단계 (800~2,000건): 3클래스 분류
+    - SUCCESS : pnl_ticks ≥ +1.5 × ATR  (세션 ATR 기준 상대값)
+    - NEUTRAL : 그 사이
+    - FAILURE : pnl_ticks ≤ -1.0 × ATR  OR max_adverse_excursion > 2.0 × ATR
+
+  충분 단계 (2,000건~): 연속값 회귀
+    - y = pnl_ticks / ATR  (−3.0 ~ +5.0 범위 클램핑)
+    - ATR = session 중앙값 ATR (regime_ticks.atr 사용)
+
+  [핵심] ATR 상대값 레이블이 중요한 이유:
+    오늘처럼 변동성 큰 날과 횡보장을 동일 기준으로 레이블링하면
+    모델이 "어제 -5틱은 나쁨, 오늘 -5틱은 평범"을 구분 못함.
+
+  session_phase별 기준 차등:
+    MORNING(09:00~10:00): SUCCESS 기준 +2.0 × ATR (변동성 크므로 bar 높임)
+    MIDDAY (10:00~13:30): SUCCESS 기준 +1.5 × ATR (기본)
+    LATE   (13:30~15:20): SUCCESS 기준 +1.0 × ATR (변동성 작으므로 bar 낮춤)
+
+[2.4] 최소 데이터량 — 현실적 추정
+
+  MMEAN 현재 운영 기간 고려 시 sim_trades는 수십~수백 건 수준으로 추정.
+  일 20~30회 시뮬 진입 기준:
+    800건: 약 27~40 거래일 (약 6~8주)
+    2,000건: 약 67~100 거래일 (3~5개월)
+    5,000건: 약 167~250 거래일 (8~12개월)
+
+  → 지금 당장 Entry RAG를 "학습"하는 것은 의미 없음.
+     지금 해야 할 것: 스냅샷 저장 파이프라인만 세팅.
+     학습은 800건 이후.
+
+[2.5] 클래스 불균형
+
+  SMOTE는 시계열 데이터에 직접 적용 금지.
+  대신: entry_snapshots 저장 시 session_phase, bias, exit_reason 컬럼 포함
+  → 층화추출(stratified sampling) 기반 미니배치 학습.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. 피처 엔지니어링 — regime_ticks 45행에서 추출
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[3.1] 원시 피처 (45초 윈도우 종점값)
+
+  이미 entry_events에 있는 것 (재활용):
+    basis_ema_delta, volume_burst, long_score, short_score,
+    confidence, basis_slope, futures_price
+
+  regime_ticks에서 추가로 필요한 것:
+    flow_score, atr, price_vs_vwap, vwap,
+    fut_fgn_delta, fut_inst_delta,
+    ema_fast_slope, session_phase, price_range_pct
+
+  외국인 관련 주의:
+    foreign_buy (누적 총량) → 사용 금지 (오늘 BULLISH=0 사태의 원인)
+    fut_fgn_delta (5분 delta) → 전용 사용
+
+[3.2] 파생 피처 (45초 롤링)
+
+  slope(X) = (X[-1] - X[-15]) / 15       # 최근 15초 기울기
+  accel(X) = slope(X[-1]) - slope(X[-15]) # 기울기 변화 (가속도)
+
+  핵심 파생 피처:
+    vol_burst_slope   = slope(volume_burst)   ← 가장 중요
+    basis_delta_accel = accel(basis_ema_delta)
+    flow_slope        = slope(flow_score)
+    fgn_delta_slope   = slope(fut_fgn_delta)
+    price_vwap_slope  = slope(price_vs_vwap)
+
+  통계:
+    vol_burst_std  = std(volume_burst[-15:])  # 거래량 안정성
+    flow_score_max = max(flow_score[-45:])    # 피크 강도
+    flow_score_min = min(flow_score[-45:])    # 저점 강도
+
+[3.3] 컨텍스트 피처 (시점 정보)
+
+  session_phase_code: MORNING=0, MIDDAY=1, LATE=2  (원핫 불필요, 순서 있음)
+  price_range_pct:    당일 레인지 내 현재 위치 (0~1)
+  bias_code:          LONG_BIAS=1, SHORT_BIAS=-1, NEUTRAL=0
+  today_trade_count:  오늘 누적 체결 수 (과매매 방지 신호)
+
+[3.4] 정규화
+
+  일별 z-score (당일 regime_ticks 전체 기준):
+    z = (x - mean_today) / (std_today + ε)
+
+  session_phase별 별도 정규화:
+    MORNING 구간 통계 / MIDDAY 구간 통계 / LATE 구간 통계 분리 적용
+
+  price_range_pct, bias_code, session_phase_code은 정규화 불필요 (이미 스케일 고정)
+
+[3.5] 우선순위 (가설)
+
+  1위: vol_burst_slope       ← 거래 폭발 속도 (가장 즉각적 선행 신호)
+  2위: basis_delta_accel     ← 선현물 괴리 가속 (방향 전환 2~3틱 선행)
+  3위: fgn_delta_slope       ← 외인 수급 변화 속도
+  4위: flow_slope            ← 수급 종합 방향
+  5위: price_vwap_slope      ← 가격 위치 변화 속도
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. 아키텍처 선택 — MMEAN 코드 구조와 호환성 기준
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+다른 AI들이 추천한 FAISS/ChromaDB + XGBoost 하이브리드에 동의하나,
+MMEAN 특수 상황을 반영한 수정이 필요하다.
+
+[선택] Phase 1: XGBoost 단독 (데이터 800~2,000건)
+  이유:
+  - 데이터 부족기에 벡터 RAG는 k-NN이 엉뚱한 사례를 검색해 노이즈화
+  - XGBoost는 800건으로도 피처 중요도를 볼 수 있음
+  - 추가 패키지 없이 pip install xgboost 하나로 동작
+  - DB 잠금 위험 없음 (모델 파일 로드 방식)
+
+[선택] Phase 2: ChromaDB RAG 추가 (2,000건 이상)
+  이유:
+  - SQLite 호환, 단일 서버 10만 건 안정
+  - FAISS보다 초기 세팅 부담 낮음
+  - LLM에게 "유사 패턴 사례" 컨텍스트 제공 가능
+  - Grok 추천과 동일
+
+[실행 속도 요건]
+  entry_gate는 매 틱(약 1초)마다 호출됨.
+  XGBoost predict: < 1ms (문제 없음)
+  ChromaDB query: 5~20ms (문제 없음)
+  LLM 호출: 3~5초 → Entry RAG에 LLM 직접 호출 절대 금지
+             LLMPulse(10분)의 방향값을 참고값으로만 주입
+
+[TRACK_CHECK_SEC=30 버그 대응]
+  Entry RAG는 새 스레드 생성 금지.
+  engine_runtime.py 틱 루프 내 인라인 호출만 허용.
+  DB 접근은 READ-ONLY (sqlite3.connect("file:xxx?mode=ro", uri=True)).
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. 구현 로드맵 — 코드 수정 파일 명시
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Phase 0: 스냅샷 저장 파이프라인 (즉시 시작, 1주)
+  목표: 진입마다 45초 스냅샷을 자동 저장.
+  신규 파일: scripts/build_entry_snapshots.py
+    - sim.db의 sim_trades × mmean.db의 regime_ticks ATTACH JOIN
+    - entry_events 테이블 활용으로 ts 매칭
+    - 결과를 mmean.db의 entry_snapshots 테이블에 저장
+    - 매일 장 종료 후 실행 (크론 또는 수동)
+  신규 테이블 (mmean.db에 추가):
+    CREATE TABLE IF NOT EXISTS entry_snapshots (
+        id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+        entry_ts              TEXT NOT NULL,
+        session_date          TEXT NOT NULL,
+        session_phase         TEXT,
+        bias                  TEXT,
+        features_json         TEXT,          -- 45초 집계 피처 JSON
+        pnl_ticks             REAL,          -- 사후 레이블 (sim_trades에서)
+        pnl_atr_ratio         REAL,          -- pnl_ticks / ATR (정규화 레이블)
+        max_adverse_excursion REAL,
+        exit_reason           TEXT,
+        outcome_class         TEXT,          -- SUCCESS/NEUTRAL/FAILURE
+        model_version         TEXT DEFAULT 'none'
+    );
+  ※ intraday.db 아님 → mmean.db (영구 보존 필요)
+
+Phase 1: 오프라인 피처 분석 (800건 후, 약 6~8주 후)
+  목표: "어떤 피처가 실제로 유효한가?" 검증.
+  신규 파일: scripts/analyze_entry_features.py
+    - entry_snapshots × features_json 로드
+    - XGBoost feature_importance 계산
+    - 상관관계 히트맵, SHAP값 시각화
+    - vol_burst_slope 1위 가설 검증
+
+Phase 2: 모델 학습 + 기초 통합 (2,000건 후, 약 3~5개월 후)
+  목표: XGBoost 단독 모델로 enter_confidence 생성.
+  신규 파일: entry_rag/model_trainer.py
+    - 시간 기반 train/valid 분할 (과거 80% → 미래 20%)
+    - 학습 산출물: storages/entry_rag_model.pkl
+  수정 파일: core/engine_runtime.py
+    - 라인 1812~1814 사이 (LLM 스케일링 후, Warning Gate 전) 삽입:
+      entry_rag_result = entry_rag.score(state, runtime.db_path)
+      if entry_rag_result.whipsaw_risk > 0.70:
+          _entry_gate = "REJECT"
+      elif entry_rag_result.whipsaw_risk > 0.45:
+          if _entry_gate == "ALLOW":
+              _entry_gate = "HALF"
+
+Phase 3: ChromaDB RAG 추가 (5,000건 후, 약 8~12개월 후)
+  목표: 유사 과거 패턴 검색으로 XGBoost 보완.
+  신규 파일: entry_rag/rag_store.py
+  수정 파일: entry_rag/model_trainer.py (임베딩 추가)
+
+Phase 4: A/B 테스트 + KPI 검증 (30일)
+  50:50 진입 분할.
+  전환 기준: pnl_ticks 평균 +18% AND whipsaw(MAE>2ATR) 비율 -25%.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6. 주의사항 — 다른 AI들이 언급 못한 MMEAN 특유의 위험
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[위험 1] pattern_memory RAG와 Entry RAG의 이중 필터링 강화 문제
+  현재 pattern_memory RAG가 이미 REJECT를 많이 내면서
+  진입 빈도가 낮아지고 있다면, Entry RAG 추가 시
+  "아무것도 진입 못하는" 과잉 필터링이 발생할 수 있다.
+  → 대응: Entry RAG 초기에는 REJECT 없이 "경고 플래그만" 발행.
+           실제 REJECT 연계는 A/B 데이터 충분 시만.
+
+[위험 2] 시뮬레이션 데이터의 대표성 문제
+  sim_trades는 SIM_ENABLED=1인 가상 체결.
+  실제 슬리피지, 유동성, 부분 체결이 없음.
+  → Entry RAG가 "깨끗한 가상 체결"에 과적합할 위험.
+  → 실전 이행 시 진입 허용 기준을 5~10% 보수적으로 조정.
+
+[위험 3] Z:/C: 분리 운영 환경
+  노트북(Z:)은 안정화 버전, 데스크탑(C:)은 개발 버전.
+  Entry RAG 모델 파일(entry_rag_model.pkl)을 둘 중 어디에 두는지
+  명확히 정하지 않으면 버전 혼재 발생.
+  → 권장: C:/mmean/models/ 디렉토리를 정규 경로로 지정.
+
+[위험 4] TRACK_CHECK_SEC=30 freeze 버그 미수정
+  Entry RAG가 DB 접근 스레드를 추가하면 기존 버그와 겹쳐 시스템 동결.
+  → Entry RAG는 메인 틱 루프 안에서 동기 호출 + READ-ONLY 전용.
+
+[위험 5] 레이블 데이터 지연 문제
+  entry_snapshots에 pnl_ticks를 채우려면 거래가 종료되어야 함.
+  즉, 스냅샷 저장 직후에는 레이블이 NULL.
+  → scripts/build_entry_snapshots.py는 "당일 미완료 거래 제외"로 설계.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7. 성과 측정 지표 (KPI)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+기존 entry_gate(pattern_memory RAG)와 비교해야 의미 있음.
+
+[A] 주요 KPI (30일 A/B 기준)
+  - pnl_atr_ratio 평균 (ATR 정규화 기준 공정 비교)
+  - Whipsaw Rate: max_adverse_excursion > 2.0 × ATR 비율
+  - Entry Success Rate: outcome_class = SUCCESS 비율
+  - False REJECT Rate: Entry RAG가 REJECT했으나 실제 수익 진입이었을 비율
+
+[B] "작동하고 있다" 판단 기준 (Grok 채택 + Claude 보완)
+  필수 조건 (AND):
+    pnl_atr_ratio 평균 +15% 이상 개선
+    Whipsaw Rate  -20% 이상 감소
+    False REJECT Rate < 15% (너무 많이 막으면 안 됨)
+
+  충분 조건 (위 달성 후):
+    30일 A/B p-value < 0.1 (통계적 경향 확인)
+    ※ 소규모 데이터에서 0.05 기준은 비현실적 → 0.1 완화
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+8. 최종 추천 구현 구조 (코드 파일 수준)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+신규 파일:
+  scripts/build_entry_snapshots.py   → ATTACH JOIN + entry_snapshots 빌드
+  entry_rag/__init__.py              → 패키지
+  entry_rag/feature_builder.py       → 45초 regime_ticks → 피처 JSON
+  entry_rag/model_trainer.py         → XGBoost 학습, pkl 저장
+  entry_rag/scorer.py                → 모델 로드 + enter_confidence 반환
+
+수정 파일:
+  db/db_setup.py                     → entry_snapshots 테이블 추가
+  core/engine_runtime.py             → 라인 1812 이후 entry_rag.scorer 호출
+
+DB 변경:
+  mmean.db  → entry_snapshots 테이블 신규 (영구 보존)
+  intraday.db → entry_rag_infer_log 신규 (당일 추론 이력, 휘발 가능)
+
+역할 분담 최종:
+  CB1~CB4             → 이상징후 (속도 최우선, 동기)
+  Entry RAG scorer    → 마이크로 타이밍 (< 1ms, 모델 파일 로드)
+  entry_gate (기존)   → 거시 패턴 위험 (pattern_memory + failure_patterns)
+  FLAT/SIDEWAYS 블록  → 하드 차단
+  LLM weight_adjust  → 큰 흐름 방향 보정
+
+================================================================================

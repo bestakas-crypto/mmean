@@ -1,0 +1,380 @@
+================================================================================
+MMEAN Entry RAG 설계 방법론 보고서 — AI 4종 비교
+작성일: 2026-03-26
+출처: Gemini / ChatGPT / Perplexity / Grok 각각 entry_rag_prompt.txt 기반 답변
+================================================================================
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[GEMINI 답변]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. 진입 RAG의 필요성과 기대 효과
+
+1.1 기존 레짐 기반 진입의 구조적 한계
+현재 MMEAN은 [레짐 확정 = 진입 결정] 구조를 취하고 있습니다. 하지만 EMA와 누적
+flow_score 기반의 레짐 엔진은 태생적으로 평균화 과정에서 발생하는 5~12분의 시차
+(Time-lag)를 가집니다. 추세가 확정된 후 진입하면 이미 가격은 유리한 구간을 벗어난
+경우가 많으며, 이는 '확인 후 진입 시 휩쏘(Whipsaw)에 취약'하거나 '수익 구간 실종'
+이라는 결과로 이어집니다.
+
+1.2 Entry RAG 도입 시 기대 개선점
+- 슬리피지 및 진입가 개선: 레짐이 BEARISH로 기울기 전, 마이크로 신호(Basis 속도,
+  수급 변화)를 포착하여 진입 타점을 1~2분 앞당깁니다.
+  (정량 가설: 평균 진입 타점 30% 개선)
+- 휩쏘 필터링: 과거 유사한 수급 패턴에서 손실(SL)이 발생했던 사례를 검색하여,
+  지표상 진입 신호라도 "과거 실패 패턴"과 유사하면 진입을 유보(REJECT).
+- 심리적 우위: 진입 시 '왜 지금인가'에 대한 과거 근거(PNL 분포)를 함께 제시하여
+  운용의 안정성을 확보.
+
+1.3 미도입 시 장기적 문제
+변동성이 적은 장세에서 후행 진입은 필연적으로 손절 폭은 크고 익절 폭은 좁은
+음의 손익비를 가집니다.
+
+2. 학습 데이터 설계
+
+스냅샷 윈도우: 진입 신호 발생 직전 60초(약 60틱)가 최적.
+레이블링 기준:
+  - Success (1): PNL > +5틱 AND MAE < 3틱 (깔끔한 진입)
+  - Fail    (0): PNL < -5틱 OR MAE > 8틱 (실패 또는 극심한 흔들림)
+클래스 불균형: 손실 데이터 군집화(Clustering) → 대표 패턴만 추출.
+최소 데이터: 300건(콜드스타트 임계), 1,000건(통계적 유의성 확보).
+
+3. 피처 엔지니어링 (우선순위순)
+1. Basis 속도: basis_ema_delta 최근 10초간 기울기
+2. 수급 가속도: fut_fgn_delta × oi_delta 상관관계
+3. 가격 이격: price_vs_vwap 절대값 및 회귀 속도
+4. 거래 폭발: volume_burst 최근 30초 누적 대비 현재값 비율
+
+정규화: 당일 변동폭(High-Low) 대비 상대 위치 기반 일별 상대 정규화.
+
+4. RAG 아키텍처: [Option C] 하이브리드 방식 (추천)
+1. ML 스코어러 (XGBoost): 수치 피처 → 기초 승률 계산 (빠른 연산)
+2. RAG 보완 (FAISS): 유사 마이크로 패턴 5개 검색 → 실제 PNL + reason_main 추출
+
+5. 구현 로드맵
+Phase 0 (1주): regime_ticks × sim_trades 조인 파이프라인 구축
+Phase 1 (1주): 오프라인 피처 중요도 분석 (MAE 기여도)
+Phase 2 (1주): 스냅샷 벡터화 → FAISS 인덱스 구축
+Phase 3 (2주): EntryTimingEngine 모듈화 (ALLOW 전 진입 유예)
+Phase 4 (지속): A/B 비교 (평균 MAE, 진입 후 5분 수익 전환율)
+
+6. 주의사항
+- 과적합: 최근 20거래일 롤링 학습
+- 생존자 편향: '신호 없이 급변한 구간'도 대조군에 포함
+- 폴백: RAG 실패 시 기존 FlowEngine Pass-through
+
+7. KPI
+1. Entry Efficiency: (진입가 - 최적진입가) / (최악진입가 - 최적진입가)
+2. Whipsaw Avoidance Rate: RAG REJECT → 5분 내 SL 도달 비율
+3. Time-to-Profit: 진입 후 수익권(+2틱) 도달 시간
+
+8. 신규 파일
+- models/entry_timing_engine.py
+- utils/vector_db.py
+- scripts/train_entry_rag.py
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[ChatGPT 답변]  (Gemini와 대부분 동일, 추가된 내용만 기술)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+※ Gemini 답변과 결론이 동일하나 아래 내용이 추가됨.
+
+8.2 DB 스키마 추가 (Gemini보다 구체)
+- sim_trades에 entry_snapshot_id (FK) 추가
+- entry_rag_log 신규: ts, bias, searched_indices, avg_pnl_of_neighbors, final_decision
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[Perplexity 답변]  (구조 설계 관점에서 가장 상세)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. 최소 침습적 통합 구조 (가장 구체적)
+
+  [기존 구조]
+  entry_signal (LONG_READY/SHORT_READY/WAIT)
+  RAG 게이트: pattern_memory 기반 ALLOW/HALF/REJECT
+
+  [개선 구조 — 4계층]
+  FlowEngine       → bias 결정 (LONG_BIAS/SHORT_BIAS/NEUTRAL)
+  SignalEngine     → entry_signal 후보 생성
+  EntryTimingEngine (신규) → enter_confidence, whipsaw_risk,
+                              suggested_wait_ticks, pattern_label
+  EntryGate        → 기존 pattern_memory RAG + EntryTiming 결과
+                      → 최종 진입 여부·사이즈 결정
+
+2. 신규 모듈 상세 (4단계 분리)
+  feature_engineering.py  : regime_ticks + sim_trades → entry_snapshot_features
+  entry_model_train.py     : Good/Bad 레이블링, XGBoost 학습, model.pkl 저장
+  entry_timing_engine.py   : 실시간 60초 윈도우 피처 → enter_confidence 계산
+  entry_rag_index.py (v2~) : FAISS/ChromaDB 인덱스, 유사 패턴 검색
+
+3. DB 스키마 (가장 상세)
+  entry_snapshot 테이블:
+    run_id, entry_ts, bias_at_entry, entry_signal, pnl_ticks,
+    max_adverse_excursion, exit_reason, session_phase, ...
+
+  entry_features 테이블:
+    run_id, feature_vector(json), outcome_class, y_pnl_norm, created_at
+
+  entry_rag_index 테이블 (선택):
+    vector_id, run_id, embedding(blob), meta(json: session_phase/bias/date)
+
+4. 기존 pattern_memory RAG와 역할 분담 (가장 명확)
+  ┌────────────────────────┬──────────────────────────────────────┐
+  │ pattern_memory RAG     │ Entry RAG (신규)                     │
+  ├────────────────────────┼──────────────────────────────────────┤
+  │ 상위 레벨 전략 패턴     │ 틱/초 단위 마이크로 타이밍           │
+  │ 특정 레짐+장세 진입금지 │ ALLOW 이후 "지금 당장"을 조정        │
+  │ 시간 스케일: 수분~수십분 │ 시간 스케일: 60초~3분               │
+  │ 예: 오늘 장에서 LONG 허용│ 예: whipsaw_risk 높으니 3틱 대기    │
+  └────────────────────────┴──────────────────────────────────────┘
+
+  결론: "무엇을 할지(롱/숏/관망)" ← 레짐 엔진
+        "언제·얼마나 빠르게 들어갈지" ← Entry RAG
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[GROK 답변]  (4개 AI 중 가장 종합적·실용적)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. 진입 RAG의 필요성과 기대 효과
+
+  2026-03-26 실측: 하락 전환 13:23 → 엔진 BEARISH 13:35 (12분 후행),
+  LLMCaller 청산 13:30 (7분), MarketAnalyst 13:37 미감지.
+
+  기대 효과 (정량 가설):
+  - 초기 (수백 건): whipsaw_risk 15~25% 감소, pnl_ticks +10~15%
+  - 충분 (5,000건+): whipsaw_risk 30~40% 감소, pnl_ticks +20~35%,
+                     MAE 15~25% 축소
+  - 장기: 진입 성공률 55% → 68%+ (pnl_ticks > 0 비율)
+
+  미도입 시:
+  - 연간 누적 수익률 8~15%p 손실
+  - sim_trades의 "늦은 진입" 사례가 pattern_memory RAG를 오염시킴
+  → "맞는 방향을 늦게 타는" 시스템으로 고착화
+
+2. 학습 데이터 설계
+
+  스냅샷 윈도우: 45초 (30~60초 범위 내 최적)
+  - 30초 이하 = 노이즈 과다 / 90초 이상 = 이미 후행
+  - regime_ticks.ts 기준 진입 -45초~0초, 1초 단위 45개 행
+
+  레이블링 (초기/충분 단계 구분):
+  - 초기 (500~2,000건): 단순 3클래스
+      SUCCESS : pnl_ticks ≥ +8 ticks
+      NEUTRAL : -3 < pnl_ticks < +8
+      FAILURE : pnl_ticks ≤ -8 ticks
+  - 충분 (5,000건+): 회귀+분류 하이브리드
+      enter_confidence = (pnl_ticks + MAE_penalty) 정규화 (0~1)
+      whipsaw_risk = max_adverse_excursion / ATR
+  - 레이블 기준: 절대값(pnl_ticks)보다 ATR 대비 상대값 우선
+    session_phase별 기준 차등: 장초반 ±12틱, 장후반 ±6틱
+
+  클래스 불균형: SUCCESS:FAILURE ≈ 1.8~2.5:1
+  - (1) 클래스 가중치 (XGBoost scale_pos_weight)
+  - (2) SMOTE-Tomek (시간 순서 유지)
+  - (3) 언더샘플링은 마지막 수단
+
+  최소 데이터:
+  - 학습 가능 임계: 800건 (성공/실패 균형 400건 이상)
+  - 안정적 RAG 운영: 5,000건 (하루 20~30회 기준 약 6~8개월)
+
+3. 피처 엔지니어링 (우선순위)
+
+  1. volume_burst 변화 궤적 ← 가장 중요
+  2. basis_ema_delta 속도
+  3. price_vs_vwap 이격 방향 및 크기
+  4. fut_fgn_delta, fut_inst_delta (6주체 delta 속도)
+  5. ema_fast_slope, flow_score N틱 기울기
+  6. oi_delta
+  7. session_phase (원핫 인코딩)
+  8. bias (LONG=1, SHORT=-1, NEUTRAL=0)
+  9. entry_signal 상태
+
+  시계열 처리: 45초 윈도우 롤링 통계 (mean, std, min, max, slope)
+  정규화: 일별 z-score (당일 regime_ticks 기준), session_phase별 별도 적용
+
+4. RAG 아키텍처: [Option C] 하이브리드 (추천)
+
+  Gemini/GPT와 동일한 결론이나 ChromaDB를 FAISS보다 우선 추천:
+  - ChromaDB: SQLite 호환, 단일 서버 10만 건 무리 없음
+  - FAISS: 속도 빠르나 초기 세팅 부담 → ChromaDB 먼저, 이후 마이그레이션
+
+5. 구현 로드맵
+
+  Phase 0 (5~7일):  regime_ticks × sim_trades 조인 → entry_snapshot 테이블
+  Phase 1 (7~10일): 오프라인 백테스트 (피처 중요도 확인)
+  Phase 2 (10~14일): 초기 800건 프로토타입, 2,000건 돌파 시 하이브리드 전환
+  Phase 3 (7일):    EntryTimingEngine 최소 침습 통합 (L4 직전 삽입)
+  Phase 4 (30일+):  A/B 테스트 50:50 분할
+
+  총 예상 기간: MVP 4~6주, 안정화 3개월
+
+6. 주의사항
+  - 과적합: 시간 기반 cross-validation (과거→미래), early stopping
+  - 구조 변화: 매주 월요일 또는 flow_score 분포 20% 이상 변화 시 재학습
+  - 폴백: enter_confidence < 0.4 OR whipsaw_risk > 0.7 → pattern_memory RAG fallback
+  - 생존자 편향: "즉시 청산" 사례도 entry_snapshot에 반드시 기록
+
+7. KPI
+
+  - Entry Success Rate: pnl_ticks > 0 비율 (목표 +12~18%p)
+  - Whipsaw Ratio: max_adverse_excursion > 12틱 비율
+  - Effective Holding Time: 진입 후 수익 구간 길이(초)
+  - enter_confidence 임계값: 0.55~0.75 그리드 서치
+
+  ★ "작동하고 있다" 판단 기준 (가장 구체적):
+  30일 A/B 후 Entry RAG 그룹 pnl_ticks 평균 +18% 이상
+  AND whipsaw_risk 25% 이상 감소 → 본격 운영 전환
+
+8. 신규 모듈 및 DB 스키마
+
+  모듈 (디렉토리 entry_rag/ 별도 생성):
+  - entry_rag/engine.py          : EntryTimingEngine 메인 클래스
+  - entry_rag/feature_builder.py : 45초 스냅샷 피처 추출
+  - entry_rag/rag_store.py       : ChromaDB 컬렉션 관리
+  - entry_rag/hybrid_scorer.py   : XGBoost + RAG 결합 스코어
+  - utils/snapshot_collector.py  : 실시간 regime_ticks → snapshot 저장
+
+  DB 신규 (intraday.db에 추가):
+  CREATE TABLE entry_snapshots (
+      snapshot_id             INTEGER PRIMARY KEY,
+      ts                      DATETIME,
+      run_id                  TEXT,
+      features_json           TEXT,   -- 45초 피처 벡터 JSON
+      embedding               BLOB,   -- ChromaDB용
+      enter_confidence        REAL,
+      whipsaw_risk            REAL,
+      pnl_ticks               REAL,   -- 사후 레이블
+      max_adverse_excursion   REAL
+  );
+
+  역할 분담:
+  pattern_memory RAG → "이 패턴 자체가 진입 가능한가?" (큰 패턴)
+  Entry RAG          → "지금 이 타이밍에 진입해도 좋은가?" (마이크로)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[Claude 종합 분석 — 4개 보고서 비교 및 MMEAN 적합성 평가]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+▣ 4개 AI 공통 합의 사항 (신뢰도 높음 — 전원 동의)
+
+  1. 아키텍처: 하이브리드(ML + RAG) 방식이 단일보다 우월
+  2. 레이블: pnl_ticks 단순값보다 MAE(최대 불리 이탈폭) 기준이 타당
+  3. 역할 분리: 레짐(방향) ≠ Entry RAG(타이밍) 완전 분리
+  4. 폴백 필수: RAG 실패 시 기존 FlowEngine 그대로 사용
+  5. pattern_memory RAG(큰 패턴) vs Entry RAG(마이크로 타이밍) 역할 분리
+  6. 생존자 편향 주의: 즉시 청산 사례도 학습 데이터에 포함
+
+▣ AI별 핵심 차별점 및 기여
+
+  ┌─────────────┬────────────────────────────────────────────────────────┐
+  │ AI          │ 독자적 기여 / 다른 AI와 다른 점                        │
+  ├─────────────┼────────────────────────────────────────────────────────┤
+  │ Gemini      │ - 피처 우선순위 (Basis 속도 1위) 실용적                │
+  │             │ - KPI 3가지 즉시 측정 가능 수준                        │
+  │             │ - 최소 데이터 300건 (가장 낙관적 추정)                 │
+  ├─────────────┼────────────────────────────────────────────────────────┤
+  │ GPT         │ - DB 스키마 entry_rag_log 구체화                       │
+  │             │ - entry_snapshot_id FK 설계 (sim_trades 연계 실용적)   │
+  │             │ - Gemini와 거의 동일, 추가 독창성 부족                 │
+  ├─────────────┼────────────────────────────────────────────────────────┤
+  │ Perplexity  │ - 4계층 분리 구조 가장 명확                            │
+  │             │ - pattern_memory vs Entry RAG 역할 표 정리              │
+  │             │ - feature_engineering.py 분리 제안 (재사용성↑)         │
+  │             │ - 가장 먼저 "GoodEntry 기준을 같이 정하자"고 제안      │
+  ├─────────────┼────────────────────────────────────────────────────────┤
+  │ Grok        │ ★ 가장 종합적·실용적                                   │
+  │             │ - 윈도우 45초 (60초 아님) 구체 근거 제시               │
+  │             │ - 레이블 초기/충분 단계 2단계 구분 (유일)              │
+  │             │ - ATR 기반 상대값 레이블 (session_phase별 기준 차등)   │
+  │             │ - ChromaDB 우선 → FAISS 마이그레이션 전략              │
+  │             │ - 최소 데이터 800건 (가장 현실적)                      │
+  │             │ - A/B 테스트 50:50 명시 + 전환 기준 수치화             │
+  │             │ - "작동 판단 기준" 가장 구체: pnl +18% AND ws -25%    │
+  │             │ - entry_rag/ 디렉토리 구조화 (4파일 역할 분리)         │
+  │             │ - intraday.db에 entry_snapshots 배치 (mmean.db 아님)  │
+  └─────────────┴────────────────────────────────────────────────────────┘
+
+▣ 주요 수치 비교
+
+  ┌────────────────────────┬────────┬────────┬────────────┬────────┐
+  │ 항목                   │ Gemini │  GPT   │ Perplexity │  Grok  │
+  ├────────────────────────┼────────┼────────┼────────────┼────────┤
+  │ 스냅샷 윈도우          │  60초  │  60초  │    60초    │ ★45초 │
+  │ 학습 가능 임계         │  300건 │  300건 │    없음    │ ★800건│
+  │ 안정 운영 기준         │ 1,000건│ 1,000건│    없음    │ ★5,000│
+  │ 벡터 DB                │  FAISS │  FAISS │   FAISS    │ ★ChromaDB│
+  │ 레이블 단계 구분       │   없음 │   없음 │    없음    │ ★있음 │
+  │ ATR 기반 상대 레이블   │   없음 │   없음 │    없음    │ ★있음 │
+  │ A/B 비율 명시          │   없음 │   없음 │    없음    │ ★50:50│
+  │ 전환 기준 수치         │   없음 │   없음 │    없음    │ ★있음 │
+  └────────────────────────┴────────┴────────┴────────────┴────────┘
+
+▣ 4개 AI 모두 언급 부족한 보완 필요 사항 (Claude 추가)
+
+  1. foreign_buy 누적 총량 vs delta 혼용 문제
+     - 2026-03-26 실측: 누적 총량이 오전 매도 편향을 오후까지 유지 → BULLISH 0건
+     - Entry RAG 피처에는 반드시 fut_fgn_delta(5분 delta) 사용
+     - foreign_buy(누적) 는 참고값으로만
+
+  2. 휩쏘 정의 보완
+     - MAE > 8틱 기준만으로는 부족
+     - 추가 조건: "진입 후 10틱 내 반대 방향 3틱 이상 돌파"
+     - 이 조건이 실손실보다 휩쏘를 더 잘 분류
+
+  3. session_phase → 피처 아닌 "모델 분기 조건"으로
+     - 장초반(09:00~09:30): 패턴 신뢰도 낮음, 별도 모델 or 진입 금지
+     - 오후(13:30~15:20): 방향성 약화, whipsaw_risk 임계 낮춰야
+
+  4. Cold Start 단계별 가중치 운영 (Grok은 800건 임계만 언급, 중간 미정의)
+     - 800건 미만:  whipsaw_risk = 0.5 고정 (중립, RAG 무력화)
+     - 800~2,000건: 모델 출력에 0.4 가중치만 적용
+     - 2,000건~:    모델 전체 신뢰, ChromaDB 인덱스 활성화
+
+▣ 최종 합의 설계안 (4개 AI + Claude 종합)
+
+  스냅샷 윈도우  : 45초 (Grok 채택)
+  레이블 기준    : ATR 기반 상대값 + session_phase별 기준 차등 (Grok 채택)
+  학습 임계      : 800건 (Grok 채택, 가장 현실적)
+  아키텍처       : XGBoost + ChromaDB RAG 하이브리드 (Grok 채택)
+  폴백 임계      : enter_confidence < 0.4 OR whipsaw_risk > 0.7 (Grok)
+  전환 기준      : 30일 A/B, pnl +18% AND whipsaw -25% (Grok)
+  저장 위치      : intraday.db (mmean.db 오염 방지)
+  피처 외국인    : fut_fgn_delta 전용 (Claude 추가)
+  휩쏘 정의      : MAE > 8틱 + 10틱 내 반전 3틱 (Claude 추가)
+
+▣ 권장 구현 순서 (MMEAN 현실 반영)
+
+  Step 1 (즉시, 코딩 최소)
+    regime_ticks × sim_trades 조인 SQL → 진입 전 45초 스냅샷 추출 가능 여부 확인
+    SQL_ORDER_LIST.txt에 추가
+
+  Step 2 (sim_trades 800건 후)
+    feature_builder.py 작성 + XGBoost 기초 모델
+    "MAE를 예측하는가?" 검증
+
+  Step 3 (2,000건 후)
+    ChromaDB 인덱스 추가 (하이브리드 완성)
+    EntryTimingEngine 최소 침습 통합 (L4 직전)
+    A/B 테스트 시작
+
+  Step 4 (30일 A/B 후)
+    전환 기준 달성 시 본격 운영
+    session_phase별 분기 모델 적용
+    entry_rag_log 대시보드 추가
+
+▣ 핵심 결론
+
+  Entry RAG는 방향이 맞으나 "지금 바로" 만들면 안 됩니다.
+  데이터 없이 만든 RAG는 노이즈 소스가 됩니다.
+
+  지금   → SQL 파이프라인 준비 + 데이터 수집 개시
+  +3주   → 800건 → XGBoost 기초 검증
+  +6주   → 2,000건 → ChromaDB 하이브리드 통합
+  +3개월 → A/B 테스트 → 전환 여부 결정 (pnl +18%, ws -25%)
+
+================================================================================

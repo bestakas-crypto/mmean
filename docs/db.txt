@@ -1,0 +1,532 @@
+================================================================================
+MMEAN — 데이터베이스 명세서 (db.txt)
+작성 규칙:
+  - DB 추가 시 하단에 동일 형식으로 추가
+  - 테이블/컬럼 변경 시 해당 섹션 상단에 [변경이력] 블록 추가
+  - 형식: [YYYY-MM-DD] 변경 내용
+================================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ DB 목록 (경로: C:\mmean\storage\)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  mmean.db      — 실시간 엔진 메인 DB (틱, 레짐, 시뮬, LLM, 패턴메모리)
+  sim.db        — 시뮬레이션 최적화 DB (파라미터 탐색, 백테스트, 채택 관리)
+  pulse_sim.db  — 5분 신호 임계치 탐색 DB (pulse_sim.py 전용)
+  judgment.db   — 판단 이벤트 전용 DB (예정 — 현재 mmean.db 내 judgment_events)
+
+  보조 파일 (.wal / .shm):
+    WAL 모드에서 자동 생성. 서버 실행 중 삭제 금지.
+    서버 완전 종료 후 삭제 시 재시작 때 자동 재생성.
+    .wal = Write-Ahead Log (커밋 전 임시 저장), .shm = Shared Memory Index (32KB 고정)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ mmean.db — 실시간 엔진 메인 DB
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  생성: core/app_bootstrap.py → db/db_setup.py
+  WAL 모드: 활성 (읽기-쓰기 동시 허용)
+  busy_timeout: 2,000ms (2026-03-24 30,000ms에서 변경)
+  주요 write 주체: engine_runtime.py (0.5초 틱), llm_pulse.py (5분),
+                   judgment_log.py (이벤트), regime_recorder.py (5초 flush)
+
+──────────────────────────────────────────────────────────────────────────────
+[테이블: regime_ticks]  305,000+건 | 0.5초마다 INSERT
+  목적: 매 틱(0.5초)의 엔진 상태 전체 스냅샷. 대시보드·RAG·분석의 원천 데이터.
+  write: regime_recorder.py (_auto_flush 5초마다 commit)
+  read: llm_pulse.py, rag_prep.py, day_pattern.py
+
+  주요 컬럼:
+    id                INTEGER  PK
+    ts                TEXT     HH:MM:SS.fff (틱 타임스탬프)
+    bias              TEXT     LONG_BIAS | SHORT_BIAS | NEUTRAL
+    entry_signal      TEXT     ENTER | WAIT
+    confidence        REAL     0.0~1.0 종합 신뢰도
+    futures_price     REAL     선물 현재가
+    spot_price        REAL     현물 현재가
+    basis             REAL     선물-현물 베이시스
+    basis_ema         REAL     베이시스 EMA
+    basis_ema_delta   REAL     베이시스 EMA 변화율
+    basis_slope       REAL     베이시스 기울기
+    volume_burst      REAL     거래량 폭발 배수 (1.0=평균)
+    foreign_buy       REAL     외국인 순매수 (단위: 계약)
+    oi_value          REAL     미결제약정 수량
+    oi_delta          REAL     미결제약정 변화
+    long_score        REAL     매수 점수 (0~10)
+    short_score       REAL     매도 점수 (0~10)
+    flow_score        REAL     외국인 수급 flow 점수 (-2.0~+2.0)
+    flow_long_weight  REAL     플로우 기반 롱 가중치
+    flow_short_weight REAL     플로우 기반 숏 가중치
+    flow_order_size   REAL     최종 주문 수량
+    ema_fast          REAL     단기 EMA
+    ema_slow          REAL     장기 EMA
+    ema_fast_slope    REAL     단기 EMA 기울기
+    vwap              REAL     당일 VWAP
+    atr               REAL     ATR (변동성)
+    price_vs_vwap     REAL     현재가 - VWAP 차이
+    llm_filter_score  REAL     LLM 기회 필터 점수
+    llm_filter_direction TEXT  LLM 방향 판단 BULLISH|NEUTRAL|BEARISH
+    llm_filter_valid  INTEGER  LLM 필터 유효 여부
+    session_phase     TEXT     opening|mid|closing
+    param_hash        TEXT     현재 적용 파라미터 해시
+    fut_fgn_delta     REAL     선물 외국인 델타
+    fut_inst_delta    REAL     선물 기관 델타
+    fut_indiv_delta   REAL     선물 개인 델타
+    spot_fgn_delta    REAL     현물 외국인 델타
+    session_high      REAL     당일 고가
+    session_low       REAL     당일 저가
+    price_range_pct   REAL     가격 위치 백분위
+
+──────────────────────────────────────────────────────────────────────────────
+[테이블: regime_events]  3,186건 | bias 전환마다 INSERT
+  목적: LONG_BIAS ↔ SHORT_BIAS 전환 이벤트 이력.
+  컬럼:
+    id               INTEGER  PK
+    bias             TEXT     전환된 bias
+    start_ts         TEXT     전환 시작 시각
+    end_ts           TEXT     전환 종료 시각 (다음 전환 시)
+    duration_sec     REAL     지속 시간(초)
+    start_price      REAL     전환 시작 가격
+    end_price        REAL     전환 종료 가격
+    max_confidence   REAL     구간 최대 신뢰도
+    tick_count       INTEGER  구간 틱 수
+    status           TEXT     OPEN | CLOSED
+
+──────────────────────────────────────────────────────────────────────────────
+[테이블: pulse_history]  159건 | 5분마다 INSERT
+  목적: LLMPulse 5분 장세 평가 이력. 방향 전환 빈도·지속시간 분석용.
+  write: engines/llm_pulse.py
+
+  컬럼:
+    id            INTEGER  PK
+    date          TEXT     YYYY-MM-DD
+    ts            TEXT     HH:MM:SS
+    datetime_full TEXT     YYYY-MM-DD HH:MM:SS
+    direction     TEXT     BULLISH | NEUTRAL | BEARISH
+    confidence    REAL     0.0~1.0
+    summary       TEXT     LLM 장세 평가 요약 (2~3문장)
+    key_factor    TEXT     핵심 근거 (10단어 이내)
+    changed       INTEGER  0=유지, 1=방향 전환
+    duration_min  REAL     해당 방향 지속 시간(분), NULL=현재 진행 중
+    flow_score    REAL     스냅샷 시점 flow_score
+    foreign_buy   REAL     스냅샷 시점 외국인 순매수
+    basis         REAL     스냅샷 시점 베이시스
+    futures_price REAL     스냅샷 시점 선물가
+    vwap          REAL     스냅샷 시점 VWAP
+    bias          TEXT     스냅샷 시점 엔진 bias
+    entry_signal  TEXT     스냅샷 시점 진입 신호
+
+──────────────────────────────────────────────────────────────────────────────
+[테이블: pulse_signals]  130건 | PulseEngine 신호 생성마다 INSERT
+  목적: 5분 신호 엔진(PulseEngine)이 생성한 신호 이력. 신호 품질 사후 평가용.
+  write: engines/pulse_engine.py
+
+  컬럼:
+    id               INTEGER  PK
+    date             TEXT     YYYY-MM-DD
+    ts               TEXT     HH:MM:SS
+    direction        TEXT     BULLISH | NEUTRAL | BEARISH
+    confidence       REAL     신호 신뢰도
+    status           TEXT     신호 상태
+    consecutive      INTEGER  연속 동일 신호 횟수
+    trend_confirmed  INTEGER  추세 확정 여부
+    score_fgn_delta  REAL     외국인 선물 델타 점수
+    score_fgn_combo  REAL     외국인 복합 점수
+    score_flow       REAL     flow_score 기반 점수
+    score_ls_diff    REAL     long-short 점수 차
+    score_direction  REAL     방향성 점수
+    score_oi         REAL     OI 점수
+    score_ema        REAL     EMA 점수
+    score_basis      REAL     베이시스 점수
+    score_confidence REAL     신뢰도 점수
+    price_at_signal  REAL     신호 생성 시 가격
+    price_5m_later   REAL     5분 후 가격 (사후 기록)
+    price_10m_later  REAL     10분 후 가격 (사후 기록)
+    price_15m_later  REAL     15분 후 가격 (사후 기록)
+    result_5m        TEXT     5분 후 결과 HIT|MISS (사후 기록)
+    result_10m       TEXT     10분 후 결과
+    result_15m       TEXT     15분 후 결과
+    fail_type        TEXT     실패 유형
+
+──────────────────────────────────────────────────────────────────────────────
+[테이블: sim_trades]  132건 | 시뮬 거래 체결마다 INSERT
+  목적: 실시간 시뮬레이터(sim_engine.py) 체결 이력.
+  컬럼:
+    id                   INTEGER  PK
+    entry_time           TEXT     진입 시각
+    exit_time            TEXT     청산 시각
+    direction            INTEGER  1=LONG, -1=SHORT
+    entry_price          REAL     진입 가격
+    exit_price           REAL     청산 가격
+    pnl                  REAL     손익 (틱 단위)
+    exit_reason          TEXT     청산 사유 (TP/SL/FORCE_EXIT/SIGNAL 등)
+    entry_bias           TEXT     진입 시 bias
+    exit_bias            TEXT     청산 시 bias
+    hold_ticks           INTEGER  보유 틱 수
+    cum_equity           REAL     누적 손익
+    trailing_active      INTEGER  트레일링 활성 여부
+    max_favorable_pt     REAL     최대 유리 이동 (MFE)
+    max_adverse_excursion REAL    최대 불리 이동 (MAE)
+    entry_llm_call_id    INTEGER  진입 시 LLM 호출 ID
+    entry_llm_score      REAL     진입 시 LLM 점수
+    level_no             INTEGER  적용 파라미터 레벨
+    simulation_mode      TEXT     easy | expert
+
+──────────────────────────────────────────────────────────────────────────────
+[테이블: sim_equity]  347,346건 | 매 틱마다 INSERT
+  목적: 시뮬 누적 손익 곡선. 대시보드 차트용.
+  컬럼:
+    id            INTEGER  PK
+    ts            TEXT     타임스탬프
+    futures_price REAL     선물 현재가
+    equity        REAL     실현 손익 누적
+    open_pnl      REAL     미실현 손익
+    total_equity  REAL     equity + open_pnl
+    has_position  INTEGER  포지션 보유 여부
+    trailing_active INTEGER 트레일링 활성 여부
+
+──────────────────────────────────────────────────────────────────────────────
+[테이블: judgment_events]  0건 | 판단 이벤트마다 INSERT
+  목적: 매매 판단 전체 스냅샷 (진입·청산 사유, LLM 판단, 손익 포함).
+  write: logs/judgment_log.py
+  비고: 현재 데이터 없음 — 특정 조건 충족 시 기록 시작 예정
+
+  컬럼:
+    id                 INTEGER  PK
+    ts                 TEXT     판단 시각
+    exec_mode          TEXT     VIRTUAL | PAPER | LIVE
+    entry_signal       TEXT     엔진 진입 신호
+    final_signal       TEXT     최종 적용 신호
+    flow_score         REAL     flow_score
+    bias               TEXT     엔진 bias
+    long_score         REAL     롱 점수
+    short_score        REAL     숏 점수
+    opening_char       TEXT     오전 장 특성 레이블
+    prov_regime        TEXT     잠정 레짐 레이블
+    afternoon_regime   TEXT     오후 레짐 레이블
+    market_view        TEXT     MarketAnalyst 3분 판단 레이블
+    *_json             TEXT     각 레짐·뷰 상세 JSON
+    llm_action         TEXT     LLM 판단 액션
+    llm_confidence     REAL     LLM 신뢰도
+    llm_weight_adj     REAL     LLM 가중치 조정값
+    entry_price        REAL     진입 가격
+    exit_price         REAL     청산 가격
+    direction          INTEGER  1=LONG, -1=SHORT
+    pnl_pt             REAL     손익 (포인트)
+    mfe_pt             REAL     최대 유리 이동
+    mae_pt             REAL     최대 불리 이동
+    exit_reason        TEXT     청산 사유
+    hold_sec           INTEGER  보유 시간(초)
+    llm_was_right      INTEGER  LLM 판단 정합 여부
+
+──────────────────────────────────────────────────────────────────────────────
+[테이블: market_features]  304,833건 | rag_prep.py step1 실행 시 batch INSERT
+  목적: regime_ticks를 구간(bucket)으로 재분류한 특징 벡터. RAG 입력 데이터.
+  컬럼:
+    id             INTEGER  PK
+    tick_id        INTEGER  → regime_ticks.id
+    ts             TEXT     타임스탬프
+    session_date   TEXT     거래일
+    time_bucket    TEXT     morning | midday | late | night_early | night_late
+    basis_zone     TEXT     strong_pos | mid_pos | neutral | mid_neg | strong_neg
+    volume_zone    TEXT     burst | normal | quiet
+    bias_streak    INTEGER  연속 동일 bias 횟수
+    daily_pnl_zone TEXT     당일 손익 구간
+    feature_vector TEXT     JSON (위 zone들 집합)
+    regime_tags    TEXT     JSON 태그 리스트 (BULL_CLEAN, CHOPPY 등)
+
+──────────────────────────────────────────────────────────────────────────────
+[테이블: pattern_memory]  17건 | rag_prep.py step2 실행 시 UPSERT
+  목적: 클러스터별 승률·손익 통계. 실시간 entry_gate 경고 판단에 사용.
+  컬럼:
+    id             INTEGER  PK
+    cluster_key    TEXT     "basis_zone|volume_zone|time_bucket" 복합키
+    sample_count   INTEGER  표본 수
+    win_count      INTEGER  승리 횟수
+    win_rate       REAL     승률
+    avg_pnl_ticks  REAL     평균 손익(틱)
+    avg_mae        REAL     평균 MAE
+    avg_mfe        REAL     평균 MFE
+    long_win_rate  REAL     롱 승률
+    short_win_rate REAL     숏 승률
+    warning_level  TEXT     none | caution | warning | danger
+    last_updated   TEXT     마지막 갱신 시각
+
+──────────────────────────────────────────────────────────────────────────────
+[테이블: session_patterns]  9건 | day_pattern.py 실행 시 INSERT
+  목적: 하루 장 전체의 패턴 분류 결과. pulse_sim 밸리데이션의 정답 레이블.
+  컬럼:
+    id               INTEGER  PK
+    date             TEXT     거래일 (YYYY-MM-DD)
+    session_mode     TEXT     day | night
+    pattern_type     TEXT     TREND_UP | TREND_DOWN | CHOPPY | MORNING_SPIKE 등
+    sub_pattern      TEXT     세부 패턴 (예: MORNING_SPIKE/DOWN)
+    price_open       REAL     시가
+    price_close      REAL     종가
+    price_high       REAL     고가
+    price_low        REAL     저가
+    price_change     REAL     등락폭 (틱)
+    range_ticks      REAL     일중 범위 (틱)
+    volatility       TEXT     LOW | MID | HIGH
+    foreign_flow     TEXT     BUY | SELL | NEUTRAL
+    seg_morning_chg  REAL     오전 변동 (틱)
+    seg_midday_chg   REAL     점심 변동 (틱)
+    seg_afternoon_chg REAL    오후 변동 (틱)
+    auto_tags        TEXT     자동 생성 태그 JSON (DAY_NEGATIVE, FOREIGN_BUY 등)
+    tick_count       INTEGER  당일 총 틱 수
+
+  수집 현황 (2026-03-25):
+    03-16 TREND_UP / 03-17 CHOPPY / 03-18 TREND_UP
+    03-19 CHOPPY / 03-20 TREND_DOWN / 03-23 TREND_DOWN
+
+──────────────────────────────────────────────────────────────────────────────
+[테이블: llm_calls]  64건 | LLM 호출마다 INSERT
+  목적: LLM 호출 전체 이력 (요청·응답·지연시간·적용 여부).
+  컬럼:
+    id               INTEGER  PK
+    ts               TEXT     호출 시각
+    layer            TEXT     strategy | opportunity
+    provider         TEXT     claude | openai | gemini
+    prompt_json      TEXT     프롬프트 JSON
+    response_json    TEXT     응답 JSON
+    latency_ms       INTEGER  응답 지연시간(ms)
+    applied          INTEGER  실제 적용 여부
+    expires_at       TEXT     TTL 만료 시각
+    opportunity_score REAL    기회 점수
+    direction        TEXT     방향 판단
+    error_type       TEXT     오류 유형 (없으면 NULL)
+
+──────────────────────────────────────────────────────────────────────────────
+[테이블: llm_decision_log]  409건 | LLM 판단 적용마다 INSERT
+  목적: LLM 판단 + 실제 결과 사후 평가 이력.
+  컬럼:
+    id                  INTEGER  PK
+    timestamp           TEXT     적용 시각
+    flow_score          REAL     당시 flow_score
+    risk_view           TEXT     LLM risk 판단
+    confidence          REAL     LLM 신뢰도
+    weight_adjust       REAL     적용된 가중치 조정값
+    actual_result       TEXT     실제 결과
+    hit                 INTEGER  LLM 판단 적중 여부
+    call_minute         TEXT     호출 시각(분)
+
+──────────────────────────────────────────────────────────────────────────────
+[테이블: config_snapshots]  134건 | 파라미터 변경마다 INSERT
+  목적: 파라미터 변경 이력 추적.
+  컬럼:
+    id      INTEGER  PK
+    ts      TEXT     변경 시각
+    hash    TEXT     파라미터 해시
+    action  TEXT     변경 액션 (update | reset 등)
+    changed TEXT     변경된 필드 목록 JSON
+    config  TEXT     전체 파라미터 JSON
+
+──────────────────────────────────────────────────────────────────────────────
+[테이블: ab_sim_comparisons]  242,780건 | A/B 시뮬 매 틱마다 INSERT
+  목적: 현재 파라미터(champion) vs 후보 파라미터(challenger) 실시간 비교.
+  컬럼:
+    champion_*  / challenger_* 각각: param_hash, bias, entry_signal,
+                long_score, short_score, confidence, has_position,
+                direction, equity, open_pnl, total_equity
+    diverged         INTEGER  champion/challenger 판단 불일치 여부
+    total_equity_gap REAL     누적 손익 차이
+
+──────────────────────────────────────────────────────────────────────────────
+[테이블: trades]  131건 | 실거래/페이퍼 체결마다 INSERT
+  목적: 실거래 체결 이력 (sim_trades와 별도).
+  컬럼: sim_trades와 유사하나 session_id, entry_params/exit_params(JSON),
+        entry/exit_reason_detail, param_store_hash 추가
+
+──────────────────────────────────────────────────────────────────────────────
+[기타 테이블]
+  checkpoint_today    — 일별 체크포인트 (date, name, result, ts)
+  llm_daily_baseline  — 일별 LLM 기준선 JSON
+  llm_evaluations     — LLM 호출 사후 평가 (거래 결과와 매핑)
+  llm_param_events    — LLM 파라미터 변경 이벤트 이력
+  failure_patterns    — 실패 패턴 클러스터 통계 (현재 0건)
+  entry_gate_log      — entry_gate 발동 이력 (현재 0건)
+  pattern_docs        — RAG 문서 (sim_rag_builder 생성, 10건)
+  promotion_decisions — 파라미터 채택 결정 이력
+  replay_runs         — 리플레이 시뮬 실행 이력 (40건)
+  replay_trades       — 리플레이 시뮬 체결 이력 (633건)
+  sim_open_pos        — 현재 열린 시뮬 포지션 (0건)
+  llm_param_events    — LLM 파라미터 이벤트 (414건)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ sim.db — 시뮬레이션 최적화 DB
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  생성: sim_opt/sim_engine.py
+  목적: 파라미터 탐색(랜덤·베이지안), 백테스트 결과, 채택 파라미터 관리
+  주요 write: sim.bat 실행 시 (비실시간 배치)
+
+──────────────────────────────────────────────────────────────────────────────
+[테이블: sim_runs]  161,788건 | 탐색 실행마다 INSERT
+  목적: 파라미터 탐색 실행 단위 메타. 하나의 run = 특정 파라미터로 하루 백테스트.
+  컬럼:
+    id               INTEGER  PK
+    run_type         TEXT     random | bayes_opt | profile | validation
+    session_mode     TEXT     day | night
+    source_dates     TEXT     백테스트 날짜(들) (콤마 구분)
+    date_count       INTEGER  날짜 수
+    study_name       TEXT     탐색 세션 이름
+    config_hash      TEXT     파라미터 해시
+    config_json      TEXT     파라미터 JSON 전체
+    run_started_at   TEXT     실행 시작 시각
+    run_finished_at  TEXT     실행 완료 시각
+    tick_count_total INTEGER  처리 틱 수
+    trade_count      INTEGER  체결 수
+    objective_score  REAL     목적함수 점수 (높을수록 좋음)
+    status           TEXT     running | done | error
+
+──────────────────────────────────────────────────────────────────────────────
+[테이블: sim_trades]  4,478,075건 | 백테스트 체결마다 INSERT
+  목적: 각 탐색 run의 체결 상세 이력. 손익·MFE·MAE·청산사유 포함.
+  컬럼:
+    id               INTEGER  PK
+    run_id           INTEGER  → sim_runs.id
+    session_date     TEXT     거래일
+    direction        TEXT     LONG | SHORT
+    entry_price      REAL     진입 가격
+    exit_price       REAL     청산 가격
+    pnl_ticks        REAL     손익 (틱)
+    exit_reason      TEXT     청산 사유
+    hold_ticks       INTEGER  보유 틱 수
+    max_favorable_pt REAL     MFE
+    max_adverse_excursion REAL MAE
+    entry_score_a    REAL     A 그룹 점수 (진입 시)
+    entry_score_b    REAL     B 그룹 점수 (진입 시)
+    entry_confidence REAL     신뢰도 (진입 시)
+    entry_session_phase TEXT  장 구간
+
+──────────────────────────────────────────────────────────────────────────────
+[테이블: sim_run_summary]  161,423건 | 백테스트 완료마다 INSERT
+  목적: run별 성과 요약 통계.
+  컬럼:
+    id                    INTEGER  PK
+    run_id                INTEGER  → sim_runs.id
+    total_pnl             REAL     총 손익
+    win_rate              REAL     승률
+    profit_factor         REAL     수익 팩터
+    avg_pnl               REAL     평균 손익
+    trade_count           INTEGER  체결 수
+    max_drawdown          REAL     최대 낙폭
+    max_consecutive_loss  INTEGER  최대 연속 손실
+    session_positive_ratio REAL    흑자 세션 비율
+    objective_score       REAL     목적함수 점수
+    mfe_realization_rate  REAL     MFE 실현율
+
+──────────────────────────────────────────────────────────────────────────────
+[테이블: sim_run_sessions]  161,788건 | 백테스트 완료마다 INSERT
+  목적: run별 날짜별 세션 성과 (다날짜 백테스트 시 날짜별 분해).
+  컬럼:
+    id           INTEGER  PK
+    run_id       INTEGER  → sim_runs.id
+    session_date TEXT     거래일
+    tick_count   INTEGER  틱 수
+    trade_count  INTEGER  체결 수
+    total_pnl    REAL     총 손익
+    win_rate     REAL     승률
+    max_drawdown REAL     최대 낙폭
+
+──────────────────────────────────────────────────────────────────────────────
+[테이블: sim_adoptions]  0건 | 파라미터 채택 시 INSERT
+  목적: 검증 통과 파라미터를 실 트레이딩에 채택한 이력.
+  컬럼:
+    id               INTEGER  PK
+    study_name       TEXT     탐색 세션 이름
+    config_hash      TEXT     채택 파라미터 해시
+    config_json      TEXT     채택 파라미터 JSON
+    adopted_at       TEXT     채택 시각
+    train_run_id     INTEGER  학습 run ID
+    train_obj        REAL     학습 목적함수
+    valid_run_id     INTEGER  검증 run ID
+    valid_dates      TEXT     검증 날짜
+    valid_obj        REAL     검증 목적함수
+    valid_max_dd     REAL     검증 최대 낙폭
+    robustness       REAL     강건성 점수
+    stress_passed    INTEGER  스트레스 테스트 통과 여부
+    status           TEXT     candidate | active | rejected
+    shadow_trade_count INTEGER 섀도우 거래 수 (2주 관찰)
+    shadow_win_rate  REAL     섀도우 승률
+
+──────────────────────────────────────────────────────────────────────────────
+[테이블: sim_observations]  161,787건 | Optuna 탐색 trial마다 INSERT
+  목적: Optuna 베이지안 탐색 trial 이력.
+  컬럼:
+    id              INTEGER  PK
+    study_name      TEXT     탐색 세션 이름
+    trial_no        INTEGER  Optuna trial 번호
+    run_id          INTEGER  → sim_runs.id
+    config_json     TEXT     파라미터 JSON
+    objective_score REAL     목적함수 점수
+    session_date    TEXT     백테스트 날짜
+    batch_no        INTEGER  배치 번호
+
+──────────────────────────────────────────────────────────────────────────────
+[테이블: shadow_trades]  0건 | 섀도우 트레이딩 체결마다 INSERT
+  목적: 채택 후보 파라미터를 실시간 관찰(2주)하는 섀도우 거래 이력.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ pulse_sim.db — 5분 신호 임계치 탐색 DB
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  생성: sim_opt/pulse_sim.py
+  목적: 5분 신호 전략의 임계치·가중치 탐색 전용. mmean.db와 완전 분리.
+  주요 write: pulse_sim.bat 실행 시 (비실시간 배치, 무한 루프)
+  관리: 주기적으로 objective < 0, run_type='random' 삭제 + VACUUM 권장
+  밸리데이션: 매주 금요일 장 마감 후 (첫 번째: 2026-03-28)
+
+──────────────────────────────────────────────────────────────────────────────
+[테이블: pulse_runs]  1,686,011건 | 탐색 trial마다 INSERT
+  목적: 5분 신호 파라미터 탐색 결과 전체.
+  컬럼:
+    id               INTEGER  PK
+    study_name       TEXT     탐색 세션 이름 (날짜·타임스탬프 포함)
+    run_type         TEXT     random | bayes_opt
+    trial_no         INTEGER  trial 번호
+    status           TEXT     done | error
+    dates            TEXT     백테스트 날짜 (YYYY-MM-DD)
+    config_hash      TEXT     파라미터 해시
+    config_json      TEXT     파라미터 JSON (탐색된 임계치·가중치)
+    objective        REAL     목적함수 점수 (높을수록 좋음, 양수=의미있음)
+    direction_acc    REAL     방향 정확도 (0.0~1.0)
+    confirmed_ratio  REAL     확정 신호 비율
+    entry_rate       REAL     진입 신호 발생률
+    neutral_penalty  REAL     중립 신호 패널티
+    signal_count     INTEGER  총 신호 수
+    entry_count      INTEGER  진입 신호 수
+    created_at       TEXT     생성 시각
+
+  탐색 파라미터 (config_json 내):
+    a_bullish_thresh      REAL  매수 임계치
+    b_confirm_min         INT   확정 최소 횟수
+    basis_high            REAL  베이시스 상한
+    confidence_min_confirm REAL 확정 최소 신뢰도
+    confidence_min_entry  REAL  진입 최소 신뢰도
+    ema_slope_thresh      REAL  EMA 기울기 임계치
+    fgn_delta_strong      REAL  외국인 강세 기준값
+    flow_lower            REAL  flow_score 하한
+    flow_upper            REAL  flow_score 상한
+    ls_diff_thresh        REAL  long-short 점수 차 임계치
+    trend_confirm_count   INT   추세 확정 최소 횟수
+
+──────────────────────────────────────────────────────────────────────────────
+[테이블: pulse_adoptions]  0건 | 채택 시 INSERT
+  목적: 밸리데이션 통과 후 채택된 파라미터 이력.
+  컬럼:
+    id          INTEGER  PK
+    run_id      INTEGER  → pulse_runs.id
+    config_json TEXT     채택 파라미터 JSON
+    objective   REAL     채택 기준 점수
+    adopted_at  TEXT     채택 시각
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ 변경 이력
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[2026-03-24] mmean.db — busy_timeout 30,000ms → 2,000ms (Flask 스레드 고갈 방지)
+[2026-03-24] mmean.db — regime_recorder.py flush 주기: 매 틱 → 5초 auto_flush
+[2026-03-24] mmean.db.llm_calls — LLM_MAX_TOKENS 200 → 500 (JSON 잘림 파싱 실패 해결)
+[2026-03-25] pulse_sim.db — objective < 0 레코드 삭제, run_type='random' 삭제, VACUUM
+[2026-03-25] db.txt 최초 작성 (mmean.db 19개 테이블, sim.db 7개 테이블, pulse_sim.db 2개 테이블)

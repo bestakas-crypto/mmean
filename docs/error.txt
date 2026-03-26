@@ -1,0 +1,153 @@
+# MMEAN ERROR LOG
+# 버그 및 에러 사항 기록
+# 형식: [날짜] [파일:줄] 에러 내용 / 원인 / 조치
+# ============================================================
+
+[2026-03-23] [core/app_bootstrap.py] 환경 변수 미로딩 (LLM API 키, KIS_HTS_ID 등)
+  원인: base_dir = C:\mmean\core  →  .env.* 파일은 C:\mmean\ (프로젝트 루트)에 있음
+        load_settings()가 base_dir만 탐색하고 상위 디렉터리를 탐색하지 않음
+  조치: load_settings()에서 [base_dir, root_dir] 순서로 탐색, secrets 발견 시 break
+
+[2026-03-23] [core/app_bootstrap.py] mmean.log가 core\logs\ 에 기록됨 (프로젝트 루트 아님)
+  원인: setup_logging()에서 base_dir 기준으로 log_dir 설정
+  조치: root_dir = os.path.dirname(base_dir) 사용
+
+[2026-03-23] [core/app_bootstrap.py] mmean.db가 core\storage\ 에 생성됨
+  원인: build_runtime()에서 base_dir 기준으로 db_dir 설정
+  조치: root_dir 기준으로 변경
+
+[2026-03-23] [core/app_bootstrap.py] PID 파일 경로 오류 (core\storage\mmean.pid)
+  원인: 동일, base_dir 기준
+  조치: os.path.dirname(base_dir) 기준으로 변경
+
+[2026-03-23] [.env.secrets:KIS_HTS_ID] 인라인 주석으로 인한 값 파싱 오류
+  원인: KIS_HTS_ID=@2005308   # 주석  →  dotenv가 주석 포함한 값으로 파싱
+  조치: 주석을 별도 줄로 분리
+
+[2026-03-23] [rag/rag_prep.py] DB 경로 오류 (rag\storage\mmean.db)
+  원인: BASE_DIR 기준 1단계만 올라감 → rag\ 디렉터리 아래에 storage 생성
+  조치: _PROJ_DIR = os.path.dirname(BASE_DIR) 추가, DB_PATH를 _PROJ_DIR 기준으로 변경
+
+[2026-03-24] [Flask / SQLite] 대시보드 1~2분마다 응답 정지 (Flask 스레드 고갈)
+  증상: 대시보드 현재가 멈춤, /api/status 무한로딩, Firefox는 정상·Chrome만 먹통
+        터미널에 "JudgmentLog open_event 실패: database is locked" 반복
+  근본 원인:
+    1. engine_runtime.py가 매 0.5초 틱마다 insert_tick() + flush_tick_batch() 호출
+       → 매 0.5초 SQLite commit → WAL checkpoint 연속 발생
+    2. busy_timeout=30000(30초) 설정으로 Flask 스레드가 DB lock 대기 시 30초 블로킹
+    3. threaded=True Flask 서버가 요청마다 새 스레드 생성 → 30초 대기 스레드 누적 → 고갈
+    4. llm_pulse.py가 5분마다 async thread 2개(duration update + insert) 생성 → lock 경쟁
+    5. PulseEngine._history.append()가 DB insert 성공 시에만 실행
+       → DB insert 실패(timeout) 시 대시보드에 "데이터 없음" 표시
+    6. LLM max_tokens=200 → JSON 응답 잘림 → 파싱 실패 43.5%
+  조치:
+    - engine_runtime.py: flush_tick_batch() 매 틱 호출 제거 (5초 auto_flush로 대체)
+    - regime_recorder.py: _FLUSH_INTERVAL=5.0, _auto_flush 스레드 추가
+    - llm_pulse.py: async thread 2개 → 동기 호출로 변경 (5분 간격 부담 없음)
+    - app_bootstrap.py: PulseScorer interval 60s → 300s
+    - config_manager.py, param_store.py, judgment_log.py: busy_timeout 30000 → 2000
+    - routes_core.py: /api/status에서 engine_lock 제거 (읽기 전용)
+    - llm_chain.py: LLM_MAX_TOKENS 200 → 500
+    - pulse_engine.py: _history.append()를 DB insert 조건 밖으로 이동 (항상 기록)
+                       async thread → 동기 호출 변경
+
+[2026-03-23] [scripts/night.py] 동일 DB 경로 오류
+  조치: BASE_DIR.parent 2단계 → _PROJ_DIR = BASE_DIR.parent 추가
+
+[2026-03-23] [sim_opt/replay_sim.py] 동일 DB 경로 오류
+  조치: dirname(dirname(...)) 2단계로 수정
+
+[2026-03-23] [core/engine_runtime.py] NameError: name 'log' is not defined (반복 발생)
+  위치: engine_loop() 전체 + ErrorTracker.record() 다수 log.xxx 호출
+  원인: engine_runtime.py에 import logging + log = logging.getLogger("MMEAN") 누락
+        → log.xxx 사용하는 모든 위치에서 NameError 발생 가능
+  조치: 파일 상단에 import logging + log = logging.getLogger("MMEAN") 추가
+  (기존 runtime.log.warning() 수정분은 불필요하게 됨 — 일관성 위해 log.xxx 유지)
+
+[2026-03-23] [engines/llm_pulse.py] JudgmentLog open_event 실패: database is locked
+  원인: LLMPulse가 비동기 스레드에서 mmean.db에 INSERT/UPDATE 시
+        JudgmentLog가 동시에 같은 DB 쓰기 시도 → SQLite 기본 journal 모드 충돌
+  조치: _init_db / _db_insert / _db_update_duration 모두 PRAGMA journal_mode=WAL 추가
+        WAL 모드는 읽기-쓰기 동시 허용 → 다중 스레드 쓰기 충돌 해소
+        timeout 10s → 30s 증가
+
+[2026-03-23] [rag/rag_retriever.py] NameError: name 'sqlite3' is not defined
+  위치: get_failure_pattern_meta() 내부 sqlite3.connect() 호출
+  원인: import sqlite3 누락
+  조치: import sqlite3 추가
+
+[2026-03-24] [engines/llm_pulse.py] LLMPulse 항상 NEUTRAL 출력
+  증상: 5분 장세 펄스가 어제부터 계속 "중립"만 출력 (BULLISH/BEARISH 전혀 없음)
+  원인:
+    1. _SYSTEM_PROMPT에 BULLISH/BEARISH 판단 기준 전혀 없음
+       → LLM이 "확신 없으면 NEUTRAL" 암묵적 선택
+    2. 컨텍스트(ctx_snap)에 long_score·short_score 누락
+       → 핵심 방향성 점수 없이 판단
+    3. flow_score, bias만으로는 방향 결정 정보 부족
+    4. market_view(3분 장세)·regime 미전달 → 크로스체크 불가
+  조치:
+    - _SYSTEM_PROMPT 전면 재작성: BULLISH/BEARISH 명시적 조건 3가지씩 제시
+    - "NEUTRAL은 신호 상충 시에만, 우세 방향으로 낮은 confidence 선택" 지침 추가
+    - 현물 매매 관점 (매수/관망/매도) summary 요구로 변경
+    - ctx_snap에 long_score·short_score·regime·session_phase·spot_price·
+      price_vs_vwap·mv_direction·mv_reason 추가 (8→16개)
+    - user_prompt에 3분 장세 판단 라인 추가
+
+[2026-03-25] [C:/Users/besta/act.bat] 디렉토리 이동 실패
+  증상: act.bat 실행 시 "지정된 경로를 찾을 수 없습니다" 반복
+  원인:
+    - conda activate mmean → call 없이 실행 시 서브프로세스로 환경 활성화 후 복귀
+      → 이후 명령어가 base 환경에서 실행됨
+    - cd c:/mmean → /d 플래그 없으면 현재 드라이브가 다를 때 이동 불가
+  조치:
+    - conda activate → call conda activate mmean
+    - cd c:/mmean → cd /d c:\mmean
+
+[2026-03-25] [study.bat / pulse_sim.bat] CRLF 미적용으로 배치파일 실행 오류
+  증상: study.bat 260324 실행 시 '/d'는 명령이 아닙니다 등 파싱 오류
+  원인: bash cat > 헤어독으로 작성 시 LF 줄바꿈으로 저장 → Windows cmd 파싱 실패
+  조치: PowerShell [System.IO.File]::WriteAllText() + cp949 인코딩으로 CRLF 강제 저장
+  재발 방지: Windows bat 파일은 반드시 PowerShell로 생성 (bash heredoc 금지)
+
+[2026-03-25] [횡보장 휩쏘] 진입금지·청산 미연결 — 가장 큰 손실 원인
+  증상: 횡보 구간에서 LONG→SHORT→LONG 반복 진입 → 수수료+슬리피지 누적 손실
+  근본 원인:
+    - SidewaysDetector(하드블록)와 entry_gate가 연결되지 않음
+    - market_view=FLAT_HIGH/FLAT_LOW도 entry_gate에 반영 안 됨
+    - 횡보 진입 시 기존 포지션 청산 로직 없음
+  조치:
+    - engine_runtime.py: sideways_active OR FLAT_HIGH/FLAT_LOW → entry_gate=REJECT
+    - engine_runtime.py: sideways 첫 진입 틱에 sideways_force_exit=True 플래그 세팅
+    - sim_engine.py: FLAT_EXIT exit_reason 추가 (즉시 청산)
+  재발 방지:
+    - pulse_sim 목적함수에 flat_skip_bonus 추가 예정 (2026-03-28 밸리데이션 시)
+
+[2026-03-25] [engines/market_analyst.py] MarketAnalyst 3분 타이머 — 횡보 구간 강세 편향
+  증상: 1시간 이상 가격 횡보 중에도 5분 LLM·3분 MarketAnalyst 모두 "강세/TREND_UP" 출력
+  근본 원인:
+    1. 3분 고정 타이머로 항상 호출 → 횡보 중에도 매 3분마다 판단 강요
+    2. LLM 입력에 foreign_buy 누적값 포함 → 오전 대량 매수 후 횡보해도 누적값은 양수 유지
+       → LLM이 "외국인 +5,503계약 → 강세" 고정 편향
+    3. 3분 창만으로는 "현재가가 일중 고점 근처에서 횡보 중"이라는 위치 정보 없음
+    4. long_ratio/short_ratio가 bias 틱 카운트 기반 → FLAT 구간에서 50:50 → CHOPPY 판정
+       → CHOPPY·TREND_UP 교차 반복으로 일관성 없는 신호
+  조치: engines/market_analyst.py 전면 재작성 (이벤트 트리거 방식)
+    - 3분 타이머 폐기 → EMA기울기 부호전환, 거래량폭발, 수급반전, 신고저가 갱신 시 즉시 호출
+    - 입력에 price_vs_vwap, 일중 범위 내 위치%, 고점/저점까지 거리 추가
+    - 누적 foreign_buy 대신 state 기반 flow_score 델타 사용
+    - 쿨다운 120초로 연속 호출 방지
+    - view 레이블에 FLAT_HIGH, FLAT_LOW 추가
+
+[2026-03-25] [engines/market_analyst.py] 신저가 초기값 999999.0으로 인한 오트리거
+  증상: 시스템 시작 직후 "신저가 999999.00→844.35" 이벤트 발생 → SPIKE_REVERSAL 오판
+  원인: _prev_session_low 초기값 999999.0, 첫 틱의 실제 session_low(~844pt)가 999999보다 작음
+        → 0 < sess_low < 999999.0 조건 충족 → 신저가 트리거 오발
+  조치: _prev_session_low 초기값 999999.0 → 0.0 (0이면 0 < x < 0 불성립)
+        _update_prev 기본값도 동일하게 0.0으로 수정
+
+[2026-03-25] [engines/llm_pulse.py] 외국인 누적값으로 인한 강세 편향
+  증상: 오전 대량 매수 후 횡보·하락해도 5분 LLM이 계속 "강세" 판단
+  원인: foreign_buy = regime_ticks의 last 값 (장 시작부터 누적)
+        → 11시 하락 중에도 foreign_buy=+5,106(오전 누적) → LLM이 강세 해석
+  조치: foreign[-1] → foreign[-1] - foreign[0] (5분 내 delta만 전달)
+        user_prompt 레이블도 "외국인 순매수" → "외국인 5분 순매수 변화(5분 delta)"로 변경

@@ -1,0 +1,2013 @@
+================================================================================
+MMEAN HISTORY — 작업 이력 / 프로젝트 상태 기록
+새 채팅 시작 시 이 파일을 먼저 읽으면 구조 파악 토큰을 절약할 수 있다.
+작성 규칙: 작업 완료마다 하단에 [날짜] 블록 추가 (4~5줄)
+================================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[현재 프로젝트 스냅샷 — 2026-03-20 기준]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ 프로젝트 목적
+  LLM(Claude/GPT/Gemini) 기반 KOSPI 200 선물 자동매매 시스템.
+  한국투자증권(KIS) WebSocket API로 실시간 시세 수신.
+  Flask 대시보드로 파라미터 관리·모니터링.
+
+■ 진입점
+  C:/mme/mmean/analyzer_app.py
+    → core/app_bootstrap.py build_runtime() — 전체 초기화
+    → core/engine_runtime.py start_runtime() — 메인 루프 시작
+    → routes/ 3개 모듈 register_*_routes() 등록
+  실행: mmean.bat (Windows 작업 스케줄러: 08:44 자동 시작, 15:45 자동 종료)
+
+■ 디렉토리 구조 (2026-03-20 기능별 서브디렉토리로 재편 완료)
+  mmean/
+  ├─ analyzer_app.py         진입점 (Flask 앱 + 런타임 조립)
+  ├─ path_setup.py           서브디렉토리 sys.path 자동 등록
+  ├─ core/                   실행 코어
+  │   ├─ app_bootstrap.py    전체 초기화 (PID락, .env로드, 엔진조립)
+  │   ├─ app_state.py        AppRuntime dataclass (엔진 공유 컨테이너)
+  │   ├─ engine_runtime.py   메인 루프 (0.5s tick), ErrorTracker, 서킷브레이커
+  │   └─ session_detect.py   세션 감지 (현재: day만 활성, night 비활성화)
+  ├─ regime/                 레짐 분석 엔진
+  │   ├─ regime_engine.py    BiasRegimeEngine (주간) — bias/score/entry_signal
+  │   ├─ night_regime_engine.py  NightRegimeEngine (야간) — 현재 사용 안 함
+  │   └─ regime_recorder.py     regime_ticks → mmean.db INSERT
+  ├─ engines/                FlowEngine 파이프라인 (새로 추가된 모듈군)
+  │   ├─ foreign_flow_engine.py  외국인 순매수 → flow_score (-2.0~+2.0)
+  │   ├─ regime_engine.py        flow_score → long/short weight (sigmoid)
+  │   ├─ llm_gate.py             |flow_score|>=0.8 → LLM 스킵 판단
+  │   ├─ llm_input_builder.py    LLM 프롬프트용 feature dict 생성
+  │   ├─ llm_caller.py           LLM 호출 오케스트레이터 (진입 전 1회만)
+  │   ├─ llm_ema_filter.py       weight_adjust EMA 평활화
+  │   ├─ llm_ttl_manager.py      weight_adjust TTL 감쇠
+  │   ├─ position_engine.py      최종 order_size 계산
+  │   └─ sim_profile_resolver.py Easy/Expert 모드 config 병합
+  ├─ llm/                    LLM 관련
+  │   ├─ llm_chain.py        Claude/OpenAI/Gemini 멀티 공급자 (폴백 체인)
+  │   ├─ llm_controller.py   [비활성 2026-03-16~] 장전 전략 스케줄러
+  │   ├─ llm_filter.py       실시간 진입 신호 필터 (TTL 캐싱)
+  │   ├─ llm_schemas.py      OpportunitySchema (Pydantic)
+  │   └─ prompt_manager.py   프롬프트 버전 관리 (DB 기반)
+  ├─ config/                 파라미터 관리
+  │   ├─ config_manager.py   ConfigManager + DEFAULT_CONFIG (SQLite 저장)
+  │   ├─ param_store.py      ParamStore 싱글톤 (매 틱 resolved_config 동기화)
+  │   └─ promotion_evaluator.py  Champion/Challenger 통계 판정
+  ├─ sim_opt/                시뮬레이션/최적화 (실거래와 완전 분리)
+  │   ├─ sim_engine.py       SimEngine v3 (트레일링스탑 + 6가지 exit 조건)
+  │   ├─ day_sim.py          DaySimRunner (Optuna: 랜덤→베이지안→검증)
+  │   ├─ night_sim.py        NightSimRunner (야간 전용)
+  │   ├─ ab_sim_runner.py    ABSimRunner (Champion vs Challenger)
+  │   ├─ replay_sim.py       과거 틱 재생 시뮬
+  │   ├─ experiment_runner.py 파라미터 조합 일괄 실행
+  │   └─ sim_report.py       성과 리포트 (rep.bat --watch)
+  ├─ db/                     DB 관리
+  │   ├─ db_setup.py         mmean.db 스키마 초기화 + 마이그레이션
+  │   ├─ db_setup_sim.py     sim.db 스키마 초기화
+  │   ├─ db_archive.py       C드라이브 → F드라이브 아카이브 + VACUUM
+  │   ├─ export_dev_db.py    개발용 경량 DB 추출 (최근 10,000건)
+  │   └─ check_db.py         DB 상태 점검 유틸
+  ├─ rag/                    RAG / 패턴 문서 시스템
+  │   ├─ pattern_schema.py   21개 REGIME_TAGS, PatternDocMeta
+  │   ├─ rag_prep.py         regime_ticks → market_features (regime_tags JSON)
+  │   ├─ sim_rag_builder.py  sim.db+mmean.db → pattern_docs
+  │   ├─ rag_retriever.py    벡터 유사도 기반 패턴 문서 검색
+  │   └─ sim_vector_store.py 벡터 임베딩 저장/검색
+  ├─ routes/                 Flask REST API
+  │   ├─ routes_core.py      /api/status, /api/config, /api/mode, /api/position/*
+  │   ├─ routes_analytics.py /api/analytics/*, /api/sim/*, /api/report/*
+  │   └─ routes_promotion.py /api/promotion/* (Champion/Challenger 관리)
+  ├─ scripts/                단독 실행 스크립트 (import 불가)
+  │   ├─ day_auto_run.py     주간 자동 최적화 스케줄러
+  │   ├─ night_auto_run.py   야간 자동 최적화 스케줄러
+  │   └─ git_push.py         자동 git 커밋+push (gitput.bat 호출)
+  ├─ logs/
+  │   └─ llm_decision_log.py LLM 호출 이력 기록 (DB + 로그)
+  ├─ prompts/defaults/       기본 프롬프트 텍스트 (DB 없을 때 fallback)
+  ├─ storage/                DB 파일 저장 위치
+  │   ├─ mmean.db            실거래 메인 DB (약 384MB)
+  │   └─ sim.db              최적화 전용 DB (약 3.7GB)
+  └─ templates/dashboard.html  Flask 대시보드 UI
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ 핵심 설계 원칙 (변경 금지 사항 — 반드시 숙지)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. LLM은 사이즈(크기)만 조정 — 방향/진입/청산 결정 절대 불가
+   - weight_adjust ±20% (clamp) → order_size에만 영향
+   - position_engine.py 상단 주석 참고
+
+2. FlowEngine 파이프라인 연속값 원칙
+   - flow_score: -2.0~+2.0 연속 float (sign() 이산화 금지)
+   - regime_weight: sigmoid 연속 함수 (최솟값 0.05 하한 보장, 0.0 금지)
+   - 레짐 라벨(STRONG_LONG 등)은 모니터링/로깅 전용, 주문 계산 사용 금지
+
+3. Easy / Expert 모드 분리 (혼용 금지)
+   - Easy: levels_v2.json (C:/mme/workspace/levels_v2.json) 레벨 1~20 프리셋
+   - Expert: ConfigManager 개별 파라미터 직접 조정
+   - Easy 모드 활성 시 /api/config POST → 409 에러 반환
+
+4. 야간 모드 현재 비활성화
+   - session_detect.py: night 입력 시 "day"로 대체 적용 (경고 출력)
+   - NightRegimeEngine 코드는 존재하나 실제 사용 안 함
+   - night_auto_run.py, scripts/night.py 도 현재 비운영
+
+5. LLMGate 조건
+   - |flow_score| >= 0.8 → 강한 추세 → LLM 스킵
+   - |flow_score| < 0.8 → 전환 구간 → LLM 호출
+   - 추후 확장 예정: basis_pct, oi_delta_pct, volatility_state (GateInputs에 stub 존재)
+
+6. LLMCaller 안전장치 (6가지 실패 모두 처리 필수)
+   - timeout / JSON parse fail / schema mismatch / rate limit / provider fail / confidence<0.55
+   - 실패 시 weight_adjust=0 → 엔진 기본 규칙만으로 진행 (거래 중단 아님)
+
+7. 서킷브레이커 / 하드스톱
+   - 동일 에러 3회 연속 → 서킷 오픈 (60s 후 half-open 재시도)
+   - 동일 에러 5회 연속 → 하드스톱 (수동 resume 필요: /api/engine/resume)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ 데이터 흐름 (요약)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  KIS WebSocket tick
+    → engine_runtime.engine_loop() (0.5s)
+        → BiasRegimeEngine → bias, entry_signal, confidence
+        → ForeignFlowEngine → flow_score
+        → FlowRegimeEngine → long_weight, short_weight
+        → LLMGate → should_call?
+           ├─ Yes → LLMInputBuilder → LLMCaller → weight_adjust
+           └─ No  → weight_adjust = 0 (이전 TTL값 유지)
+        → LLMEmaFilter → weight_adjust_filtered
+        → LLMTTLManager → TTL 감쇠
+        → PositionEngine → order_size = base × regime_weight × (1 + weight_adjust_filtered)
+        → SimEngine → 가상 체결 (실거래 엔진과 별도)
+        → RegimeRecorder → mmean.db regime_ticks INSERT
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ 주요 파라미터 기본값 (config/config_manager.py DEFAULT_CONFIG)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  enter_score: 5.0, enter_gap: 1.5, enter_confirm_count: 3
+  hold_score: 4.0, hold_gap: 1.0
+  sim_tp_ticks: 0 (TP 비활성 — 트레일링 권장), sim_sl_ticks: 10
+  sim_trailing_ticks: 12, sim_trailing_activate: 8
+  sim_neutral_exit_ticks: 20, sim_slippage_ticks: 1
+  trend_weight_long: 0.8, trend_weight_short: 0.6
+  premarket_manual_mode: "NORMAL" (허용: MANIA_2/MANIA_1/NORMAL/FEAR_1/FEAR_2)
+  llm_intraday_influence: "MID" (LOW=0.5× / MID=1.0× / HIGH=1.5×)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ 환경변수 (.env.public / .env.secrets)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  KIS_APP_KEY, KIS_APP_SECRET, KIS_ENV=live
+  ANTHROPIC_API_KEY, OPENAI_API_KEY, GOOGLE_API_KEY
+  MMEAN_FUTURES_CODE=A01606, MMEAN_SPOT_CODE=2001
+  MMEAN_PORT=5001, MMEAN_LOOP_INTERVAL_SEC=0.5
+  MMEAN_SESSION — 없으면 session_detect.py 자동 감지 (현재 항상 "day" 반환)
+  MMEAN_SIM_ENABLED=1 (시뮬레이션 활성 여부)
+  MMEAN_USE_INVESTOR=0/1 (외국인/OI 폴링 활성 여부)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ 관련 외부 경로
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  C:/mme/workspace/levels_v2.json  — Easy 모드 레벨 정의 JSON (1~20)
+  C:/mme/night/                    — 야간 틱 수집기 (독립 프로세스)
+    storage/night_ticks.db         — 야간 틱 데이터 (NightRegimeEngine 참조용)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ 참조: 각 디렉토리 _about.txt — 파일 역할 1차 출처
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  config/_about.txt / core/_about.txt / db/_about.txt / llm/_about.txt
+  rag/_about.txt / regime/_about.txt / routes/_about.txt
+  scripts/_about.txt / sim_opt/_about.txt
+  ※ engines/ 에는 _about.txt 없음 — 각 파일 상단 docstring 참고
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ SIM / RAG 시스템 상세 — sim_opt/ + rag/ + sim.bat
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+──────────────────────────────────────────────────────────────────────────────
+[1] 실행 진입점: sim.bat → sim.py (대화형 메뉴 런처)
+──────────────────────────────────────────────────────────────────────────────
+
+  sim.bat
+    @echo off → python sim.py %* 실행 (에러 시 pause)
+
+  sim.py (루트)
+    path_setup.py import → 서브디렉토리 sys.path 등록
+    대화형 메뉴로 day/night 구분해 sim_opt/day_sim.py or night_sim.py 호출
+
+  내부 경로 상수:
+    DAY_SCRIPT   = sim_opt/day_sim.py
+    NIGHT_SCRIPT = sim_opt/night_sim.py
+    AUTO_DAY_SCRIPT   = scripts/day_auto_run.py
+    AUTO_NIGHT_SCRIPT = scripts/night_auto_run.py
+    DEFAULT_SOURCE_DB = storage/mmean.db  (읽기 전용)
+    DEFAULT_SIM_DB    = storage/sim.db    (쓰기 전용)
+    DEFAULT_DAY_JSON  = ../workspace/day_levels.json
+    DEFAULT_NIGHT_JSON= ../workspace/night_levels.json
+
+  자동 루프 기본 설정 (_DEFAULT_AUTO_CFG):
+    loops:0(무한)  random:300  bayes:200  startup:40
+    train:15(일)   valid:5(일)  cluster:5  top:10  seed:42
+    skip_random/bayes/validate/adopt/stress/cluster: False
+
+  메뉴 기능:
+    - 자동 루프 설정 화면 (_AUTO_FIELDS 19개 항목 대화식 변경)
+    - launch_in_new_window(): Windows에서 새 CMD 창으로 실행
+    - _show_date_grid(): train/valid 날짜 자동 탐지 미리보기
+      (mmean.db regime_ticks에서 day:08:45~15:35 / night:18:00~ 기준)
+
+──────────────────────────────────────────────────────────────────────────────
+[2] sim_opt/day_sim.py — DaySimRunner (정규장 시뮬레이션/최적화)
+──────────────────────────────────────────────────────────────────────────────
+
+  DB 분리 원칙 (중요):
+    source_db = mmean.db → file:?mode=ro (읽기 전용 URI 연결)
+    sim_db    = sim.db   → WAL + NORMAL sync (쓰기 전용)
+
+  세션 경계: 08:45:00 ~ 15:35:00 / FORCE_EXIT: 15:20 / WARMUP: 120틱 skip
+
+  ■ 탐색 공간 (_DAY_SEARCH_SPACE):
+    enter_score          (float 3.0~7.0)    — 진입 점수 임계값
+    enter_gap            (float 0.5~3.0)    — long/short 점수 차이
+    min_confidence       (float 0.45~0.85)
+    flow_score_gate_thr  (float 0.50~1.50)  — flow_score 필터 임계값
+    price_vs_vwap_gate   (bool)             — VWAP 위/아래 방향 일치 필터
+    flow_required        (bool)
+    llm_required         (bool)
+    llm_min_score        (float 0.45~0.85)
+    llm_direction_match_required (bool)
+    day_regime_exit      (bool)             — 레짐 반전 시 청산
+    sim_neutral_exit_ticks (int 0~12)
+    sim_sl_ticks         (float 5~25)
+    sim_tp_ticks         (float 8~40)
+    sim_trailing_activate (float 3~20)
+    sim_trailing_ticks   (float 1~8)
+    max_hold_ticks       (int 50~600)
+    sim_slippage_ticks   (int 1~2)
+
+  ■ 기본 프로파일 5개 (_DEFAULT_PROFILES):
+    1: 초보수형 (enter_score=5.8, sl=8, tp=12, llm_required=True, vwap=True)
+    2: 보수형   (enter_score=5.0, sl=10, tp=16, llm_required=True)
+    3: 중간형   (enter_score=4.5, sl=12, tp=20, llm_required=True)
+    4: 적극형   (enter_score=4.0, sl=14, tp=24, llm_required=False)
+    5: 공격형   (enter_score=3.6, sl=16, tp=28, day_regime_exit=False)
+    ※ ../workspace/day_levels.json이 있으면 이 파일을 우선 사용
+
+  ■ DaySimEngine (틱 단위 체결 시뮬레이터):
+    진입 게이트 (_check_entry):
+      1) entry_signal in (LONG_READY, SHORT_READY)
+      2) bias 방향 확인 (BULL↔LONG, BEAR↔SHORT)
+      3) enter_score, enter_gap 조건
+      4) min_confidence
+      5) flow_score_gate_thr (flow_required=True이면 필수)
+      6) price_vs_vwap_gate (True이면 LONG은 가격>VWAP 필요)
+      7) llm_required=True → llm_min_score, llm_direction_match
+    청산 게이트: TP / SL / trailing / day_regime_exit / NEUTRAL_EXIT / max_hold / 15:20강제
+
+  ■ DaySimRunner 메서드:
+    run_profile_multi(dates, profile_no)  — 프로파일 고정 config 멀티날짜 실행
+    run_random_search(dates, n_trials)    — _DAY_SEARCH_SPACE 랜덤 샘플
+    run_bayes_opt(dates, n_trials)        — Optuna TPE (optuna 필요)
+    run_validation(study_name, dates)     — top_n configs 검증 실행
+    load_top_configs(study_name, top_n)   — sim_observations JOIN 상위 n개 로드
+
+  ■ objective_score 계산 (_compute_and_insert_summary):
+    구성: profit_factor, win_rate, drawdown, max_consecutive_loss,
+          session_positive_ratio, pnl_std, low_trade_penalty, slippage_sensitivity
+    거래수 패널티 2계층: <5건→(5-n)*4.0, <10건→(10-n)*1.5
+    sim_run_summary 테이블에 기록 + sim_runs.objective_score 업데이트
+
+──────────────────────────────────────────────────────────────────────────────
+[3] sim_opt/sim_engine.py — SimEngine v3 (실거래 연동 시뮬레이터)
+──────────────────────────────────────────────────────────────────────────────
+
+  선물 스펙 (변경 금지): TICK_UNIT=0.05pt / TICK_VALUE=12,500원 / POINT=250,000원
+  app_bootstrap에서도 연결됨 (실거래 중 가상 포지션 추적용)
+
+  트레일링 스탑 3단계:
+    Phase1: 진입 직후 — sl_ticks 기준 초기 SL 고정
+    Phase2: +trailing_activate_ticks 이상 유리 이동 → 트레일링 시작
+    Phase3: 트레일링 활성 후 — extreme_price 기준 trailing_ticks 추적
+
+  6가지 exit 트리거:
+    T0 TAKE_PROFIT      — tp_ticks>0 이면 동작 (0=비활성)
+    T1 STOP_LOSS        — 비활성 시 초기SL, 활성 시 trailing SL
+    T2 FORCE_EXIT_EOD   — 항상 동작 (14:45 기본, .env 변경 가능)
+    T3 BIAS_REVERSAL    — 항상 동작
+    T4 SIGNAL_CONFLICT  — 트레일링 비활성 시 즉시청산, 활성 시 무시
+    T5 NEUTRAL_TIMEOUT  — neutral_exit_ticks (트레일링 활성 시 ×3 적용)
+
+  .env 파라미터:
+    MMEAN_SIM_TP_TICKS=0          (0=TP비활성)
+    MMEAN_SIM_SL_TICKS=10
+    MMEAN_SIM_TRAILING_TICKS=12
+    MMEAN_SIM_TRAILING_ACTIVATE=8
+    MMEAN_SIM_NEUTRAL_EXIT_TICKS=3
+    MMEAN_SIM_FORCE_EXIT_HOUR=14 / MMEAN_SIM_FORCE_EXIT_MIN=45
+
+──────────────────────────────────────────────────────────────────────────────
+[4] rag/rag_prep.py — 3단계 배치 전처리 (장 마감 후 실행)
+──────────────────────────────────────────────────────────────────────────────
+
+  실행: python rag/rag_prep.py [--step 1|2|3] [--days N] [--db PATH]
+  스케줄: 장 마감 후 1회 (16:30 또는 야간 종료 후 06:30 권장)
+
+  Step 1: regime_ticks → market_features (구간화)
+    처리: LEFT JOIN으로 미처리 tick만 선별
+    feature_vector JSON: {time_bucket, basis_zone, volume_zone, daily_pnl_zone, long_score, short_score, bias}
+    time_bucket: morning(9~11) / midday(11~14) / late(14~16) / night_early / night_late
+    basis_zone: strong_pos/mid_pos/neutral/mid_neg/strong_neg
+    volume_zone: burst(≥1.6) / normal / quiet(≤0.6)
+    regime_tags: pattern_schema.classify_regime_tags() 호출 → JSON 저장
+    1000건 단위 배치 INSERT
+
+  Step 2: trades + market_features → pattern_memory (클러스터 집계)
+    cluster_key = "basis_zone|volume_zone|time_bucket"
+    집계: total, wins, losses, pnl_sum, mae_sum, mfe_sum, long/short별 승패
+    UPSERT (ON CONFLICT cluster_key DO UPDATE)
+    warning_level 자동 계산:
+      danger  : win_rate<0.25 AND avg_pnl<-0.5
+      warning : win_rate<0.35 AND avg_pnl<-0.2
+      caution : win_rate<0.45
+      none    : 정상 (또는 샘플<5)
+
+  Step 3: llm_calls → llm_evaluations (LLM 점수 사후 평가)
+    opportunity 레이어 호출 + 미평가 건만 처리
+    유효 시간(expires_at) 내 진입 거래와 매핑 (없으면 5분 기준)
+    score_vs_pnl 라벨: high_score_win / high_score_loss / low_score_win / low_score_loss
+    진입 없으면 → 'no_entry' 기록
+
+  핵심 함수 (실시간 활용):
+    get_pattern_warning(db_path, basis_zone, volume_zone, time_bucket)
+      → warning_level != 'none'이면 경고 문자열 반환
+      → llm_filter._build_prompt()에서 프롬프트 주입용
+    get_llm_score_stats(db_path, days)
+      → LLM 점수 구간별 승률 통계 (Analytics 대시보드용)
+
+──────────────────────────────────────────────────────────────────────────────
+[5] rag/pattern_schema.py — 태그 어휘집 + 분류 규칙
+──────────────────────────────────────────────────────────────────────────────
+
+  REGIME_TAGS (28개 태그):
+    방향성:  BULL_CLEAN / BULL_SOFT / BEAR_CLEAN / BEAR_SOFT / RANGE_TIGHT / RANGE_NOISY
+    변동성:  VOL_LOW / VOL_NORMAL / VOL_HIGH / VOL_SPIKE
+    베이시스: BASIS_POSITIVE / BASIS_NEGATIVE / BASIS_FLAT / BASIS_EXPANDING / BASIS_COMPRESSING
+    외국인:  FOREIGN_BUY_PERSISTENT / FOREIGN_SELL_PERSISTENT / FOREIGN_BUY_FADING /
+             FOREIGN_SELL_FADING / FOREIGN_NEUTRAL
+    플로우:  FLOW_LONG_BIAS / FLOW_SHORT_BIAS / FLOW_MIXED
+    LLM:    LLM_LONG_CONFIRMED / LLM_SHORT_CONFIRMED / LLM_NEUTRAL
+    신호:   SIGNAL_CLEAR / SIGNAL_MIXED / SIGNAL_WEAK
+    세션:   SESSION_OPENING / SESSION_MID / SESSION_CLOSING
+
+  classify_regime_tags(row: dict) → List[str]
+    입력: regime_ticks 1행 (bias, long_score, short_score, volume_burst,
+          basis, basis_ema_delta, foreign_buy, flow_score, flow_long/short_weight,
+          llm_filter_valid/direction, entry_signal, confidence, session_phase)
+    출력: 알파벳 정렬된 태그 리스트
+
+  classify_session_tags(rows, min_ratio=0.40) → List[str]
+    여러 틱 rows 태그 빈도 집계 → 40% 이상 출현한 대표 태그
+
+  FAILURE_THRESHOLDS:
+    profit_factor < 1.0 / total_pnl_ticks < -10.0
+    max_drawdown_ticks > 100.0 (세션 누적) / objective_score < 0
+    min_trades_to_trigger = 5 (표본 부족 시 트리거 보류)
+
+  CONFIDENCE_CRITERIA:
+    HIGH:   min_dates=10, min_trades=50
+    MEDIUM: min_dates=5,  min_trades=20
+    LOW:    기준 미달
+
+  CLI: python pattern_schema.py --list-tags   (어휘집 출력)
+       python pattern_schema.py --test         (테스트 실행)
+
+──────────────────────────────────────────────────────────────────────────────
+[6] rag/sim_rag_builder.py — RAG 문서 빌더 (Phase 1 + 2A)
+──────────────────────────────────────────────────────────────────────────────
+
+  Phase 1: sim.db → rag_documents (sim.db 내부)
+    3종 문서 생성:
+      candidate  — sim_adoptions (status=candidate/active)에서 추출
+                   train/valid 날짜, obj, robustness, stress 여부 포함
+      failure    — stress 실패 또는 validation trade≤3
+      run_summary — validation/random/bayes_opt 상위 100개 (obj DESC)
+    rag_documents 테이블 스키마:
+      doc_id, doc_type, session_mode, study_name, run_id, config_hash
+      date_from~to, trade_count, objective_score, profit_factor, max_drawdown
+      stress_passed, adoption_status, regime_type (trend/range/mixed/unknown)
+      title, summary_text, key_facts(JSON), reasoning_hint, embedded(0/1)
+    rag_embeddings 테이블: doc_id, embedding(BLOB), model, created_at
+
+  Phase 2A: sim.db + mmean.db → pattern_docs (mmean.db)
+    대상: sim.db validation 상위 _TOP_N_CONFIGS=5개 config
+    문서 종류:
+      validation_summary — 스터디 전체 검증 런 요약 (규칙 기반 텍스트 템플릿)
+      pattern_case       — "언제 이 설정이 효과적인가" (regime_tags 기반)
+      failure_case       — FAILURE_THRESHOLDS 발동 config 경고
+    regime_tags 출처: mmean.db market_features.regime_tags
+      → _load_regime_tags_for_dates(): 날짜 기간 대표 태그 (min_ratio=35%, 최대 8개)
+      → _TAG_PRIORITY 순서로 정렬 (방향성→변동성→수급→베이시스→신호→LLM→세션)
+    레벨밴드 추정 (_infer_level_band): enter_score + SL+TP 기반 1~20 근사
+
+  실행 명령:
+    python rag/sim_rag_builder.py              # Phase 1 신규 추가
+    python rag/sim_rag_builder.py --rebuild    # Phase 1 전체 재생성
+    python rag/sim_rag_builder.py --pattern-docs  # Phase 2A 신규/갱신
+    python rag/sim_rag_builder.py --all           # Phase 1 + 2A 동시
+
+──────────────────────────────────────────────────────────────────────────────
+[7] rag/rag_retriever.py — 실시간 RAG 검색 (LLM 프롬프트용)
+──────────────────────────────────────────────────────────────────────────────
+
+  retrieve_context(state, sim_db, top_k_success=2, top_k_failure=2, min_similarity=0.30)
+    → build_query_text(state): compact 질의 텍스트
+         (session_mode, regime, entry_signal, conf=X.XX, flow=X.XX, bias, vwap, fb, phase)
+    → sim_vector_store.search(): candidate(성공) + failure(실패) top-k 검색
+    → 유사도 0.30 하한 필터
+    → _format_context(): "=== 유사 성공 사례 ===" + "=== 유사 실패 사례 ===" 텍스트
+    → build_llm_constraints(): 3가지 강제 규칙 생성
+       RULE-1: 실패 유사도 ≥ 성공 유사도 → REJECT 강제
+       RULE-2: 성공 사례 모두 레짐 불일치 → 해당 사례 무시
+       RULE-3: 유사 사례 전혀 없음 → HOLD 강제
+       COMMON: 항상 포함 (엔진 기본 조건 뒤집지 말 것, 근거 부족 시 weight_adjust=0)
+
+  반환 dict:
+    "success":      candidate 문서 리스트 (유사도, regime_type 포함)
+    "failure":      failure  문서 리스트
+    "context_text": 사례 + 강제 규칙 통합 텍스트 (LLM 프롬프트에 삽입)
+    "constraints":  강제 규칙만 별도
+    "has_data":     bool
+
+  build_and_embed(sim_db): sim_rag_builder + sim_vector_store 원스톱 실행
+
+──────────────────────────────────────────────────────────────────────────────
+[8] DB 구조 요약 — SIM/RAG 관련 테이블
+──────────────────────────────────────────────────────────────────────────────
+
+  sim.db (쓰기 전용, 3.7GB):
+    sim_runs          run_type(profile/random/bayes_opt/validation) / status / config_hash / objective_score
+    sim_trades        개별 체결 (1,700만+ 행) — run_id 기준
+    sim_observations  Optuna trial 관측값 (study_name, trial_no, objective_score)
+    sim_run_summary   실행별 성과 (win_rate, profit_factor, max_drawdown,
+                      session_positive_ratio, pnl_std, slippage_sensitivity)
+    sim_run_sessions  세션별 (run_id, session_date, trade_count, total_pnl)
+    sim_adoptions     실거래 채택 기록 (status=candidate/active/retired, robustness)
+    rag_documents     candidate/failure/run_summary 문서 (embedded 플래그)
+    rag_embeddings    벡터 임베딩 BLOB (numpy float32 bytes)
+
+  mmean.db (실거래 메인, 384MB):
+    regime_ticks      실거래 틱 원천 데이터 (RAG 파이프라인 입력)
+    market_features   tick_id 기준 구간화 (time_bucket, basis_zone, regime_tags JSON)
+    pattern_memory    cluster_key별 집계 (win_rate, avg_pnl, warning_level)
+    llm_calls         LLM 호출 이력 (layer, provider, score, direction, expires_at)
+    llm_evaluations   LLM 점수 ↔ 실제 결과 매칭 (score_vs_pnl, direction_match)
+    pattern_docs      Phase 2A 패턴 문서 (validation_summary/pattern_case/failure_case)
+
+──────────────────────────────────────────────────────────────────────────────
+[9] 전체 운영 사이클 (SIM + RAG)
+──────────────────────────────────────────────────────────────────────────────
+
+  장 중 실시간:
+    engine_loop → LLMGate → LLMCaller → rag_retriever.retrieve_context()
+               → context_text를 LLM 프롬프트에 삽입 → weight_adjust 반환
+
+  장 중 최적화 (별도 프로세스):
+    sim.bat → sim.py (메뉴) → DaySimRunner
+      → run_random_search (300trials) → run_bayes_opt (200trials)
+      → run_validation (top 10 configs) → sim_adoptions 기록
+
+  장 마감 후 배치:
+    rag_prep.py (Step1→2→3)
+      → market_features 갱신 (regime_tags 포함)
+      → pattern_memory 클러스터 집계
+      → llm_evaluations LLM 점수 사후 평가
+    sim_rag_builder.py --pattern-docs
+      → validation 상위 5개 config → pattern_case 문서 생성
+      → regime_tags 매칭 → mmean.db pattern_docs 저장
+    sim_vector_store.embed_documents()
+      → 신규 rag_documents 임베딩 → rag_embeddings 저장
+
+  다음 장 시작 시:
+    위 모든 데이터가 LLM 프롬프트 context로 자동 활용됨
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+작업 이력
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[2026-03-20] 디렉토리 구조 재편 (git: 242fd10)
+- 루트에 산재하던 .py 파일들을 core/regime/llm/config/sim_opt/db/rag/routes/scripts/ 로 이동
+- engines/ 디렉토리 신설: FlowEngine 파이프라인 전체 (foreign_flow~position_engine)
+- path_setup.py 추가로 서브디렉토리 sys.path 자동 등록
+- session_detect.py 확인: 야간 모드 비활성화 상태 (night → "day" 강제 대체)
+- _about.txt 각 디렉토리 확인, makelog.txt 생성 및 프로젝트 스냅샷 작성
+
+[2026-03-20] SIM/RAG 코드 면밀 분석 및 makelog 섹션 추가
+- sim.bat→sim.py 대화형 런처 구조 파악 (자동루프 19개 항목, launch_in_new_window)
+- day_sim.py: DaySimRunner 전체 분석 — 탐색공간/5개프로파일/DaySimEngine/objective_score 계산
+- sim_engine.py: SimEngine v3 — 6가지 exit 트리거 / 트레일링 3단계 / .env 파라미터
+- rag_prep.py: 3단계 배치 — Step1 market_features / Step2 pattern_memory / Step3 llm_evaluations
+- pattern_schema.py: 28개 REGIME_TAGS / classify_regime_tags / FAILURE_THRESHOLDS / CONFIDENCE_CRITERIA
+- sim_rag_builder.py: Phase1(sim.db→rag_documents) + Phase2A(→pattern_docs) 분리 파악
+- rag_retriever.py: retrieve_context / 3가지 강제 규칙(RULE-1,2,3) / build_and_embed
+- DB 테이블 전체 정리 (sim.db 8개 / mmean.db RAG관련 6개) makelog에 상세 섹션 추가
+
+[2026-03-20] 듀얼 인증 구조 (KIS 데이터/주문 계좌 분리) 적용
+- MMEAN=실계좌(KIS_APP_KEY), MME=모의계좌(KIS_ORDER_KEY) — 지표 REST는 실계좌만 허용
+- .env.public에 KIS_DATA_ENV=live / KIS_ORDER_ENV=virtual 추가 (한 줄로 실거래 전환)
+- app_bootstrap.py load_settings()에 ORDER_ENV/ORDER_KEY/ORDER_SECRET 추가; ORDER 미설정 시 DATA 키로 폴백
+- app_state.py AppState에 order_token_cache + order_token_lock 필드 추가
+- engine_runtime.py: _kis_data_base_url() / _kis_order_base_url() 헬퍼 신설; get_order_token() 추가; fetch_investor_data URL도 헬퍼로 통일
+- .env.secrets에 KIS_ORDER_KEY/SECRET 플레이스홀더 추가 → MME 모의계좌 키 직접 기입 필요
+
+[2026-03-20] KIS API 3계층 분리 (kis_tr_catalog / kis_data_api / kis_order_api)
+- kis_tr_catalog.py 신설: 모든 TR ID 상수 / BASE URL / endpoint path / order_tr() 헬퍼
+  (WS 4개: H0IFCNT0/H0MFCNT0/H0IFASP0/H0MFASP0, DATA: FHPTJ04030000, ORDER: TTTO/VTTO 계열)
+- kis_data_api.py 신설: get_data_token() / issue_approval_key() / fetch_investor_once() — HTTP I/O 전담
+- kis_order_api.py 신설: get_order_token() / place_futures_order() / cancel_futures_order() / fetch_futures_balance()
+  ORDER_ENV(live/virtual) 기준으로 order_tr() 가 TR ID 자동 선택
+- engine_runtime.py 정리: 토큰/URL/투자자 함수 제거 → 3모듈 import 교체
+  fetch_investor_data = fetch_investor_once(HTTP) + state 업데이트 분리
+  WS 구독 TR 하드코딩 제거 → WS_TR_BY_SESSION[session]["tick"/"ask"] 참조
+- 실거래 주문 연동 시 .env.secrets에 KIS_ORDER_CANO(계좌번호 앞8자리) 추가 필요
+
+[2026-03-20] TRcode xlsx 전수 분석 → kis_tr_catalog/data_api/order_api 전면 재작성
+- TRcode/ xlsx 28개 분석: 선물주문·취소·잔고·주문가능·체결내역·시세·투자자·외국계 등
+- kis_tr_catalog.py: 오류 수정 (overseas→domestic 엔드포인트, CTFO6118R 잔고 TR 등)
+  WS_TICK_IDX / WS_ASK_IDX 딕셔너리로 응답 필드 인덱스 문서화
+  야간 체결통보 H0MFCNI0 추가 (tr_key=HTS_ID 주의)
+- kis_data_api.py: fetch_futures_price() / fetch_foreign_flow_trend() / fetch_investor_estimate() 추가
+  _data_headers() 헬퍼로 공통 헤더 생성 통일
+- kis_order_api.py: 전면 재작성 (요청 body 필드명 오류 수정: SHTN_PDNO/ORD_PRCS_DVSN_CD 등)
+  place_futures_order(): 6가지 order_type(LIMIT/MARKET/IOC/FOK), 야간세션 TR 자동선택
+  cancel/modify_futures_order(): 정정·취소 분리, RMN_QTY_YN 추가
+  fetch_futures_balance(): output1(종목별)+output2(요약) 구조 반영
+  fetch_orderable_qty(): 주문가능 수량 조회
+  fetch_order_history(): 연속조회 루프로 전체 체결내역 반환
+
+[2026-03-20] order/ 디렉토리 신설 — WS-first 주문 실행 레이어 구현
+- order/ 신설 (kis_tr_catalog/kis_auth_order/kis_order_api/order_state/kis_fill_ws/__init__/_about)
+- MME kis_auth.py/domfut_order.py/domfut_balance.py/kis_ws_krx.py 로직 흡수 → MMEAN runtime 스타일 재작성
+- 체결통보 WS: H0IFCNI0(실전,:21000) / H0IFCNI9(모의,:31000) → WS-2 별도 연결, tr_key=HTS_ID
+- OrderStateManager: WS 체결통보→포지션 자동 업데이트, wait_fill(30s 타임아웃)→초과 시만 REST 취소 1회
+- 정상 1사이클 REST 2회(진입주문+청산주문), 체결확인·포지션·잔고 모두 WS or in-memory (REST 0회)
+- app_bootstrap: OrderStateManager+KISFillNoticeClient 초기화, HTS_ID 미설정 시 WS 비활성 경고
+- path_setup.py order/ 추가; .env.secrets KIS_HTS_ID 플레이스홀더 추가 (필수 설정)
+
+[2026-03-20] 실전 투입 전 4개 항목 검증·배선 완료
+- 항목1(부팅 동기화): start_runtime()에 _sync_position_from_rest() 호출 추가 → ORDER_CANO·ORDER_KEY 설정 시 get_balance()+sync_from_balance() 1회 자동 실행
+- 항목2(fill_ws 기동): app_bootstrap.py build_runtime() 내 KISFillNoticeClient.start() 이미 구현됨 ✅ (재확인)
+- 항목3(add_pending 강제화): place_order_and_track() 래퍼 신설 — place_order()+add_pending() 원자 실행, 엔진은 이 함수만 사용
+- 항목4(WS재연결 후만 동기화): KISRealtimeClient._run() 예외 핸들러에 _sync_position_from_rest() 추가 → 주기 폴링 없음
+- engine_runtime.py: import get_balance 추가; _sync_position_from_rest() 헬퍼 추가
+- order/__init__.py: place_order_and_track export 추가
+
+[2026-03-20] order_executor.py 신설 + 코드 규칙 고정
+- order/order_executor.py 신설: execute_entry() / execute_exit() / ExecuteResult — 엔진 유일 주문 진입점
+  내부 흐름: place_order_and_track() → wait_fill_detail(30s) → 타임아웃 → cancel_order() + remove_pending()
+- order/order_state.py: wait_fill_detail() 추가 — (filled, fill_price, fill_qty, cancelled, refused) 반환
+  wait_fill()은 wait_fill_detail() 위임으로 리팩터 (API 호환 유지)
+- 코드 규칙 고정: place_order() 직접 import/호출 금지, execute_entry/execute_exit 경유 강제
+  order/kis_order_api.py place_order() 주석에 ⚠ 경고 추가
+  order/_about.txt 코드 규칙 섹션 추가
+- scripts/check_order_imports.py 신설: 위반 패턴 grep → exit(1), CI/pre-commit hook 연동 가능
+  사용: python scripts/check_order_imports.py
+
+[2026-03-20] order_executor → engine_loop 배선 완료 (1단계)
+- LiveOrderExecutor 클래스 신설 (engine_runtime.py): try_entry/try_exit + daemon 스레드 격리
+  EXECUTION_ENABLED=false → [EXEC-DRY] 로그만 / true → execute_entry/execute_exit 실행
+  동시 주문 방지: threading.Lock(_active 플래그), 30s 블로킹 완전 격리
+- engine_loop 배선: PositionEngine flow_order_size 계산 후 실주문 블록 삽입
+  data_gate_ok + order_state 존재 + is_active=False 3중 조건 만족 시만 발화
+  LONG_READY/SHORT_READY → try_entry, WAIT/반전 → try_exit
+- app_state.py: live_last_* 8개 키 초기화 (2단계 대시보드 표시 준비)
+- .env.public: MMEAN_EXECUTION_ENABLED=false 추가
+- app_bootstrap.py: EXECUTION_ENABLED 설정 추가 (기본 false)
+- 다음 단계: EXECUTION_ENABLED=true + KIS_ORDER_ENV=virtual로 모의계좌 첫 주문 테스트
+
+[2026-03-20] 완성도 ①②③④ 전체 구현
+── ① 세션 종료 전 강제 청산
+- _SESSION_FORCE_CLOSE 추가: day=15:40 (종료 5분 전)
+- _force_close_live_position(): execute_exit() 직접 블로킹(35s), EXECUTION_ENABLED=false 시 경고
+- session_watchdog_loop 개선: hm == → hm >= 타이밍 방어, _force_closed 1회 보장
+── ② 실주문 TP/SL 모니터링
+- LiveOrderExecutor.check_tp_sl(price): SL → Trailing SL → TP 우선순위, 매 틱 호출
+- _trail_peak_ticks 추가, reset_trail() 진입·청산 완료마다 호출
+- engine_loop: check_tp_sl() 신호 판단보다 먼저 실행 (가격 기반 청산 우선)
+- app_bootstrap: LIVE_TP/SL/TRAILING_TICKS/ACTIVATE 설정 추가 (기본 16/10/6/8틱)
+── ③ 대시보드 실주문 라우트
+- /api/order/status: 포지션·최근주문결과·설정·fill_ws 상태 반환
+- /api/order/exit (POST): 수동 강제 청산 (EXECUTION_ENABLED=true 필요)
+── ④ WS 끊김 중 pending 주문 처리
+- order_executor._execute(): 타임아웃 취소 후 get_balance()+sync_from_balance() 재동기화
+  WS 끊김 중 실제 체결된 경우 in-memory 포지션 자동 보정
+
+────────────────────────────────────────────────────────────────────────────────
+[2026-03-20] 실행 모드 스위칭 (OFF / VIRTUAL / LIVE) 대시보드 연동
+────────────────────────────────────────────────────────────────────────────────
+- app_state: execution_mode 키 추가 (OFF=데이터수집, VIRTUAL=가상매매, LIVE=실전매매)
+- routes_core: /api/execution/mode GET/POST 엔드포인트 추가
+  LIVE 전환 시 EXECUTION_ENABLED=true 이중 게이트; ORDER_ENV 동적 갱신
+- engine_runtime engine_loop: execution_mode="OFF" 이면 주문 블록 스킵
+- LiveOrderExecutor try_entry/try_exit: execution_mode="LIVE"일 때만 EXECUTION_ENABLED 체크
+- check_tp_sl: EXECUTION_ENABLED 대신 execution_mode="OFF" 체크로 변경
+- dashboard.html: 실행 모드 패널 추가 (데이터수집/가상매매/실전매매 버튼)
+  실전 매매 전환 시 confirm 팝업; 상태 문구 색상 표시 (회색/하늘/빨강)
+
+[2026-03-21] 실전 전환 비밀번호 보호 + 크래시 복구 정책 구현
+- routes_core /api/execution/mode: LIVE 전환 시 MMEAN_LIVE_PASSWORD 서버 검증 (hmac.compare_digest)
+  LIVE_PASSWORD 미설정 시 전환 자체 차단; 불일치 시 WARNING 로그 + 401 반환
+- dashboard.html: 실전 매매 버튼 클릭 시 confirm() 제거 → 비밀번호 모달 팝업 교체
+  Enter/Escape 단축키 지원; 오류 메시지 인라인 표시
+- .env.secrets: MMEAN_LIVE_PASSWORD 키 추가 (.env.secrets.example 포함)
+- app_bootstrap _boot_position_sync(): 부팅 시 get_balance→sync_from_balance 후 미청산 포지션 처리
+  CRASH_RECOVERY=close → execute_exit() 즉시 청산 / resume → 포지션 복원 후 TP/SL 감시 재개
+- analyzer_app _startup_live_gate(): EXECUTION_ENABLED=true 시 콘솔 비밀번호 프롬프트 (30초 타임아웃)
+  LIVE_AUTOSTART=true 이면 무인 서버 자동 시작 허용; 타임아웃/불일치 → 시뮬레이션 다운그레이드
+- .env.public: MMEAN_CRASH_RECOVERY=close / MMEAN_LIVE_AUTOSTART=false 기본값 추가
+
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+[2026-03-21] 절대경로 → 상대경로 전환 (프로젝트 이식성 확보)
+────────────────────────────────────────────────────────────────────────────────
+- mmean.bat: cd /d C:\mme\mmean → cd /d "%~dp0" (bat 위치 기준 자동 이동)
+- db_archive.bat: SCRIPT 절대경로 → %~dp0db\db_archive.py; PYTHON → %USERPROFILE%\...
+- rag_build.bat / rag_menu.bat: C:\Users\besta\miniconda3\python.exe → python
+- db/db_archive.py: C_SIM_DB/C_MMEAN_DB 하드코딩 → Path(__file__).parent.parent/"storage"
+- day_pattern.py, db/check_db.py, db/db_setup_sim.py: 동일 패턴 적용
+- rag/rag_retriever.py, sim_rag_builder.py, sim_vector_store.py: _STORAGE = Path(__file__).parent.parent/"storage"
+- scripts/day_auto_run.py, night_auto_run.py: _PROJ/"storage" 기준; workspace 경로도 동일 처리
+- sim_opt/sim_report.py: argparse default + docstring 절대경로 제거
+  전체 .py 파일에서 "storage/sim.db" / "storage/mmean.db" 문자열 하드코딩 0건
+
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+[2026-03-21] .env.public 전 변수 상세 주석 정비
+────────────────────────────────────────────────────────────────────────────────
+- 총 35개 변수 전체에 옆 주석으로 역할·옵션값·주의사항 기술
+  각 섹션별로 구분선 추가 (KIS 계좌환경 / 주문게이트 / 크래시복구 /
+  무인자동시작 / 데이터소스 / 서버 / 엔진파라미터 / 야간세션 / 투자자동향 /
+  시뮬리스크 / 실주문리스크 / LLM모델 / LLM타임아웃)
+- KIS_ORDER_ENV: virtual(모의, :29443/:31000) / live(실거래, :9443/:21000) 포트 명시
+- MMEAN_EXECUTION_ENABLED: 대시보드 실행모드 버튼과 독립적인 하드웨어 안전핀 설명 추가
+- MMEAN_CRASH_RECOVERY: close/resume 각각 사용 시나리오(무인서버/개발서버) 명시
+- MMEAN_LIVE_AUTOSTART: systemd/cron/Docker 무인환경 전용임을 경고 주석으로 기술
+- SIM/LIVE 리스크 파라미터: 틱 단위 = 0.05pt = 12,500원 환산값 예시 포함
+- LLM 3단계 폴백 체계(Claude→GPT→Gemini) 및 각 모델 용도 설명
+
+────────────────────────────────────────────────────────────────────────────────
+[2026-03-21] 실행 모드 4분류 명확화 (설계 결정 기록)
+────────────────────────────────────────────────────────────────────────────────
+- 현재 대시보드 "가상매매(VIRTUAL)" 버튼 = 프로그램 내부 sim_engine 시뮬레이션 (KIS API 없음)
+- KIS 모의계좌(한투 모의서버 :29443) 주문은 대시보드 "실전매매" + KIS_ORDER_ENV=virtual 조합으로 동작
+- 향후 확장 시 4단계 분리 권장:
+    OFF(데이터수집) / VIRTUAL(내부시뮬) / PAPER(KIS모의계좌) / LIVE(KIS실계좌)
+  현재는 VIRTUAL과 PAPER 가 미분리 상태 — 추후 대시보드 UI/routes 개선 필요
+  (미구현 항목 — 실장 전 요건 확정 후 구현 예정)
+
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+[2026-03-21] PAPER 모드 신설 + VIRTUAL 모드 버그 수정 + engine_runtime 검토
+────────────────────────────────────────────────────────────────────────────────
+── 버그 수정 (engine_runtime.py)
+- VIRTUAL 모드가 KIS API 실주문을 차단하지 않던 버그 수정
+  try_entry/try_exit: exec_mode=="VIRTUAL" 이면 즉시 return False (API 미호출)
+  engine_loop: _exec_mode != "OFF" → _exec_mode in ("PAPER", "LIVE") 로 변경
+  check_tp_sl: "OFF" 차단 → ("PAPER","LIVE") 아닐 시 차단으로 변경
+
+── PAPER 모드 신설
+- execution_mode 4단계 확정: OFF / VIRTUAL / PAPER / LIVE
+  OFF     = 데이터수집만, 주문 없음
+  VIRTUAL = 내부 sim_engine만, KIS API 없음 (버그 수정 완료)
+  PAPER   = KIS 모의계좌 실제 주문 (ORDER_ENV=virtual 강제, 비밀번호 불필요)
+  LIVE    = KIS 실계좌 실제 주문 (EXECUTION_ENABLED=true + 비밀번호 필요)
+- routes_core /api/execution/mode: PAPER 허용 추가
+  PAPER 전환 시 ORDER_ENV=virtual 강제 설정
+  PAPER 전환 전 order_state 초기화 여부 확인 (503 반환)
+- dashboard.html: "모의 거래(PAPER)" 버튼 추가 (주황색 #fb923c)
+  버튼 4개: 데이터수집 / 내부시뮬 / 모의거래 / 실전매매
+  상태 레이블 갱신: ◑ 모의거래 추가
+- app_state.py: execution_mode 주석 4단계로 갱신
+
+── 월요일 첫 모의거래 테스트 사전 체크리스트
+1. .env.public: KIS_ORDER_ENV=virtual, MMEAN_EXECUTION_ENABLED=true
+2. .env.secrets: KIS_ORDER_KEY/SECRET/CANO, KIS_HTS_ID 설정 확인
+3. 프로그램 시작 → fill_ws_client 연결 로그 확인 (H0IFCNI9 구독 성공)
+4. 대시보드 → "모의 거래" 버튼 클릭 → PAPER 모드 전환 확인
+5. 신호 발화 대기 → [LiveOrder-LONG/SHORT] 로그 확인
+6. KIS 모의계좌 HTS/앱에서 주문 체결 확인
+7. order_state 포지션 동기화 확인 (/api/order/status 응답)
+
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+[2026-03-21] 시작 게이트 순서 버그 수정 (핵심 안전 이슈)
+────────────────────────────────────────────────────────────────────────────────
+문제: build_runtime() 내부에서 fill_ws.start() + _boot_position_sync()가 실행되어
+     비밀번호 검증(_startup_live_gate) 전에 실계좌 청산 등 live side-effect 발생 가능
+
+수정 내용:
+- app_bootstrap.py build_runtime():
+  fill_ws.start() 호출 제거 → 클라이언트 객체만 생성, 시작은 게이트 후로 이관
+  _boot_position_sync() 호출 제거 → 게이트 후 이관
+- analyzer_app.py:
+  _startup_live_gate() 반환값 bool 추가 (True=통과, False=다운그레이드)
+  게이트 실패 시 EXECUTION_ENABLED=False + execution_mode="OFF" 명시적 설정
+  _post_gate_live_init() 신설 — 게이트 통과 후에만 fill_ws.start() + _boot_position_sync()
+  실행 순서 확정:
+    1. build_runtime()          ← live 동작 없음, 객체 생성만
+    2. _startup_live_gate()     ← 비밀번호 검증
+    3. _post_gate_live_init()   ← 게이트 통과 시에만 fill WS + 크래시 복구
+
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+[2026-03-21] worktree(claude/festive-wu) → main 브랜치 머지
+────────────────────────────────────────────────────────────────────────────────
+- festive-wu 브랜치 변경사항 커밋 (708aefe): 6개 파일 536줄 추가
+- main 브랜치 미커밋 변경사항 선커밋 (55ee92d): order/ 레이어, 경로 변환 등 102개 파일
+- claude/festive-wu → main 머지 (3b5e30c): 충돌 5개 파일 --theirs 로 해결
+  (analyzer_app.py, core/app_bootstrap.py, core/app_state.py,
+   routes/routes_core.py, templates/dashboard.html)
+- 머지 후 사용자 실제 파일 확인: .env.public 240줄, 신규 키 전부 반영 확인
+
+────────────────────────────────────────────────────────────────────────────────
+[2026-03-21] 시작 게이트 순서 버그 최종 확인
+────────────────────────────────────────────────────────────────────────────────
+- 재체크 결과: app_bootstrap.py 572~575줄 fill_ws.start() 없음 확인
+  build_runtime() 내 fill_ws 객체 생성만, start 호출 없음 (주석 명시)
+  _boot_position_sync 호출 없음 (주석 명시)
+- analyzer_app.py 실행 순서 최종 확정:
+  1. build_runtime()       — 객체 생성만, KIS 접촉 없음
+  2. _startup_live_gate()  — 비밀번호 검증 (실패 시 EXECUTION_ENABLED=False + execution_mode=OFF)
+  3. _post_gate_live_init()— 통과 시에만: fill_ws.start() + _boot_position_sync()
+- 중복 시작 없음: build_runtime()에서 start 미호출이므로 _post_gate_live_init()에서 1회만 호출
+
+────────────────────────────────────────────────────────────────────────────────
+[2026-03-21] engine_runtime ImportError + config KeyError 수정
+────────────────────────────────────────────────────────────────────────────────
+- engine_runtime.py: get_balance import 경로 수정 (core/kis_order_api → order/kis_order_api)
+  `from order.kis_order_api import get_balance` + try/except ImportError 폴백 추가
+- config/config_manager.py: DEFAULT_CONFIG에 야간 엔진 6개 키 추가
+  night_ma_gap_strong=0.008, night_ma_gap_weak=0.003, night_vol_high=1.1,
+  night_vol_low=0.6, night_score_bull=0.45, night_score_bear=-0.45
+- 원인: apply_runtime_config()가 night_* 키 참조하나 DEFAULT_CONFIG에 미등록
+
+────────────────────────────────────────────────────────────────────────────────
+[2026-03-21] purge_sim_trades — sim_trades 정리 도구 신설
+────────────────────────────────────────────────────────────────────────────────
+- db/purge_sim_trades.py 신설: 검증 완료 sim_trades 삭제 + VACUUM
+  삭제 기준: status=done AND sim_run_summary 존재 AND keep_days 이전 완료
+  옵션: --status / --dry-run / --keep-days N / --run-type / --run-ids
+- purge_sim_trades.bat 신설: 6개 메뉴 (현황/dry-run/전체/3일보존/validation/직접입력)
+- 보존 대상: sim_runs / sim_run_summary / sim_adoptions / sim_observations (RAG·승격 필요)
+
+────────────────────────────────────────────────────────────────────────────────
+[2026-03-21] validation 범위 기반 자동 검증 기능 추가 (sim.py)
+────────────────────────────────────────────────────────────────────────────────
+- 배경: 기존 [6] validation은 검증 날짜를 일일이 수동 입력 필요
+  3/19 validation이 훈련날짜=검증날짜로 data leakage 발생한 것이 계기
+- sim.py에 fetch_trading_days_in_range() / ask_range_valid_dates() 추가
+  시작~끝 날짜 입력 → mmean.db에서 실제 거래일 자동 조회 → 훈련일 자동 제외
+- 메뉴 신설:
+  [6r]  범위 기반 validation (훈련일 자동 제외)
+  [6ar] 범위 기반 validation + 자동채택
+- 기존 validation 데이터 전량 삭제 (113건) 및 VACUUM 완료
+  사유: 훈련날짜=검증날짜 순환검증 데이터가 포함되어 있어 신뢰 불가
+
+────────────────────────────────────────────────────────────────────────────────
+[2026-03-21] sim.py 범위 검증 보완: 훈련일 자동 수집 강화 + tmp 파일 정리
+────────────────────────────────────────────────────────────────────────────────
+- ask_range_valid_dates()에 fetch_all_trained_dates() 추가
+  입력한 train_date의 study가 과거에 훈련한 모든 source_dates를 sim.db에서 자동 수집
+  → 입력한 날짜 외에도 이미 훈련에 쓰인 날짜 전부 자동 제외
+- tmp_*.py 임시 분석 스크립트 7개 삭제 (tmp_query/compare/investigate 등)
+
+────────────────────────────────────────────────────────────────────────────────
+[2026-03-21] sim.py [6r] 레짐 기반 validation 필터 추가
+────────────────────────────────────────────────────────────────────────────────
+- fetch_date_pattern(): session_patterns에서 훈련날짜의 pattern_type 조회
+- fetch_same_pattern_dates(): 범위 날짜 중 같은 레짐 날짜만 반환
+- ask_range_valid_dates() 개선:
+  훈련날짜 레짐 자동 조회 → 범위내 같은 레짐 날짜만 필터링 → 다른레짐 날짜 표시
+  session_patterns 미등록시 경고 후 전체 날짜 사용 (day_pattern.py 실행 권장)
+- 예: 3/18(TREND_UP) 훈련 → 범위에서 TREND_UP인 날짜만 검증 후보 추출
+
+────────────────────────────────────────────────────────────────────────────────
+[2026-03-21] sim_adoptions에 레짐 패턴 태깅 추가
+────────────────────────────────────────────────────────────────────────────────
+- db_setup_sim.py: sim_adoptions에 train_pattern / valid_patterns 컬럼 추가
+  _MIGRATIONS에 등록 → 기존 DB 자동 마이그레이션 (ALTER TABLE)
+- day_sim.py / night_sim.py adopt_best():
+  채택 시 mmean.db session_patterns 조회 → 훈련날짜 패턴 + 검증날짜별 패턴 저장
+  train_pattern: "TREND_UP" 등 단일값
+  valid_patterns: {"2026-04-03": "TREND_UP", ...} JSON
+- 기존 sim.db에 마이그레이션 적용 완료
+
+────────────────────────────────────────────────────────────────────────────────
+[2026-03-21] 인수인계서 작성 + 세션 종료
+────────────────────────────────────────────────────────────────────────────────
+- 인수인계서.txt 신설 (C:\mme\mmean\인수인계서.txt)
+  이번 세션 변경사항 전체 / 설계 원칙 / 현재 데이터 상태
+  다음 작업 순서(STEP 1~5) / 주의사항 / 배치파일 목록
+- 세션 중 수정 파일 요약:
+  config/config_manager.py  night_* KeyError 수정
+  sim.py                    [6r][6ar] 레짐 기반 범위 검증
+  db/db_setup_sim.py        sim_adoptions 패턴 컬럼 + 마이그레이션
+  sim_opt/day_sim.py        adopt_best 패턴 저장
+  sim_opt/night_sim.py      adopt_best 패턴 저장
+  app_bootstrap.py          시작 게이트 순서 버그 수정
+  analyzer_app.py           _post_gate_live_init 신설
+  engine_runtime.py         ImportError 수정
+  db/purge_sim_trades.py    신설
+  day_pattern.bat           신설
+  purge_sim_trades.bat      신설
+  배치파일사용법.txt         갱신
+  _about.txt                갱신
+
+────────────────────────────────────────────────────────────────────────────────
+[2026-03-21] makelog.txt + 인수인계서.txt 교차 검토 (vigorous-noether 세션)
+────────────────────────────────────────────────────────────────────────────────
+- makelog ↔ 인수인계서 교차 검증: 이번 세션 변경사항 15개 블록 전부 일치 확인
+- night_sim.bat: 인수인계서 배치목록에 있으나 makelog 신설 이력 없음 (기존 파일로 추정, 존재 확인 권장)
+- 다음 우선 작업: day_pattern.bat [1] 실행 → session_patterns 등록 → sim.bat [6r]
+- 현재 상태: sim_adoptions 0건 / validation 0건 / 훈련 3일치 (3/18~20)
+
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+[2026-03-21] day_pattern.bat [1] + sim.bat [6r] 검증 실행 (vigorous-noether)
+────────────────────────────────────────────────────────────────────────────────
+1. day_pattern.py 실행 → session_patterns 1건 추가 (총 7건)
+   신규: 2026-03-20 TREND_DOWN (변동-8.8t, FOREIGN_SELL)
+   기존: 2026-03-13 RANGE_WIDE / 2026-03-14 RANGE_TIGHT / 2026-03-16 TREND_UP
+         2026-03-17 CHOPPY / 2026-03-18 TREND_UP / 2026-03-19 CHOPPY
+
+2. [6r] 레짐 기반 교차검증 3쌍 실행 (day_sim.py --source-db/--sim-db 명시)
+   - DB 경로 버그 발견: day_sim.py 단독 실행 시 sim_opt/storage/sim.db (100K 빈 DB)를
+     기본 경로로 사용 → 반드시 --sim-db storage/sim.db 명시 필요
+     (sim.py 경유 실행 시에는 자동으로 올바른 경로 전달됨 — 운영 이슈 없음)
+   ① train=2026-03-18(TREND_UP) → valid=2026-03-16(TREND_UP): 10/10 전패 (best=-213t)
+   ② train=2026-03-19(CHOPPY)   → valid=2026-03-17(CHOPPY):   10/10 전패 (best=-40.9)
+   ③ train=2026-03-17(CHOPPY)   → valid=2026-03-19(CHOPPY):   10/10 전패
+      * rank2 obj=+10.7이나 MaxDD=-90t (기준 -20t) → 낙폭 초과 탈락
+
+3. 결론: sim_adoptions 0건 유지
+   원인: 3일치 데이터 → 과적합 심각, 같은 레짐 다른 날 일반화 불가
+   → 데이터 축적(최소 7~10일 이상) 후 재시도 필요
+
+4. _about.txt 전 디렉토리 숙지 완료
+   이후 코드·DB 변경 전 반드시 사전 확인 원칙 준수
+
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+[2026-03-21] day_pattern.bat 영문 재작성 (vigorous-noether)
+────────────────────────────────────────────────────────────────────────────────
+- 원인: 배치파일 한글 인코딩 깨짐 (chcp 65001 무관하게 CMD가 오파싱)
+- 조치: 한글 전량 제거, 영문으로 전면 재작성 (ASCII 인코딩)
+- 방침: 이후 모든 배치파일 신규/수정 시 한글 사용 금지
+
+================================================================================
+
+--------------------------------------------------------------------------------
+[2026-03-21] RAG session_pattern field build (vigorous-noether)
+--------------------------------------------------------------------------------
+- db/db_setup_sim.py: added ("rag_documents","session_pattern","TEXT") to _MIGRATIONS
+  -> existing sim.db auto-migrated via ALTER TABLE
+- rag/sim_rag_builder.py:
+  _setup_rag_tables(): added session_pattern TEXT column to rag_documents
+  _build_candidate_docs(): reads a.train_pattern and propagates to session_pattern
+  _build_failure_docs(): stress-fail docs get train_pattern; low_trade gets NULL
+  build_rag_documents(): INSERT expanded to 21 columns (session_pattern added)
+- rag/sim_vector_store.py: added session_pattern param to search() (WHERE filter)
+  returned dict now includes session_pattern field
+- rag/rag_retriever.py:
+  _regime_mismatch(): exact session_pattern match takes priority over proxy regime_type fallback
+  retrieve_context(): session_pattern param; 1st pass pattern-filtered search, fallback to full pool
+  build_query_text(): added pattern=X token (embedding quality improvement)
+  returned dict now includes pattern_filtered bool
+
+================================================================================
+--------------------------------------------------------------------------------
+[2026-03-21] sim.bat: auto RAG rebuild on exit (vigorous-noether)
+--------------------------------------------------------------------------------
+- sim.bat: after sim.py exits normally, auto-runs:
+    1. python db\db_setup_sim.py storage\sim.db  (apply migrations incl. session_pattern)
+    2. python rag\sim_rag_builder.py --rebuild   (rebuild all RAG docs)
+- Also replaced Korean error message with English (batch file English-only policy)
+
+================================================================================
+--------------------------------------------------------------------------------
+[2026-03-21] sim.bat: RAG rebuild conditional on sim_adoptions (vigorous-noether)
+--------------------------------------------------------------------------------
+- sim_adoptions=0 이면 rebuild skip, 1건 이상이면 migration+rebuild 자동 실행
+- python -c sqlite3 COUNT(*) 로 조건 판단 (exit code 0=실행, 1=skip)
+
+================================================================================
+--------------------------------------------------------------------------------
+[2026-03-21] sim.db 무효 데이터 삭제 + VACUUM (vigorous-noether)
+--------------------------------------------------------------------------------
+- 삭제 대상: 2026-03-16, 2026-03-17, 2026-08-18
+  사유: 3/16~17 day session flow_score 전체 NULL (ForeignFlowEngine 미수집 시기)
+        2026-08-18 미래 날짜 테스트 데이터
+- 삭제 규모: sim_runs 151,963 / sim_trades 10,712,975 / sim_observations 151,936건
+- sim_adoptions 영향: 0건 (채택 파라미터 없음, 안전 삭제)
+- VACUUM 완료
+- 잔존 유효 데이터: 2026-03-18~20 (random/bayes_opt/validation)
+- 결론: flow_score 수집 시작일 = 2026-03-18, 이후 데이터만 유효
+
+================================================================================
+--------------------------------------------------------------------------------
+[2026-03-21] Champion/Challenger 완전 제거 (vigorous-noether)
+--------------------------------------------------------------------------------
+- 제거 이유: 실시간 표본 부족(0~3건/일), RAG 파이프라인 연결 없음, DB/CPU 낭비
+- 거래 흐름 확정: 데이터축적 -> adoption -> VIRTUAL -> PAPER -> LIVE
+- 삭제 파일: sim_opt/ab_sim_runner.py, config/promotion_evaluator.py, routes/routes_promotion.py
+- 수정 파일: app_bootstrap.py, app_state.py, engine_runtime.py, analyzer_app.py
+             routes/routes_analytics.py (ab_sim_runner 파라미터 제거, experiment_summary 엔드포인트 제거)
+             db/export_dev_db.py (ab_sim_trades/comparisons 제거)
+- DB 테이블 삭제: ab_sim_trades(551행), ab_sim_equity(485,562행),
+                  promotion_batches(0), promotion_evaluations(0) + VACUUM
+
+================================================================================
+--------------------------------------------------------------------------------
+[2026-03-21] X드라이브 NightRegimeEngine 신규 작성 (vigorous-noether)
+--------------------------------------------------------------------------------
+- 위치: X:\night_regime_engine.py (night_collector 와 동일 디렉토리)
+- 목적: 원시 틱(futures_price, trade_qty, trade_strength, oi_value, spread) →
+        1분 버킷 집계 → regime 지표 연산 → night_ticks.db.night_regime_ticks 저장
+- 계산 지표: price_ema_fast/slow(EMA 12/26), basis_proxy(MACD-line),
+             basis_ema(signal), basis_slope(5분 기울기), volume_burst(20분 평균비),
+             flow_proxy(체결강도 기반 방향성 [-1,+1], foreign_buy 대리),
+             oi_delta, avg_spread, long_score/short_score, bias(BULL/BEAR/NEUTRAL)
+- 처리 모드: 증분(기본), 전체재계산(--rebuild), 날짜한정(--date), 현황(--status)
+- night.bat: 메뉴 8(지표 연산 증분), 9(현황) 항목 추가
+- 향후: NightRegimeEngine 지표가 충분히 쌓이면 정규장 regime_ticks 와 동일 인터페이스로
+        야간장 시뮬레이션 연결 가능 (MMEAN 통합 경로)
+
+================================================================================
+[2026-03-21] MarketAnalyst — 장중 3분 인터벌 시장 분석기 신규 구현
+- engines/market_analyst.py 신규: 09:00 이후 3분마다 Haiku LLM 호출
+  → 최근 3분 regime_ticks 요약 + 직전 view 이력 전달 → 시장 상태(view) 분류
+  → view: TREND_UP/TREND_DOWN/VOLATILE/CHOPPY/SPIKE_REVERSAL/REVERSAL_UP/REVERSAL_DOWN
+- core/app_state.py: market_analyst 필드 + market_view/market_view_ts/market_view_history state 키 추가
+- core/app_bootstrap.py: MarketAnalyst 초기화 및 start() 연결
+- core/engine_runtime.py: _llm_call_in_bg — 진입 Sonnet 호출 시 market_view 컨텍스트 자동 추가
+  (직전 view 변화 이력 포함 → 스파이크/반전 맥락 전달)
+
+================================================================================
+[2026-03-21 08:00] AdoptionViewAdapter — market_view 기반 adoption config 자동 교체 구현
+- engines/adoption_view_adapter.py 신규: market_view 변경 시 sim_adoptions 조회 → cfg_mgr.update()
+  → train_pattern 일치 adoption 자동 적용 (1순위: stress_passed, 2순위: adopted, 3순위: candidate)
+  → adoption 없으면 현재 config 유지 (fallback)
+- core/app_state.py: adoption_view_adapter 필드 + state 키 3개 추가
+  (adoption_view_active_id, adoption_view_active_pat, adoption_view_fallback)
+- core/app_bootstrap.py: AdoptionViewAdapter 초기화 (MarketAnalyst보다 먼저)
+- engines/market_analyst.py: _run_once() 후 adapter.on_view_change() 호출 추가
+- core/engine_runtime.py: session_watchdog_loop 종료 직전 reset_to_default() 호출 추가
+
+================================================================================
+[2026-03-22 14:35] 장중 LLM 판단 구조 개편 — CheckpointAnalyst 신설 + AdoptionViewAdapter 안전장치
+- 설계 원칙: MarketAnalyst=3분 미시감시 / CheckpointAnalyst=09:15·10:30·13:00 구조판단 / session_pattern=사후확정
+- engines/checkpoint_analyst.py 신규: 3개 체크포인트 Haiku 분석 → state 저장
+  → 09:15: opening_char (opening_strength|fade|chop|early_imbalance_up|down, size_filter)
+  → 10:30: provisional_regime (trend_continuation|reversal|balance, direction, confidence)
+  → 13:00: afternoon_regime (trend_alive|dead|reversal|box, late_bias, risk_adj)
+- engines/market_analyst.py: AdoptionViewAdapter 직접 호출 제거 (미시감시 전용으로 역할 축소)
+- engines/adoption_view_adapter.py: SHADOW_MODE=True + 안전장치 추가
+  (연속 2회 확인, confidence=HIGH, 30분 쿨다운, 일 3회 한도, UNSTABLE_VIEWS=size축소만)
+- core/app_state.py: opening_char·provisional_regime·afternoon_regime 상태키 추가, checkpoint_analyst 필드
+- core/app_bootstrap.py: CheckpointAnalyst 초기화·시작 배선
+
+================================================================================
+[2026-03-22 14:52] CheckpointAnalyst → Sonnet 컨텍스트 배선
+- core/engine_runtime.py: _llm_call_in_bg() 에 체크포인트 결과 주입 블록 추가
+  → opening_char / provisional_regime / afternoon_regime → user_prompt "[장중 체크포인트 분석]" 섹션
+  → 없는 항목은 자동 생략, 있는 항목만 출력
+- 이전까지 state에 저장만 되고 Sonnet이 읽지 못하던 누락 배선 수정
+
+================================================================================
+[2026-03-22 15:10] 즉시 기능구멍 3개 수정
+① 대시보드 장중 LLM 분석 패널 추가 (templates/dashboard.html)
+   - 그리드 4칸: 3분 시장 상태(market_view) / 09:15 아침장 / 10:30 잠정레짐 / 13:00 오후재평가
+   - size_filter 색상 표시: 진입차단=red / 사이즈축소=yellow / 정상=green
+   - JS fetchStatus()에 market_view·opening_char·provisional_regime·afternoon_regime 업데이트 추가
+② opening_char.size_filter 실제 게이트 연결 (core/engine_runtime.py)
+   - PositionEngine base_size에 _oc_size_adj 곱셈 반영 (normal=1.0 / reduce=0.5 / skip=0.0)
+   - PAPER/LIVE _gated_signal: size_filter=skip → "WAIT" 강제 (신규 진입 차단)
+③ sim.py ask_range_valid_dates() flow_score NULL 날짜 자동 제외
+   - fetch_null_flow_dates() 헬퍼 신규: flow_score 전부 NULL인 날짜 탐지
+   - 검증 범위 조회 후 NULL 날짜 자동 필터 + 콘솔 표시
+
+================================================================================
+[2026-03-22 15:45] JudgmentLog — 판단 사건 단위 기록 시스템 신규 구현
+
+- 설계: 매 진입 후보 = 1레코드 (open→llm_update→close 3단계 생명주기)
+- logs/judgment_log.py 신규: JudgmentLog 클래스
+  → open_event(): 진입신호 발생 시 레짐/체크포인트 스냅샷 저장
+  → update_llm(): LLM 응답 후 action/risk_view/confidence/weight_adj 업데이트
+  → close_event(): 거래 청산 시 pnl/mfe/mae/exit_reason back-fill + llm_was_right 계산
+- db/db_setup.py: judgment_events 테이블 + 인덱스 4개 추가
+  (ts, entry/final_signal, prov_regime+afternoon_regime, llm_was_right+risk_view)
+- core/app_state.py: judgment_log 필드 + state["active_judgment_event_id"] 추가
+- core/app_bootstrap.py: JudgmentLog 초기화 배선
+- core/engine_runtime.py: 3곳 배선
+  ① 진입신호 발생 시 open_event() → state["active_judgment_event_id"]
+  ② _llm_call_in_bg 성공 시 update_llm() (state_snap의 event_id 사용)
+  ③ sim_has_pos True→False 전환 감지 → close_event() → event_id 초기화
+- 분석 가능 질문: LLM 정확도/checkpoint 조합 승률/거절의 손실회피 효과
+
+================================================================================
+[2026-03-22 10:24 KST] paper_shadow 채택 보류 구간 구현 (candidate → validated → paper_shadow → adopted)
+- db/db_setup_sim.py: shadow_trades 테이블 신규 + sim_adoptions 컬럼 6개 추가 migration
+  (shadow_trade_count, shadow_total_pnl, shadow_win_rate, shadow_obj, shadow_started_at, shadow_evaluated_at)
+- sim_opt/shadow_evaluator.py 신규: ShadowEvaluator 클래스
+  → run_session(): 세션별 JudgmentLog 이벤트 vs 채택 config 비교 → shadow_trades 저장
+  → promote_to_shadow(): validated → paper_shadow (수동)
+  → promote(): paper_shadow → adopted (기준: N≥20, PnL>0, WR≥45%, 과적합비≤1.5)
+  → print_shadow_status(): 현황 출력 (🔵validated / 🟡paper_shadow / 🟢adopted)
+- sim_opt/day_sim.py: run_slippage_stress() stress_passed=1 시 status='validated'로 자동 업데이트
+- sim.py: [7s] shadow 현황 출력 / [7a] validated→shadow→adopted 수동 승격 메뉴 추가
+- sim.bat: sim.py 종료 후 paper_shadow 세션 평가 자동 실행 (shadow_evaluator.py --session)
+
+================================================================================
+[2026-03-22 19:32 KST] RAG 실패 회피 메모리 재설계 — B/C 패턴 분류 및 LLM 주입 연결
+- db/db_setup.py: failure_patterns 테이블 신규
+  (combo_key, combo_type, pattern_type, n, win_rate, avg_pnl, confidence, summary_text)
+  pattern_type: forbidden(WR<30%) / failure(WR30~45%,pnl<0) / success(미주입)
+  combo_type: oc_prov / prov_ar / oc_ar / single_oc (체크포인트 2-way/1-way 조합)
+- rag/rag_prep.py: step4_build_failure_patterns() 추가 (90일 고정 윈도우)
+  judgment_events 집계 → failure_patterns UPSERT / n<5 건너뜀(과보수 방지)
+  main() 에 step=4 / step=0(전체) 연결
+- rag/rag_retriever.py: get_failure_avoidance_context() 신규
+  현재 opening_char+prov_regime+afternoon_regime → failure_patterns 조회
+  confidence=LOW(n<10) 패턴 주입 안 함 — 과보수화 방지 핵심 게이트
+  override 허용 주석 포함 ("다른 강력한 진입 근거가 있으면 override 가능")
+- core/engine_runtime.py: _llm_call_in_bg 체크포인트 블록 직후 주입
+  예외 발생 시 debug 로그만 남기고 LLM 호출 계속 진행
+================================================================================
+[2026-03-22 20:15 KST] 이상징후 차단기(CB1~4) + LLM SIZE_UP캡 + 리포팅 지표 추가
+- core/engine_runtime.py: 이상징후 차단기 CB1~CB4 구현
+  CB1: ws_connected 미연결 차단 / CB2: flow_gate 미달(< MIN_FLOW_GATE=5) 차단
+  CB3: session_type vs 실제 HH:MM 불일치 차단 / CB4: 동방향 신호 30초 쿨다운
+  _check_anomaly_gates() 헬퍼 + _cb4_last_signal/ts 루프 변수 추가
+  sim/paper/live 진입 조건에 `not _cb_reason` 게이트 추가
+- core/engine_runtime.py: LLM 위험조정기 비대칭 클램프 적용
+  SIZE_UP 최대 +0.10 (기존의 절반) / SIZE_DOWN 최대 -0.20 유지
+  _WA_MAX_UP / _WA_MAX_DOWN 분리 상수화
+- sim_opt/day_sim.py: force_exit_ratio + mfe_realization_rate 리포팅 지표 추가
+  _compute_and_insert_summary(): FORCE_EXIT_EOD 비율 / MFE 실현율 계산 후 DB 저장
+  print_validation_report(): fe_pct ⚠️>50% / mfe_real ⚠️<40% 경고 출력 추가
+- db/db_setup_sim.py: sim_run_summary 마이그레이션 컬럼 추가
+  force_exit_ratio REAL DEFAULT 0 / mfe_realization_rate REAL DEFAULT 0
+================================================================================
+[2026-03-22 12:06 KST] Warning Signal Entry Gate 구현 (Caution/Ambiguous 분리 체계)
+- rag/rag_prep.py: get_pattern_warning_level() 추가
+  pattern_memory.warning_level raw 값 반환 (danger/warning/caution/none) — 엔진 gate 계산 전용
+- rag/rag_retriever.py: get_failure_pattern_meta() 추가
+  failure_patterns 조회 → (pattern_type, confidence) 반환 — 포맷 텍스트 없이 gate 계산 전용
+- core/engine_runtime.py: entry_gate 블록 신규 삽입 (_wa_scaled 계산 직후)
+  danger→REJECT / warning·caution→HALF / forbidden(MED/HIGH)→REJECT(Ambiguous proxy v1)
+  entry_gate 우선순위: REJECT → _wa_scaled=0 / HALF → _wa_scaled=-_WA_MAX_DOWN
+  _gated_signal·gated_entry 에 entry_gate==REJECT 조건 추가 (CB/oc_sf 와 동급 게이트)
+  state["flow_entry_gate"] 로 대시보드/로그 노출
+================================================================================
+[2026-03-22 12:34 KST] docs/ 폴더 정리 + POLICY.md 최초 작성
+- makelog.txt / 배치파일사용법.txt → C:/mme/mmean/docs/ 로 이동 (사용자)
+- docs/POLICY.md 신규 작성 (355줄)
+  용어 일원화 / 시스템 구조 / 진입·청산·포지션 정책 / LLM 역할 범위
+  Warning Signal Entry Gate (Caution/Ambiguous) + HALF 실제 의미 명시
+  파라미터 승격 파이프라인 / RAG·실패회피 메모리 / v1 한계 및 향후 과제
+- memory/feedback_makelog.md 경로 업데이트: 루트 → docs/makelog.txt
+================================================================================
+[2026-03-22 13:16 KST] 대시보드 라이트 테마 전환 + Warning Signal Gate 패널 신규
+- templates/dashboard.html: 전체 라이트 테마 전환 (#0f172a/#111827 → #f8f8f6/#ffffff)
+  5개 canvas 차트 섹션 완전 제거 (basisChart/scoreChart/slopeChart/volumeChart/biasChart)
+  drawLineChart / drawBiasTimeline JS 함수 제거
+  Warning Signal Entry Gate 패널 신규 추가:
+    entry_gate 배지 (ALLOW=초록 / HALF=노랑 / REJECT=빨강)
+    caution_level 배지 (pattern_memory.warning_level 기반)
+    ambiguous 배지 (failure_patterns fac_type + confidence)
+    weight_adjust raw vs final 바 차트 (LLM 원본 vs gate 적용 후)
+- core/engine_runtime.py: flow_caution_level / flow_fac_type / flow_fac_conf / flow_wa_raw 4개 state 필드 추가
+================================================================================
+[2026-03-22 13:37 KST] 대시보드 구조 개편 — LLM 레짐 패널·한글 해설·UI 정리
+- templates/dashboard.html: 표준/민감 모드 버튼 제거, 프롬프트 보드 링크 추가
+  LLM 레짐 판단 패널 신규 (상단 배치): 레짐라벨/위험관점/flow_score/신뢰도 + reason_main/against 2열
+  Warning Signal Gate 패널 → LLM 레짐 패널 바로 아래 이동 (topbar 직후 최상단)
+  장중 LLM 분석(체크포인트) 패널 → Gate 패널 다음 순서 유지
+  카드 13개에 .sublabel 한글 해설 추가 (베이시스=스프레드, OI=미결제약정 등)
+  dead code 제거: toKoreanMode 함수, updateModeButtons, setMode
+- core/engine_runtime.py: flow_llm_reason_main / flow_llm_reason_against state 필드 추가
+
+[2026-03-22 14:05 KST] 파라미터 설정 패널 — 전 파라미터 한글 설명 추가
+- templates/dashboard.html: 전략 파라미터 설정 7개 fieldset 전체 (50개 파라미터)
+  각 <label>에 <b>param_name</b> + <span class="cfg-desc">: 한글 설명</span> 형식 적용
+  fieldsets: 시장상태·외국인/OI(7) / 베이시스·점수·진입(9) / 진입·보유·청산(7)
+             추세EMA(9) / 야간레짐(6) / 시뮬레이션엔진(7) / LLM파라미터(8)
+  CSS: cfg-row label flex 확장, cfg-desc 클래스 신설, 저장/복원 버튼 라이트 테마 수정
+
+[2026-03-22 14:20 KST] entry_gate REJECT/HALF 누적 카운터 추가
+- core/engine_runtime.py: entry_gate 결정 직후 state["flow_gate_reject_count"] / ["flow_gate_half_count"] 증가
+  기존 state.get() 패턴으로 세션 누적 — 재시작 시 0부터 다시 시작
+- templates/dashboard.html: Gate 패널에 누적 발동 행 신규 추가 (Row 4)
+  REJECT=빨간 숫자, HALF=노란 숫자, updateGatePanel() 파라미터 2개 추가
+
+[2026-03-22 14:50 KST] 1순위: pattern_memory/failure_patterns 자동 갱신 파이프라인 구축
+- core/app_bootstrap.py: 엔진 시작 시 daemon 스레드 _run_rag_prep_if_stale() 실행
+  staleness 기준: pattern_memory 행=0 OR max(last_updated) > 6시간 경과 → step2+4 실행
+  시작 후 10초 지연(초기화 완료 대기) → subprocess.run(rag_prep.py --step 2/4)
+- rag_prep.bat 신규 생성: 수동 실행 메뉴 (step2/step4/step2+4/step0)
+
+[2026-03-22 14:50 KST] 2순위: entry_gate 발동 이력 인메모리 로그 + 대시보드 테이블
+- core/engine_runtime.py: REJECT/HALF 발동 시 state["flow_gate_log"] 리스트에 event append
+  최근 10건 유지 ({ts, gate, caution, fac, conf} 딕셔너리), /api/status 통해 자동 노출
+- templates/dashboard.html: Gate 패널 하단에 발동 이력 테이블 추가 (Row 6)
+  이력 없을 때 섹션 숨김, 발동 시 자동 표시 / updateGateLogTable() JS 함수 신규
+
+[2026-03-22 14:50 KST] 3순위: entry_gate_log DB 영구 기록
+- db/db_setup.py: entry_gate_log 테이블 신규 추가 (ts/session_date/gate/caution_level/fac_type 등)
+  인덱스 2개 추가 (ts, session_date+gate)
+  setup_all()에 _create_entry_gate_log_table() 추가
+- core/engine_runtime.py: REJECT/HALF 발동 시 sqlite3 INSERT (열린 연결 즉시 close)
+  opening_char/prov_regime/afternoon_regime 포함 — 일별 통계·RAG 피드백 루프 기반 마련
+
+[2026-03-22 15:30 KST] entry_gate_log 중복 기록 방지 (상태 전이 감지)
+- core/engine_runtime.py: state["flow_entry_gate_prev"] 로 이전 gate 값 추적
+  REJECT/HALF 발동 시에도 전이(_gate_transitioned=True)일 때만 카운터/이력/DB 기록
+  0.5초 루프에서 동일 상태 유지 시 중복 INSERT 방지 — 통계 오염 차단
+
+[2026-03-22 15:30 KST] final_gate_reason 단일 필드 추가
+- core/engine_runtime.py: _final_gate_reason 계산 — data_gate > opening_skip > cb_block
+  > entry_gate_reject > entry_gate_half > allowed 우선순위로 압축
+  state["flow_final_gate_reason"] 노출
+- templates/dashboard.html: Gate 패널 entry_gate 배지 옆 reason 칩 추가
+  색상 코딩: allowed=초록, half=노랑, reject=빨강, cb_block=보라, opening_skip=주황
+
+[2026-03-22 15:30 KST] RAG Prep 헬스 상태 state + 대시보드 노출
+- core/app_bootstrap.py: _run_rag_prep_if_stale()에 runtime 인자 추가
+  status(idle/running/success/error), last_run_ts, last_success_ts, error, pm_count, fp_count
+  6개 state 필드 실시간 업데이트 — 엔진 재시작 없이 헬스 확인 가능
+- templates/dashboard.html: RAG Prep 헬스 패널 신규 (Gate 패널 바로 아래)
+  status 배지 색상 + pattern_memory/failure_patterns 행 수 + 마지막 성공/실행 시각 + 오류 메시지
+- docs/after.txt 신규 생성 — 나중에 할 작업 목록 (A-001~A-003)
+
+[2026-03-22 16:10 KST] B-001/B-002 결함 수정 + after.txt 전면 재작성
+- [B-001] app_bootstrap.py: rag_prep 자동 트리거 step (2,4) → (1,2,4) 로 수정
+  staleness 체크에 market_features 행 수 추가 (pm>0 AND mf>0 AND 6h 이내일 때만 스킵)
+  rag_prep.bat: step1 단독 메뉴 추가, [4] step1+2+4 권장 항목 신설
+- [B-002] engine_runtime.py: entry_gate_log INSERT 시 connection 재사용
+  runtime._gate_log_conn 에 lazy init 캐싱 — WAL 잠금 충돌 방지
+  오류 시 캐시 초기화 → 다음 전이 시 자동 재연결
+- docs/after.txt: 11개 항목 (🔴B 3건 / 🟡A 7건 / 🔵C 5건) 재정리
+  B-001/B-002 [DONE 2026-03-22] 표시
+
+[2026-03-22 17:00 KST] 구조 정비 — path_setup 우선순위 수정 + 불필요 파일 삭제
+- path_setup.py: subdirs 순서 수정 — core/ 를 마지막(→ sys.path[0] 최우선)으로 이동
+  이전: order/ 가 sys.path[0] → kis_tr_catalog 충돌(WS_TR_BY_SESSION 누락) 위험
+  수정: core/kis_tr_catalog.py 가 order/kis_tr_catalog.py 보다 항상 우선 로드
+- analyzer_app.py: import path_setup 누락 추가 (기존 sim.py 에만 있었음)
+- sim_opt/day_sim.py, night_sim.py: _STORAGE 경로 수정
+  dirname(__file__)/storage → dirname(dirname(__file__))/storage (mmean/storage/ 정상화)
+- 삭제: storage/sim.db.corrupted (3.7 GB 고아), sim_opt/storage/sim.db (100 KB 고아) + 디렉토리
+  삭제: llm/llm_controller.py + app_bootstrap.py·app_state.py 내 모든 참조 제거
+  삭제: TRcode/*.xlsx 전체, scripts/check_order_imports.py, tmp_drives.py, tmp_night_list.py
+- docs/after.txt: S-001(engine_runtime 분해), S-002(flat import 전환) 장기 항목 추가
+  외부 리뷰 보고서 2건 검토 — 즉시 수정 불필요 판단, after.txt 기록으로 처리
+
+[2026-03-22 17:30 KST] 웹훅 발신 기능 구현 (진입·청산·강제청산 → POST)
+- core/webhook_sender.py 신규: build_payload() + send() — daemon thread 비동기 POST
+  페이로드: flow_* 전체 + entry_signal/bias/시장지표/세션컨텍스트 60여 개 state 변수
+  HMAC-SHA256 서명 옵션(X-MMEAN-Signature 헤더), POST 타임아웃 5초, 실패 조용히 무시
+- core/engine_runtime.py: webhook_send() 호출 3곳 추가
+  _run_entry() → "ENTRY" / _run_exit() → "EXIT" / _force_close_live_position() → "FORCE_EXIT"
+  ImportError 시 no-op fallback — 트레이딩 로직 영향 없음
+- core/app_bootstrap.py: WEBHOOK_URL / WEBHOOK_SECRET settings 로드 추가
+- .env.public: 웹훅 설정 섹션 추가 (MMEAN_WEBHOOK_URL / MMEAN_WEBHOOK_SECRET)
+
+[2026-03-22 18:00 KST] 웹훅 다중 클라이언트 + 수신 조회 기능 구현
+- core/webhook_registry.py 신규: WebhookClient dataclass + load_registry() + find_by_token()
+  .env.webhook 파싱 (CLIENT_N_URL/SECRET/TOKEN/NAME 형식, N=1~∞)
+  URL만 → 발신 전용 / TOKEN만 → 조회 전용 / 둘 다 → 양방향
+- core/webhook_sender.py 전면 재작성: 단일 URL → 레지스트리 기반 전원 병렬 전송
+  클라이언트별 독립 daemon thread (Webhook-EVENT-C{id}), 실패 개별 무시
+- core/app_state.py: AppRuntime.webhook_clients: list 필드 추가
+- core/app_bootstrap.py: 부팅 시 _load_webhook_registry() 실행 + 로드 결과 로그
+  WEBHOOK_URL/SECRET settings 항목 제거 → .env.webhook 방식으로 일원화
+- routes/routes_webhook.py 신규: POST /api/webhook/state 엔드포인트
+  X-MMEAN-Token 헤더 인증, fields 필터, 503(초기화 중) 처리
+- analyzer_app.py: register_webhook_routes(app, runtime) 추가
+- .env.webhook 신규(gitignored): 클라이언트 등록 파일 템플릿
+- .env.webhook.example 신규(tracked): GitHub 공개용 등록 형식 예시
+- .gitignore: .env.webhook 추가 / .env.public: 웹훅 섹션 → .env.webhook 안내로 대체
+
+[2026-03-22 18:30 KST] 웹훅 외부 리뷰 반영 — 3개 수정
+- core/webhook_registry.py: URL 없어도 TOKEN만 있으면 레지스트리 등록 허용
+  이전: url 없으면 continue → 조회 전용 클라이언트 등록 불가 구조 불일치
+  수정: url AND token 둘 다 없을 때만 건너뜀
+- core/webhook_registry.py: find_by_token() == 비교 → hmac.compare_digest() 교체
+  타이밍 공격 방지 (token_bytes 사전 인코딩 후 루프 내 재사용)
+- routes/routes_webhook.py: 인증 실패 WARNING·성공 INFO 감사 로그 3곳 추가
+  실패 시 ip + token 앞 6자리, 성공 시 client_id·name·ip·fields 수 기록
+- docs/after.txt: W-001(rate limit)·W-002(토큰 회전)·W-003(thread pool)·W-004(fields 화이트리스트)
+  선택 보강 4개 항목 추가 — 현재 규모에서는 불필요, 클라이언트 확장 시 검토
+
+[2026-03-22 19:00 KST] 고아 .env 파일 삭제 — env 파일 루트 일원화
+- core/.env.secrets 삭제: API 키 중복 분산 (로드 코드 없음 — app_bootstrap.py 는 base_dir 루트만 참조)
+- core/.env.public 삭제: .gitignore 미등록 상태로 git tracked 위험 + 사용처 없음
+- env 파일은 루트(.env.secrets / .env.public / .env.webhook)에만 존재하는 것으로 정리
+
+[2026-03-22 20:30 KST] 선물 종목 선택 기능 구현 + 틱 상수 오류 수정
+- TRcode/ 재정리: 상품기본조회[v1_국내주식-029].xlsx → idx/로 이동, TRcode/ 디렉토리 삭제
+- idx/contract_spec.py 신규: 노멀·미니 틱 상수 정의
+  NORMAL_TICK_PT=0.05, NORMAL_TICK_VALUE=12500, NORMAL_MULTIPLIER=250000
+  MINI_TICK_PT=0.02, MINI_TICK_VALUE=1000, MINI_MULTIPLIER=50000
+  is_mini() / tick_pt() / tick_value() / multiplier() 헬퍼
+- idx/mst_parser.py 신규: fo_idx_code_mts.mst 파서
+  FuturesContract dataclass, load_contracts(), find_nearest(), detect_nearest_pair()
+  단축코드 구조: A[01=노멀|05=미니][연도마지막자리][월2자리] (e.g. A01606=표준2026년6월)
+- 틱 오류 수정:
+  engine_runtime.py: _TICK_SIZE = NORMAL_TICK_PT (contract_spec import)
+  engine_runtime.py: pnl_ticks*25000 → pnl_ticks*12500 (2배 과계산 수정)
+  rag_prep.py: pnl_ticks*25000 → pnl_ticks*12500
+  logs/judgment_log.py: _TICK_SIZE = NORMAL_TICK_PT
+  app_bootstrap.py: slippage_pt = ticks * NORMAL_TICK_PT (0.05 하드코딩 제거)
+- path_setup.py: "idx" 서브디렉토리 등록 추가 (core/ 직전, sys.path에 mst_parser/contract_spec 노출)
+- app_bootstrap.py: MINI_FUTURES_CODE / TRADE_INSTRUMENT settings 추가
+  _auto_detect_contracts() 신규: MST에서 노멀·미니 최근월물(mmsc_cls_code=1) 자동 감지
+  build_runtime() 시작 시 호출 — .env 명시값 없을 때만 갱신
+- core/engine_runtime.py: KISRealtimeClient.change_symbol() 신규
+  _new_tr_key 플래그 → async for 루프에서 감지 → break → while True 재연결
+- order/order_executor.py: TRADE_INSTRUMENT="mini" 시 MINI_FUTURES_CODE로 주문
+  수량 환산 없음 (1포지션 = 1계약 고정)
+- routes/routes_core.py: API 3개 추가
+  GET /api/symbol/list — MST 파싱 결과 + 현재 설정 반환
+  POST /api/symbol/set — 노멀 종목 변경 + WS 재연결 (포지션 보유 중 차단)
+  GET|POST /api/instrument — 노멀/미니 매매 전환 (포지션 보유 중 차단)
+- templates/dashboard.html: 종목 선택 패널 신규 추가 (h1 바로 아래)
+  노멀 근월물 드롭다운 + 적용 버튼 / 표준선물·미니선물 토글 버튼
+  현재가 피드 종목·주문 종목 별도 표시 / 틱 가치 안내 (12,500원 vs 1,000원)
+
+[2026-03-22 21:30 KST] MMEX 1단계 골격 생성 — C:/mmex/ 디렉토리 신규
+- 위치: C:/mmex/ (MMEAN 멀티 클라이언트 구성원, 같은 프로젝트 관리)
+- 정의: MMEAN 웹훅 이벤트 수신 → 계좌별 운영 정책 평가 → 멀티계좌 주문 실행
+  MMEX는 시장 판단 없음. 운영 판단(enabled/pause/상태 정합성)만 수행.
+- 구조: core/ accounts/ broker/ db/ routes/ templates/ docs/
+  core/: app_bootstrap, app_state, webhook_receiver(POST /webhook/receive), dispatcher
+  accounts/: account_registry(.env.accounts 파서), policy_engine, position_manager(상태머신)
+  broker/: base_adapter(추상), kis_adapter(1단계 dry-run)
+  db/: db_setup.py — 5개 테이블 (master_events/accounts/account_positions/executions/execution_logs)
+  핵심 원칙: master_events 1건 → executions N건 (원장·실행 이력 반드시 분리)
+- 상태머신: IDLE→ENTRY_PENDING→POSITION_OPEN→EXIT_PENDING→IDLE / 실패→HALTED
+- 현재 단계: 1단계 dry-run 동작 가능 / 실계좌 주문은 2단계 예정 (after.txt B-002)
+- MMEAN 연동: .env.webhook CLIENT_N_URL=http://[MMEX]:5010/webhook/receive
+================================================================================
+[2026-03-23] [PATH-FIX] 프로젝트 경로 전면 수정
+  대상: core/app_bootstrap.py, rag/rag_prep.py, scripts/night.py, sim_opt/replay_sim.py
+  내용:
+    - app_bootstrap.py: load_settings(), setup_logging(), build_runtime() 모두
+      root_dir = os.path.dirname(base_dir) 기준으로 .env / logs / storage / pid 경로 수정
+    - rag_prep.py: DB_PATH를 프로젝트 루트 기준으로 수정
+    - scripts/night.py: DEFAULT_SOURCE_DB, DEFAULT_SIM_DB 경로 수정
+    - sim_opt/replay_sim.py: _DEFAULT_DB 경로 수정
+
+[2026-03-23] [EXEC-AND] 실행 모드 OR → AND 구조 전환
+  대상: core/app_state.py, routes/routes_core.py, core/engine_runtime.py,
+        templates/dashboard.html
+  내용:
+    - 기존: execution_mode = "OFF" | "VIRTUAL" | "PAPER" | "LIVE" (단일 선택)
+    - 변경: exec_data(항상ON) / exec_sim / exec_paper / exec_live 4개 독립 bool 플래그
+    - API: POST /api/execution/mode { flag: "sim"|"paper"|"live" } 토글
+    - 게이트: paper → order_state 초기화 확인 / live → 비밀번호 + EXECUTION_ENABLED
+    - 대시보드: 버튼 각각 독립 ON/OFF 표시, 활성 플래그 색상 구분
+      sim=파랑(#38bdf8) / paper=주황(#fb923c) / live=빨강(#f87171)
+    - fetchStatus 1초 폴링에서 exec_flags 자동 동기화
+
+[2026-03-23] [BUGFIX] engine_runtime.py 전체 log 미정의 수정
+  대상: core/engine_runtime.py (상단 import 섹션)
+  내용: import logging + log = logging.getLogger("MMEAN") 추가
+        → ErrorTracker.record(), engine_loop() 내 모든 log.xxx 호출 일괄 해결
+
+[2026-03-23] [BUGFIX] rag_retriever.py sqlite3 미import 수정
+  대상: rag/rag_retriever.py
+  내용: import sqlite3 추가
+
+[2026-03-23] [NEW] 5분 장세 펄스 (LLMPulse) 구현
+  신규: engines/llm_pulse.py — 5분 인터벌 Haiku 호출, 방향(BULLISH/NEUTRAL/BEARISH),
+        신뢰도, 요약, 통계(전환횟수·안정도·평균지속시간) 계산
+  수정: core/app_state.py — AppRuntime에 llm_pulse 필드 추가
+  수정: core/app_bootstrap.py — LLMPulse 초기화·시작
+  수정: routes/routes_core.py — GET /api/llm_pulse 엔드포인트 추가
+  수정: templates/dashboard.html — 장중 LLM 분석 패널 아래 5분 펄스 패널 추가
+        (타임라인·통계바·방향전환 표시, 30초 폴링)
+
+[2026-03-23] [ENHANCE] LLMPulse DB 영속성 + 심층 분석 추가
+  수정: engines/llm_pulse.py
+    - mmean.db pulse_history 테이블 자동 생성 (DDL: _CREATE_SQL)
+    - _init_db(): CREATE TABLE IF NOT EXISTS + 인덱스 (date, datetime_full)
+    - _load_today_from_db(): 재시작 시 오늘 이력 복원 (휘발 방지)
+    - _db_insert(): 스냅샷 INSERT (비동기 스레드, 메인루프 블로킹 없음)
+    - _db_update_duration(): 직전 스냅샷 duration_min UPDATE (비동기)
+    - get_analysis(days): 다일간 심층 분석 반환
+        daily: 날짜별 안정도·방향분포·평균지속시간
+        overall: 전체 집계, 연속최장실행, 방향별 avg_duration
+        hourly: 시간대별 방향분포 (9~15시)
+        transitions: 방향전환 패턴 (BULLISH→BEARISH 등 빈도)
+  수정: routes/routes_core.py — GET /api/llm_pulse/analysis?days=N 추가
+
+[2026-03-23] [BUGFIX] LLMPulse 이력 늘어나지 않는 문제 수정
+  원인 1: _loop가 5분을 먼저 기다린 뒤 첫 실행 → 재시작 후 5분간 신규 항목 없음
+  원인 2: 틱 부족/LLM 실패 로그가 debug 레벨 → 실패 원인 육안 확인 불가
+  조치 1: _loop 시작 직후 30초 대기 후 즉시 _run_once() 호출, 이후 5분 인터벌 반복
+  조치 2: 틱 부족/API 키 없음/LLM 실패 모두 warning 레벨로 격상
+
+[2026-03-23] [DESIGN] 5분 전략 신호 체계 종합 설계 완료
+  산출물: docs/design_review.txt (전략·설계·코딩 종합 검토서)
+  산출물: docs/after.txt (자동 보정 시스템 구현 예정 기록)
+  핵심 결정:
+    - LLMPulse → 규칙 기반 PulseEngine으로 전환 (LLM은 30분 검증자로)
+    - 지표 역할 3분리: 방향(A) / 추세강화(B) / 실행제한(C)
+    - 2단계 스코어링: 방향 점수 → 신뢰 보정
+    - 추세 확정: 3회 연속 (15분)
+    - 횡보: VWAP ± ATR×0.5, 5분 지속 시 선언
+
+[2026-03-23] [NEW] SidewaysDetector 구현 (STEP 1)
+  신규: engines/sideways_detector.py
+    - 횡보 진입: VWAP ± ATR×0.5 이내 5틱 연속
+    - 횡보 해제: 레인지 이탈 + 2틱 연속 + 수급/기술 조건 1개 이상
+    - 하드 블록(RANGE) vs 소프트 블록(CHOPPY) 계층 코드에 고정
+    - SidewaysState 데이터클래스로 상태 외부 노출
+  수정: core/app_state.py
+    - AppRuntime에 sideways_detector 필드 추가
+    - state에 sideways_active/reason/lower/upper 초기값 추가
+  수정: core/app_bootstrap.py
+    - SidewaysDetector 초기화 및 runtime 등록
+  수정: core/engine_runtime.py
+    - 매 틱 recorder.insert_tick() 직후 sideways_detector.update() 호출
+    - 결과를 state에 반영 (sideways_active, reason, lower, upper)
+
+[2026-03-23] [DESIGN-FIX] 외부 검토 반영 — 확정 보완 3항목
+  대상: docs/design_review.txt
+  내용:
+    1. PulseValidator fallback 확정
+       - 1회 실패: 직전 결과 유지
+       - 2회 연속 실패: validator 비활성 + 진입 half 모드
+       - 복귀 조건: 2회 연속 성공 (상수 고정)
+    2. SidewaysDetector ↔ CHOPPY 계층 확정
+       - RANGE = 하드 블록 (우선순위 최상위, override 불가)
+       - CHOPPY = 소프트 블록 (RANGE 해제 후에도 유지)
+       - 코드에 고정, 운영 중 변경 불가
+    3. 데이터 부재 fallback 확정
+       - 값 없음 = 0점 처리
+       - 핵심 지표 누락: confidence -0.3, 방향 확정 금지
+       - 보조 지표 누락: confidence -0.1
+       - confidence < 0.5 → confirmed 불가
+       - confidence < 0.3 → 진입 전면 금지
+       - 상수 5개 고정 (CONFIDENCE_PENALTY_CORE 등)
+
+[2026-03-23] [NEW] PulseEngine 구현 (STEP 2+3)
+  신규: engines/pulse_engine.py
+  내용:
+    - A-그룹(방향) 4개 지표: 외국인 델타(×2), 외국인 복합, FlowScore, LongShort 스프레드
+    - B-그룹(신뢰강화) 3개 지표: OI×가격, EMA기울기, 베이시스
+    - B-그룹 점수 = 방향 부호 곱산 (BULLISH=+1, BEARISH=-1, NEUTRAL=0)
+    - 2단계 판정: A 합산 → 임계(±4) 초과 시 방향 확정, 이후 confidence 계산
+    - 데이터 부재 패널티: 핵심 -0.3 / 보조 -0.1 (상수 고정)
+    - 추세 확정: 3회 연속 동일 방향 confirmed (15분)
+    - 진입 허용 체크: RANGE 하드블록, Validator 블록, confidence 하한 적용
+    - SQLite pulse_signals 테이블 자동 생성 (WAL 모드)
+    - PulseSignal 데이터클래스로 외부 스냅샷 제공
+    - 5분 인터벌(30초 warm-up 후 즉시 첫 실행)
+  상수 (불변):
+    A_BULLISH_THRESH=+4, A_BEARISH_THRESH=-4
+    B_CONFIRM_MIN=+1, TREND_CONFIRM_COUNT=3
+    CONFIDENCE_PENALTY_CORE=0.3, CONFIDENCE_PENALTY_SUB=0.1
+    CONFIDENCE_MIN_CONFIRM=0.5, CONFIDENCE_MIN_ENTRY=0.3
+    DATA_STALE_SEC=120
+
+[2026-03-23] [NEW] PulseScorer 구현 (STEP 4)
+  신규: engines/pulse_logger.py
+  내용:
+    - 60초 폴링으로 pulse_signals 미채점 레코드 조회
+    - 5분/10분/15분 뒤 가격(regime_ticks)과 신호 방향 비교
+    - 판정: success / fail / neutral / sideways_err
+    - 실패 유형 분류: overreact(빠른 역전) / slow(느린 반응) / sideways_err(횡보 오판)
+    - 채점 완료 시 result_5m/10m/15m, fail_type, price_at_* UPDATE
+  상수 (불변):
+    SCORE_MOVE_MIN=0.3, SCORE_MOVE_SIDE=1.5, SCORE_FAST_FAIL=1.0
+
+[2026-03-23] [NEW] PulseValidator 구현 (STEP 5)
+  신규: engines/pulse_validator.py
+  내용:
+    - 30분 인터벌 LLM(Haiku) 검증: PulseEngine 방향과 LLM 판단 비교
+    - 일치/약불일치/강불일치 3단계 분류
+    - fallback 정책 (상수 고정):
+        1회 실패 → 현상 유지
+        2회 연속 실패 → HALF 모드 (사이즈 0.5×)
+        2회 연속 성공 → NORMAL 복귀
+    - ValidatorStatus: NORMAL / WEAK_MISS / STRONG_MISS / HALF / INACTIVE
+    - get_size_factor(): 1.0 / 0.5 / 0.0 반환
+    - is_entry_blocked() / is_half_mode() / should_close_position() 게이트 제공
+  상수 (불변):
+    INTERVAL_SEC=1800, VALIDATOR_FAIL_FALLBACK=1
+    VALIDATOR_FAIL_HALF=2, VALIDATOR_RECOVER_COUNT=2
+
+[2026-03-23] [NEW] PulseAnalyzer 구현 (STEP 6)
+  신규: engines/pulse_analyzer.py
+  내용:
+    - pulse_signals 누적 데이터 분석 (최근 N일, 기본 30일)
+    - 분석 항목 6종:
+        accuracy: 5분/10분/15분 방향 성공률
+        fail_types: overreact / slow / sideways_err 분포
+        by_status: confirmed / weak / transition 정확도 비교
+        by_hour: 시간대별(9~15시) 성공률
+        score_dist: 방향 점수 구간별 성공률 (strong_bull ~ strong_bear)
+        flip_rate: 방향 전환 빈도율
+    - /api/pulse/analysis?days=N 에서 호출
+
+[2026-03-23] [ENHANCE] PulseEngine 파이프라인 통합 — 상태·부트스트랩·라우트·대시보드
+  수정: core/app_state.py
+    - AppRuntime에 pulse_engine / pulse_scorer / pulse_validator / pulse_analyzer 필드 추가
+  수정: core/app_bootstrap.py
+    - 부트스트랩 순서: SidewaysDetector → PulseEngine → PulseScorer →
+                       PulseValidator → PulseAnalyzer 초기화 및 runtime 등록
+  수정: routes/routes_core.py
+    - GET /api/pulse: PulseEngine 현재 신호 + 이력 + Validator 상태 + 횡보 상태 반환
+    - GET /api/pulse/analysis?days=N: PulseAnalyzer 분석 결과 반환
+    - 기존 /api/llm_pulse 및 /api/llm_pulse/analysis 유지 (병행 운영)
+  수정: templates/dashboard.html
+    - "5분 장세 펄스" 패널 → "5분 전략 펄스" 패널로 교체
+    - 표시 항목: RANGE 태그 / Validator 태그 / 방향+상태 뱃지 / 신뢰도
+                 추세 확정(방향·연속횟수·★태그) / A·B 그룹 스코어바
+                 진입 상태(RANGE블록/Validator블록/허용/제한) / 통계
+                 타임라인(방향·상태·신뢰도·점수)
+    - 스코어바: 50% 중앙 기준 방향성 채움 (cyan=강세, red=약세)
+    - API 폴링: /api/llm_pulse → /api/pulse (30초 인터벌 유지)
+
+[2026-03-23] [WIRE] PulseEngine·PulseValidator → 실주문 실행 배선
+  수정: core/engine_runtime.py (실주문 실행 배선 구간)
+  내용:
+    1. PulseEngine 진입 허용 연결
+       - 매 틱 runtime.pulse_engine.get_signal() 호출
+       - signal.entry_allowed == False → _gated_signal = "WAIT" (진입 차단)
+       - 엔진 없거나 예외 시 True로 폴백 (기존 동작 유지)
+    2. PulseValidator 사이즈 팩터 연결
+       - 매 틱 runtime.pulse_validator.get_size_factor() 호출
+       - sf=1.0: 정상 / sf=0.5: half 모드 / sf=0.0: 진입 차단
+       - flow_order_size × sf → _raw_size (최소 1계약 보정 적용)
+       - sf=0.0 → _gated_signal = "WAIT" (신호 게이트에서도 이중 차단)
+       - validator 없거나 예외 시 1.0으로 폴백
+    3. 기존 게이트 우선순위 유지
+       (skip / cb_reason / REJECT / pulse_entry / pulse_val_sf 순서)
+  수정: templates/dashboard.html
+    - 구현 대기 목록에서 완료된 2개 항목 삭제
+      · PulseEngine 신호 → 진입/사이즈 연결
+      · PulseValidator get_size_factor() → 주문 사이즈 반영
+
+[2026-03-23] [ENHANCE] 대시보드 LLMPulse 패널 복원 + 구현 대기 목록 추가
+  수정: templates/dashboard.html
+  내용:
+    1. LLMPulse 패널 복원 (병행 모니터링)
+       - 5분 전략 펄스(PulseEngine) 패널 바로 아래 배치
+       - 현재 방향(▲/▼/—) + 신뢰도 + 요약 표시
+       - 오늘 강세/중립/약세 카운트 + 방향전환 횟수 통계
+       - 최근 8개 타임라인
+       - "병행 모니터링" 태그로 보조 상태 명시
+       - /api/llm_pulse 30초 폴링
+    2. 구현 대기 목록 테이블 (최하단)
+       - after.txt 기반 항목을 테이블로 정리
+       - 처리 완료 시 코드에서 직접 삭제
+       - 중요도 / 분류 / 내용 / 처리 가능 시점 / 상태 컬럼
+
+[2026-03-23] [NEW] 선물·현물 투자자 3주체 delta 수집 파이프라인
+  수정: core/kis_data_api.py
+    - fetch_investor_by_market(runtime, market_code, sub_code) 신규 추가
+      fetch_investor_once()의 범용 버전 — 시장코드 파라미터화
+  수정: core/engine_runtime.py
+    - INVESTOR_INST_CANDIDATES  ["stot_orgn_ntby_qty", "orgn_ntby_qty", ...]
+    - INVESTOR_INDIV_CANDIDATES ["stot_prsn_ntby_qty", "prsn_ntby_qty", ...]
+    - fetch_investor_data() 전면 확장:
+        선물(K2I/F001) + 현물(KSP/2001) 각각 호출
+        외국인·기관·개인 절대값 추출 (후보 리스트 방식, 필드명 변형 대응)
+        폴링 간 delta 계산 (첫 폴링은 0.0)
+        investor_cache에 12개 신규 필드 갱신
+    - raw dict 구성 구간: investor_cache → state 싱크 항목 12개 추가
+  수정: core/app_state.py
+    - investor_cache 초기값 12개 추가
+    - state 초기값 12개 추가
+      (fut/spot × fgn/inst/indiv × buy/delta)
+  수정: core/app_bootstrap.py
+    - SPOT_INVESTOR_MARKET_CODE / SPOT_INVESTOR_SUB_CODE 설정 키 추가
+  수정: .env.public
+    - MMEAN_SPOT_INVESTOR_MARKET_CODE=KSP
+    - MMEAN_SPOT_INVESTOR_SUB_CODE=2001
+  참고: 수집만 완료. PulseEngine 스코어링 반영은 2주 운영 후 결정
+
+[2026-03-23] [FEATURE] 대시보드 MarketAnalyst + LLMPulse 패널 추가
+  수정: templates/dashboard.html
+    - MarketAnalyst(3분 장중 상태) 패널 추가 — /api/status에서 market_view 읽기
+      view/direction/confidence/reason + 최근 기록 5건 히스토리
+    - LLMPulse 패널 단순화 — 동일 구조로 정리, MarketAnalyst 바로 위 배치
+    - reason/summary 텍스트 색상 → #e2e8f0 (흰색)
+
+[2026-03-23] [FIX] 서버 재시작 시 cold-start CB2_FLOW_INSUFFICIENT 문제 해결
+  문제: 재시작마다 foreign_net_history deque 초기화 → 5분간 모든 진입 차단
+  수정: core/engine_runtime.py
+    - _restore_foreign_net_history() 신규 추가
+    - 서버 기동 시 regime_ticks DB에서 최근 30분치 foreign_buy 데이터 복원
+    - 복원 건수 로그: "foreign_net_history 복원 | N건"
+  결과: 재시작 후 즉시 CB2 평가 가능 (5분 공백 제거)
+
+[2026-03-23] [FIX] CheckpointAnalyst 재시작 시 3개 체크포인트 동시 재실행 방지
+  문제: 서버 재시작 시 모든 체크포인트(10:30/12:30/14:30)가 동시 발화
+  수정: core/engine_runtime.py
+    - checkpoint_today 테이블 기반 persistent 실행 여부 관리
+    - 재시작 후에도 당일 완료 체크포인트 건너뜀
+
+[2026-03-23] [DATA] 6주체 수급 delta + 레인지 데이터 → regime_ticks + RAG 전체 연결
+  배경: 6주체 delta가 state에는 있었으나 DB/RAG에서 활용 불가 상태였음
+  수정: db/db_setup.py
+    - _MIGRATIONS에 9개 신규 컬럼 추가
+    - CREATE TABLE regime_ticks 정의에 9개 컬럼 포함
+    - 컬럼: fut_fgn_delta, fut_inst_delta, fut_indiv_delta
+             spot_fgn_delta, spot_inst_delta, spot_indiv_delta
+             session_high, session_low, price_range_pct
+  수정: core/app_state.py
+    - session_date / session_high / session_low / price_range_pct 초기값 추가
+  수정: core/engine_runtime.py
+    - insert_tick() 호출 직전 당일 레인지(session_high/low) 실시간 갱신
+    - 날짜 변경 시 자동 초기화 (session_date 비교)
+    - price_range_pct = (price - low) / (high - low), 동률이면 0.5
+  수정: regime/regime_recorder.py
+    - INSERT INTO regime_ticks에 9개 신규 컬럼 + 값 추가
+  수정: rag/rag_prep.py
+    - _foreign_zone() / _flow_zone() 헬퍼 함수 신규 추가
+    - _cluster_key() 5차원으로 확장 (basis|volume|time|foreign|flow)
+    - step1 SELECT: fut_fgn_delta, fut_inst_delta, price_range_pct 추가
+    - feature_vector 4개 신규 키: foreign_zone, flow_zone,
+                                   price_range_pct, inst_delta_zone
+    - step2: feature_vector JSON에서 foreign_zone/flow_zone 읽어 cluster_key 생성
+  결과: 2주 이상 데이터 축적 후 6주체 흐름 기반 RAG 패턴 분류 가능
+
+[2026-03-23] [FIX] Haiku LLM max_tokens 너무 작아 JSON 파싱 실패율 43.5%
+  원인: 각 엔진의 _MAX_TOKENS가 응답 JSON 길이 대비 지나치게 작음
+        특히 LLMPulse summary(2~3문장) = 250 토큰으로 잘림
+  수정: engines/market_analyst.py  _MAX_TOKENS 150 → 250
+        engines/llm_pulse.py       _MAX_TOKENS 250 → 450
+        engines/checkpoint_analyst.py _MAX_TOKENS 200 → 300
+        engines/pulse_validator.py    _MAX_TOKENS 200 → 300
+
+[2026-03-23] [FEATURE] 대시보드 지표 패널 개편
+  제거(5): 베이시스기울기, 누적거래량, 거래량변화, 체결수량, 최우선호가×2
+  추가(4): 레인지위치%, 기관선물 delta, 현물외인 delta, 현선동조(방향 일치 여부)
+  수정: templates/dashboard.html
+    - 제거 카드 HTML 및 JS 업데이트 라인 삭제
+    - 신규 카드: #priceRangePct / #futInstDelta / #spotFgnDelta / #spotFutSync
+    - 현선동조는 JS로 실시간 계산: fut_fgn_delta vs spot_fgn_delta 부호 비교
+
+[2026-03-23] [REFACTOR] KIS 브로커 명령어 order/ 패키지로 일원화
+  목표: 모든 KIS REST 호출을 한 곳에서 함수로 꺼내 쓰는 구조로 정리
+  문제: core/kis_order_api.py와 order/kis_order_api.py 중복 존재
+        engine_runtime.py가 core/ 경로에서 잘못 import 중
+
+  수정: order/kis_order_api.py — 누락 함수 3개 추가
+    - modify_order(org_ord_no, new_price, qty)       주문 정정
+    - get_orderable_qty(side, price, pdno)           주문가능 수량 조회
+    - get_order_history(start_dt, end_dt, side, ...) 날짜범위 체결내역 (연속조회)
+
+  수정: core/kis_order_api.py — stub으로 교체
+    - 실제 구현 제거, order/ re-export만 유지 (하위호환)
+    - DEPRECATED 주석으로 올바른 사용법 안내
+
+  수정: core/engine_runtime.py — import 경로 수정
+    - from kis_order_api import get_order_token  (core/ 직접 참조)
+    - → from order.kis_auth_order import get_order_token
+
+  수정: order/_about.txt — 전체 함수 목록 최신화
+
+  결과: KIS 브로커 REST 함수 단일 위치 원칙 확립
+    데이터 조회 → core/kis_data_api.py
+    주문 실행   → order/order_executor.py  (유일 진입점)
+    주문 REST   → order/kis_order_api.py   (place/cancel/modify/balance/history)
+    인증        → order/kis_auth_order.py
+    TR 등록     → order/kis_tr_catalog.py
+
+[2026-03-24] [FIX] Flask 스레드 고갈로 인한 대시보드 응답 정지 — DB write 빈도 감소
+  증상: 대시보드 1~2분마다 멈춤, /api/status 무한로딩, database is locked 반복
+  원인: 매 0.5초 commit + busy_timeout=30000 → Flask 스레드 30초씩 대기 → 고갈
+  수정:
+    core/engine_runtime.py
+      - insert_tick() 호출 후 flush_tick_batch() 즉시 호출 제거
+      - regime_recorder의 5초 auto_flush 스레드로 위임
+    regime/regime_recorder.py
+      - _FLUSH_INTERVAL = 5.0, _auto_flush 데몬 스레드 추가 (5초마다 commit)
+    engines/llm_pulse.py
+      - _db_update_duration async thread → 직접 동기 호출
+      - _insert_async thread → 인라인 동기 실행
+    engines/pulse_engine.py
+      - _history.append()를 DB insert 성공 조건 밖으로 이동 (항상 인메모리 기록)
+      - _insert async thread → 동기 실행
+    core/app_bootstrap.py
+      - PulseScorer interval_sec 60 → 300
+    config/config_manager.py, config/param_store.py, logs/judgment_log.py
+      - sqlite3 timeout 30 → 2, busy_timeout 30000 → 2000
+    routes/routes_core.py
+      - /api/status에서 engine_lock 제거 (읽기 전용 스냅샷)
+    llm/llm_chain.py
+      - LLM_MAX_TOKENS 기본값 200 → 500 (JSON 응답 잘림 → 파싱 실패 43.5% 해결)
+
+[2026-03-24] [ENHANCE] 대시보드 5분·3분 신호 텍스트 크기 및 중앙 정렬 개선
+  수정: templates/dashboard.html
+    - pulseDir (5분 전략 펄스 방향): font-size 18px → 40px, 수직 중앙 정렬
+    - llmPulseDir (5분 장세 펄스 LLM): font-size 18px → 40px, 수직 중앙 정렬
+    - maView (3분 장중 상태 MarketAnalyst): font-size 18px → 40px, 수직 중앙 정렬
+    - 각 패널 min-height:90px 적용으로 일관된 높이 확보
+
+[2026-03-24~25] [FIX] LLMPulse 항상 NEUTRAL 출력 — 프롬프트·컨텍스트 보강
+  증상: 5분 장세 펄스(LLMPulse)가 어제부터 항상 "중립"만 출력
+  원인:
+    1. 프롬프트에 BULLISH/BEARISH 판단 기준 없음 → LLM이 애매하면 NEUTRAL 선택
+    2. 컨텍스트에 long_score·short_score·regime·market_view 누락 → 판단 근거 부족
+    3. "확신 없으면 NEUTRAL" 암묵적 편향
+  수정: engines/llm_pulse.py
+    - _SYSTEM_PROMPT: BULLISH/BEARISH 명시적 기준 추가 (flow_score, long/short_score, 외국인, VWAP)
+    - "NEUTRAL은 신호 상충 시에만, 우세 방향으로 낮은 confidence 선택" 지침 추가
+    - 현물 매매 관점 summary 요구 (매수/관망/매도 의견 포함)
+    - ctx_snap에 long_score, short_score, regime, session_phase, spot_price,
+      price_vs_vwap, mv_direction, mv_reason 추가
+    - user_prompt에 3분 장세 판단(market_view) 포함
+
+[2026-03-24~25] [ADD] study.bat — sim+pulse_sim 동시 실행 배치
+  신규: C:/mmean/study.bat
+    - study.bat YYMMDD 입력 시 두 창으로 분리 실행
+    - 창1: sim.bat YYMMDD 무한 루프 (SIM트레이딩 최적화)
+    - 창2: pulse_sim.bat YYMMDD 무한 루프 (5분 신호 임계치 탐색)
+  비고: CRLF 인코딩 필수 (PowerShell로 생성)
+
+[2026-03-24~25] [FIX] C:/Users/besta/act.bat 디렉토리 이동 실패
+  원인:
+    - conda activate → call 없으면 서브프로세스로 실행 후 복귀, 환경 미적용
+    - cd c:/mmean → /d 플래그 없으면 다른 드라이브에서 이동 불가
+  수정:
+    - conda activate mmean → call conda activate mmean
+    - cd c:/mmean → cd /d c:\mmean
+
+[2026-03-25] [PLAN] pulse_sim.db 밸리데이션 계획 수립
+  - 실제 일별 패턴(TREND_UP/DOWN, CHOPPY 등)을 정답 레이블로 활용
+  - 패턴별 최적 파라미터 클러스터링 → 일반화 성능 교차 검증
+  - 매주 금요일 마감 후 실행 (첫 밸리데이션: 2026-03-28)
+  - 현재 확보 패턴: 03-16 TREND_UP, 03-17 CHOPPY, 03-18 TREND_UP,
+                    03-19 CHOPPY, 03-20 TREND_DOWN, 03-23 TREND_DOWN
+
+[2026-03-25] [CLEAN] pulse_sim.db 정리
+  - objective < 0 레코드 삭제 (의미없는 몬테카를로 실패 결과)
+  - run_type='random' 레코드 삭제 (bayes 결과만 보존)
+  - VACUUM 실행으로 파일 용량 회수
+  SQL:
+    DELETE FROM pulse_runs WHERE objective < 0;
+    DELETE FROM pulse_runs WHERE run_type = 'random';
+    VACUUM;
+
+[2026-03-25] [ADD] 횡보장 진입금지 + 포지션 청산 연결
+  변경 파일:
+    core/engine_runtime.py   — FLAT_BLOCK entry_gate REJECT 추가, sideways_force_exit 플래그 세팅
+    sim_opt/sim_engine.py    — FLAT_EXIT 즉시 청산 로직 추가
+
+  변경 내용:
+    1. entry_gate FLAT_BLOCK (engine_runtime.py ~line 1799)
+       - sideways_active=True OR market_view=FLAT_HIGH/FLAT_LOW → entry_gate=REJECT
+       - flow_final_gate_reason="flat_block" 으로 구분 (기존 entry_gate_reject와 분리)
+       - 우선순위: RAG 패턴 경고보다 상위 (횡보 확정 시 무조건 차단)
+    2. 횡보 진입 시 포지션 즉시 청산 (engine_runtime.py ~line 2075)
+       - sideways_active가 False→True 로 전환되는 첫 틱에만 1회 트리거
+       - sim_engine.on_tick() snap 에 sideways_force_exit=True 플래그 전달
+    3. sim_engine FLAT_EXIT (sim_engine.py ~line 758)
+       - snap["sideways_force_exit"]=True + has_position + data_gate_ok 조건 충족 시
+       - exit_reason="FLAT_EXIT" 으로 즉시 _close() → _save_trade() 정상 흐름
+
+  효과:
+    - 횡보 구간 휩쏘(연속 방향 전환)에 의한 손실 차단
+    - 횡보 진입 시 기존 포지션 즉시 청산 → 미실현 손익 보호
+    - FLAT 해제(SidewaysDetector 조건③ 충족) 시 자동으로 entry_gate ALLOW 복귀
+
+[2026-03-25] [ADD] docs/db.txt 최초 작성
+  - mmean.db(19개), sim.db(7개), pulse_sim.db(2개) 전체 테이블·필드 명세
+  - WAL/SHM 보조파일 설명, DB 용량 현황, 변경이력 섹션 포함
+  - 향후 테이블 변경 시 하단 변경이력 블록에 날짜·내용 추가 규칙 정립
+
+[2026-03-25] [REFACTOR] MarketAnalyst — 3분 고정 타이머 → 이벤트 트리거 방식으로 전면 교체
+  변경 파일:
+    engines/market_analyst.py  — 이벤트 트리거 로직 전면 재작성
+    core/engine_runtime.py     — 매 틱 check_trigger(state) 호출 추가
+    core/app_bootstrap.py      — interval_sec=180 제거
+    templates/dashboard.html   — 배지 "Haiku·3min" → "Haiku·이벤트감지",
+                                  트리거 사유 표시 영역(maTrigger) 추가
+
+  변경 내용:
+    - 3분 주기 루프 완전 제거 → _loop() 스레드 폐기
+    - check_trigger(state) 메서드 추가: 매 0.5초 틱마다 엔진에서 호출
+    - 트리거 조건 5가지 (OR):
+        1. EMA 기울기 부호 전환 (|slope| > 0.15)
+        2. EMA 기울기 급가속 (|slope| > 0.8)
+        3. 거래량 폭발 (volume_burst > 2.2)
+        4. flow_score 부호 전환 (|delta| > 0.06)
+        5. 신고가 / 신저가 갱신
+    - 쿨다운 120초 — 조건 충족 시에도 연속 호출 방지
+    - LLM 호출은 별도 스레드 (틱 루프 비차단)
+    - 입력 지표 개선:
+        기존: 3분 DB조회 집계 8개 (누적 외국인 포함 → 항상 강세 편향)
+        개선: state dict 직접 활용 16개 (EMA slope, flow_score, VWAP 위치,
+              일중범위 내 % 위치, 고점/저점까지 거리, 델타 기반 지표)
+    - view 레이블 추가: FLAT_HIGH, FLAT_LOW (횡보 고점/저점권)
+    - 이력 보관 3개 → 5개 확대
+    - state["market_view_trigger"] — 트리거 사유 저장 → 대시보드 표시
+
+  효과:
+    - 1시간 횡보 구간: LLM 호출 0회 (불필요한 "강세" 반복 제거)
+    - EMA 급변 / 거래량 폭발 / 수급 반전 순간: 즉시 호출 (평균 30초 이내)
+    - 누적 외국인 매수값에 의한 고질적 강세 편향 해소
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-25] 모의거래(exec_paper) 활성화
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  배경: sim_trades 03-17 이후 거래 없음 (pattern_memory danger 악순환)
+        실전 감 파악 위해 KIS 모의계좌 주문 활성화 결정
+
+  변경 파일:
+    - core/app_state.py: exec_paper False → True (기본값 변경)
+
+  구조 확인:
+    - KIS_ORDER_ENV=virtual (.env.public): 모의 서버(ops.koreainvestment.com:29443)로 주문
+    - EXECUTION_ENABLED는 exec_live 전용 게이트 — exec_paper에 불필요, 건드리지 않음
+    - try_entry/try_exit: exec_paper=True이면 KIS 모의계좌로 실제 주문 전송
+    - 대시보드: execBtn_paper 버튼 오렌지색 활성 표시, execModeStatus "모의거래" 표시
+
+  이후 확인사항:
+    - 재시작 후 mmean.log에 [EXEC-SKIP] 대신 주문 시도 로그 확인
+    - KIS 모의계좌 체결 내역 HTS에서 확인
+    - 대시보드 PAPER 버튼 오렌지색 확인
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-25] LLM 오판 수정 (신저가 오트리거 + 외국인 누적 편향)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  변경 파일:
+    - engines/market_analyst.py: _prev_session_low 초기값 999999.0 → 0.0
+    - engines/llm_pulse.py: foreign_buy 누적값 → 5분 delta (foreign[-1]-foreign[0])
+
+================================================================================
+[2026-03-25] 시스템 동결(freeze) 원인 분석
+================================================================================
+  증상: 대시보드/DB가 정확히 T+30초에 반복 멈춤 (13:30:42 / 13:40:41 / 13:47:51)
+  원인:
+    - MarketAnalyst TRACKING 상태 진입 후 TRACK_CHECK_SEC=30 마다 _calc_health() 호출
+    - health < HEALTH_DEAD(0.3) → _call_llm_async() 별도 스레드 생성 → DB write
+    - 메인 루프 DB write와 동시 충돌 → busy_timeout → Flask 스레드 고갈 → freeze
+  미수정 상태 (재시작 전 수정 필요 항목으로 기록)
+
+================================================================================
+[2026-03-25] LLM 비용 절감 (개발버전)
+================================================================================
+  변경 파일: .env.public
+    - MMEAN_LLM_PULSE_INTERVAL: 300 → 1800 (LLMPulse 5분→30분)
+  변경 파일: core/app_bootstrap.py
+    - LLMCaller 초기화 비활성화 (FlowEngine 파이프라인에서 제외)
+  주의: MMEAN_PULSE_ENGINE_INTERVAL도 실수로 1800으로 설정됨
+        → PulseEngine은 LLM 없으므로 300(5분)이 정상 (재시작 시 수정)
+
+================================================================================
+[2026-03-25] Z:(안정화) / C:(개발) 분리 운영 확정
+================================================================================
+  - Z:\storage\mmean.db: 안정화 버전 (노트북), 정상 수집 중
+  - C:\mmean\storage\: 개발 버전 (데스크탑), 코드 테스트 + 데이터 수집
+  - 안정화 버전은 별도 언급 전까지 코드 변경 없음
+  - 오늘 데이터 병합 방침: 장 후 C:\mmean 08:44~12:43 → Z:\storage\mmean.db
+
+================================================================================
+[2026-03-26] DB malformed 수정 — WAL/SHM 충돌 원인 규명
+================================================================================
+  증상: 시작 시 sqlite3.DatabaseError: database disk image is malformed
+  원인: 기존 mmean.db-wal / mmean.db-shm 파일이 남아있는 상태에서
+        안정화버전 mmean.db만 복사 → WAL 버전 불일치 → malformed
+  해결: 복사 전 로컬 mmean.db-wal / mmean.db-shm 먼저 삭제 후 복사
+  원칙 확립: DB 복사 시 WAL/SHM 먼저 삭제 → DB 복사 → 재시작
+
+================================================================================
+[2026-03-26] MarketAnalyst 이벤트 감도 향상
+================================================================================
+  변경 파일: engines/market_analyst.py
+    - EMA_SLOPE_FLIP:  0.15 → 0.08 (부호 전환 더 작은 기울기도 감지)
+    - EMA_SLOPE_ACCEL: 0.80 → 0.45 (급가속 더 빨리 감지)
+  변경 파일: config/config_manager.py (DEFAULT_CONFIG)
+    - trend_ema_period_fast:  20 → 10 (EMA 자체 반응 속도 향상)
+    - trend_ema_slope_window:  5 →  3 (slope 최근 틱 기준 단축)
+  목적: 장중 급변 감지 속도 개선 (5분/15분 추세는 PulseEngine이 담당,
+        MarketAnalyst는 급변 즉시 포착 전용)
+
+================================================================================
+[2026-03-26] intraday.db 신규 — MarketAnalyst 이력 영구 저장
+================================================================================
+  변경 파일: engines/market_analyst.py
+    - __init__: intraday.db 경로 지정 + _init_intraday_db() 호출
+    - _init_intraday_db(): market_view_log 테이블 + 인덱스 자동 생성
+    - _save_market_view(): LLM 결과 INSERT (session_date/ts/view/direction/
+                           confidence/reason/trigger/ema_slope/flow_score/futures_price)
+    - _run_triggered(): _save_market_view() 호출 추가
+  저장 위치: C:\mmean\storage\intraday.db (언제든 삭제 가능)
+  조회 SQL:
+    SELECT ts, view, direction, confidence, reason, trigger
+    FROM market_view_log WHERE session_date = 'YYYY-MM-DD' ORDER BY ts;
+
+================================================================================
+[2026-03-26] docs/makelog.txt → docs/history.txt 파일명 변경
+================================================================================
+  - makelog.txt 내용 전체를 history.txt로 이관
+  - 헤더 "MMEAN MAKELOG" → "MMEAN HISTORY" 변경
+  - 누락 이력(2026-03-25~26) 추가 완료
+  - 향후 이 파일(history.txt)에만 작업 이력 기록
+
+================================================================================
+[2026-03-26] LLMPulse 10분 장세 신호 → intraday.db 저장 추가
+================================================================================
+  변경 파일: engines/llm_pulse.py
+    - __init__: intraday.db 경로 지정 + _init_intraday_db() 호출
+    - _init_intraday_db(): llm_pulse_log 테이블 + 인덱스 자동 생성
+    - _save_intraday_log(): intraday.db에 1건 INSERT
+    - _run_once(): _db_insert() 이후 _save_intraday_log() 추가 호출
+  저장 컬럼: session_date/ts/direction/confidence/key_factor/summary/
+             changed/flow_score/foreign_buy/futures_price/bias/entry_signal
+  저장 위치: C:\mmean\storage\intraday.db (언제든 삭제 가능)
+  조회 SQL:
+    SELECT session_date, ts, direction, confidence, key_factor,
+           changed, flow_score, foreign_buy, futures_price, bias
+    FROM llm_pulse_log
+    WHERE session_date = 'YYYY-MM-DD' ORDER BY ts;
+
+================================================================================
+[2026-03-26] LLMPulse 외국인 순매수 누적 총량 → 5분 delta 전환
+================================================================================
+  배경:
+    오전 외국인 대량 매도가 쌓인 날, 오후 반등 구간에서도 BULLISH=0 판정.
+    차트상 약 18분 BULLISH 구간이 존재했음에도 감지 실패.
+    원인: ctx_snap["foreign_buy"]가 state에서 읽는 누적 총량 → 항상 음수 유지.
+  변경 파일: engines/llm_pulse.py
+    - ctx_snap["foreign_buy"]: state.get("foreign_buy") 누적 총량
+                               → tick_summary["foreign_buy"] 5분 delta 로 교체
+    - ctx_snap["foreign_buy_total"]: 누적 총량을 참고용으로 별도 보존
+    - _SYSTEM_PROMPT BULLISH 조건:
+        "외국인 순매수 양수이고" → "외국인 5분 delta 양수이고 (누적 총량 무시)"
+    - _SYSTEM_PROMPT BEARISH 조건:
+        "외국인 순매도이고" → "외국인 5분 delta 음수이고 (누적 총량 무시)"
+    - user_prompt 표현:
+        "외국인 5분 순매수 변화: ... (누적 아님·5분 delta)"
+        → "외국인 5분 delta: ... (오전 누적 총량 무관·최근 5분 변화)"
+  효과: 오전 누적 매도와 무관하게 오후 단기 매수세 반전 시 BULLISH 감지 가능
+
+================================================================================
+[2026-03-26] 진입 타이밍 후행성 분석 및 설계 방향 수립
+================================================================================
+  관찰:
+    - 하락 시작: 13:23
+    - 엔진 펄스 감지: 13:35 (12분 후행)
+    - LLMCaller 청산신호: 13:30 (7분 후행)
+    - MarketAnalyst(3분): 13:37 기준 미감지
+    - 원인: EMA/flow_score/LLM 모두 N초·N분 집계값 → 구조적 후행
+  결론:
+    - 후행성은 피할 수 없는 구조적 한계
+    - 빠르게 잡으려 하면 휩쏘, 안전하게 확인하면 늦음
+    - 방향성(레짐) 판단과 진입 타이밍을 분리해야 함
+  설계 방향:
+    - 레짐엔진/LLM: "무엇을 할지" (방향, 후행 허용)
+    - EntryTimingEngine: "언제 할지" (마이크로 선행 신호)
+      후보: volume_burst, basis_delta, vwap 이격, oi_delta, price_velocity
+    - 진입 조건: 레짐 방향 확정 AND 마이크로 신호 N개 충족 → 진입
+    - 진입 전용 RAG: 직전 30~60초 마이크로 스냅샷 → enter_confidence
+  등록: after.txt A-031(EntryTiming), A-032(진입RAG)
+  전제: sim_trades + market_view_log 1~2주 데이터 축적 후 구현
+
+================================================================================
+[2026-03-26] docs/entry_rag_prompt.txt 신규 작성
+================================================================================
+  내용: 진입 RAG 시스템 방법론 보고서 요청 프롬프트
+  목적: LLM(Claude/ChatGPT 등)에 붙여넣기하여 Entry RAG 설계 보고서 생성
+  구성: 현재 시스템 구조 / 핵심 문제 / 개념 구상 / 8개 항목 보고서 요청
+  경로: C:\mmean\docs\entry_rag_prompt.txt
+
+================================================================================
+[2026-03-26] Entry RAG 방법론 보고서 수령 및 종합 분석
+================================================================================
+  파일: C:\mmean\docs\entry_rag_report.txt
+  출처: Gemini / ChatGPT / Perplexity 3종 비교 + Claude 종합
+  3개 AI 공통 합의:
+    - 하이브리드(XGBoost + FAISS) 아키텍처
+    - 스냅샷 윈도우: 진입 전 60초
+    - 레이블: MAE(최대 불리 이탈폭) 기준
+    - 최소 데이터: 300건(운영), 1,000건(신뢰)
+    - 폴백: RAG 실패 시 FlowEngine Pass-through
+  추가 보완 사항 (Claude):
+    - session_phase → 피처가 아닌 모델 분기 조건으로 사용
+    - foreign_buy 누적 총량 제거 → fut_fgn_delta 전용 사용
+    - 휩쏘 정의 보완: MAE > 8틱 + 진입 후 10틱 내 반전 3틱 조건
+    - Cold Start 단계별 가중치 적용 (300건 미만 = 중립 0.5 고정)
+  권장 타임라인:
+    지금     → SQL 파이프라인 준비만 (데이터 수집)
+    +2주     → 300건 → XGBoost 기초 학습
+    +1개월   → 1,000건 → FAISS 추가, EntryTimingEngine 통합
+    +2개월   → A/B 테스트 → 실전 적용 결정
+
+================================================================================
+[2026-03-26] Entry RAG 보고서 — Grok 추가, 4개 AI 비교 완성
+================================================================================
+  파일: C:\mmean\docs\entry_rag_report.txt (4개 AI + Claude 종합)
+  Grok 특이사항:
+    - 스냅샷 윈도우 45초 (다른 AI는 모두 60초)
+    - 레이블 초기/충분 단계 2단계 구분 (유일)
+    - ATR 기반 session_phase별 레이블 기준 차등
+    - 최소 데이터 800건 (가장 현실적)
+    - ChromaDB 우선 → FAISS 마이그레이션 전략
+    - A/B 전환 기준 수치화: pnl +18% AND whipsaw -25%
+    - entry_rag/ 디렉토리 4파일 구조화
+  채택된 최종 설계안:
+    - 45초 윈도우 / ATR 기반 상대 레이블 / 800건 임계
+    - XGBoost + ChromaDB 하이브리드 / intraday.db 저장
+    - Cold Start: 800건 미만 = whipsaw_risk 0.5 고정
+    - 전환 기준: 30일 A/B, pnl+18% AND whipsaw-25%
+
+================================================================================
+[2026-03-26] Entry RAG 최종 종합 설계안 완성 (5개 AI 보고서 기반)
+================================================================================
+  파일:
+    docs/entry_rag_claude_report.txt  ← Claude 단독 보고서 (코드 직접 분석)
+    docs/entry_rag_final.txt          ← 5개 AI 종합 최종 설계안
+  Claude 보고서 핵심 고유 발견:
+    - sim.db/mmean.db 분리 → ATTACH JOIN 필요
+    - entry_events 테이블 이미 존재 → Phase 0 재활용 가능
+    - 정확한 삽입 지점: engine_runtime.py 라인 1812
+    - TRACK_CHECK_SEC=30 버그 → 새 스레드 금지, 동기 인라인 호출
+    - False REJECT Rate KPI 추가 (<15%)
+    - SMOTE 금지 (시계열 위반), 층화추출 대체
+  최종 채택 설계:
+    윈도우 45초 / ATR 기반 레이블 / 800건 학습 임계
+    XGBoost → ChromaDB 2단계 / mmean.db 영구 보존
+    Cold Start: 0~800건 비활성, 800~2,000 모니터링, 2,000~ gate 반영
+    전환 기준: pnl_atr +15% AND whipsaw -20% AND False REJECT <15%
+  지금 당장 할 일: scripts/build_entry_snapshots.py 작성
+
+================================================================================
+[2026-03-26] scripts/build_entry_snapshots.py 신규 작성 — Entry RAG Phase 0
+================================================================================
+  목적: sim_trades × regime_ticks 조인으로 진입 직전 45초 스냅샷 추출
+  출력: mmean.db entry_snapshots 테이블
+  주요 기능:
+    - 진입 open_ts 직전 45초(~45틱) regime_ticks 집계
+    - 피처 13종: vb/bed/pvv/fs/ffgn/efs/oid 각 last·mean·slope
+    - outcome_class: session_phase별 임계값 적용
+      (opening ±15틱 / closing ±6틱 / midday ±10틱)
+    - MAE clean ratio 1.5배 이상이면 SUCCESS 제외
+    - pnl_atr_ratio / mae_atr_ratio: ATR 대비 정규화 레이블
+    - features_json: 원시 45틱 시계열 (임베딩 입력용)
+    - 증분 처리 (기존 sim_trade_id 스킵)
+    - CLI: --since/--until/--window/--dry-run/--reset/--summary
+  실행 예:
+    python scripts/build_entry_snapshots.py
+    python scripts/build_entry_snapshots.py --since 2026-03-01 --dry-run
+    python scripts/build_entry_snapshots.py --summary
+  다음 단계(Phase 1):
+    entry_snapshots 데이터로 피처 중요도 분석 (XGBoost feature_importance)
+    → models/entry_model_train.py 작성
+
+================================================================================
+[2026-03-26] scripts/build_entry_snapshots.py 수정 — sim.db 의존성 제거
+================================================================================
+  변경 내용:
+    - 기본 소스를 sim_trades(sim.db) → trades(mmean.db)로 변경
+    - --source trades|sim 옵션 추가 (trades=기본, sim=선택)
+    - trades.direction INTEGER → 'LONG'/'SHORT' 문자열 변환 추가
+    - session_date / session_phase 없는 trades 테이블 자동 추론
+    - source별 UNIQUE 제약 (trades/sim 데이터 공존 가능)
+    - reset 시 해당 source 데이터만 삭제 (다른 소스 보존)
+  이유:
+    sim.db는 SimEngine 실행 시에만 생성 → 항상 존재하는 trades 우선 사용
+    trades = 실제 paper/live 체결 이력 → Entry RAG 학습에 더 적합
+
+================================================================================
+[2026-03-26] build_entry_snapshots.py 소스 정리 — mmean_sim 제거
+================================================================================
+  변경 내용:
+    - mmean_sim 소스 완전 제거 (mmean.db의 sim_trades 테이블 삭제됨)
+    - 소스 2종으로 단순화: sim(sim.db 배치, 기본) / trades(mmean.db 실거래)
+    - sim.db는 day_auto_run.py / night_auto_run.py 실행 시 storage/sim.db 생성
+    - 하루 수만 건 발생 → Entry RAG 학습 주력 소스
+  이유:
+    1일 거래만으로는 RAG 학습 불가 → mmean.db sim_trades 삭제 결정
+    sim.db 배치 최적화가 수만 건 → 충분한 학습 데이터 확보 가능

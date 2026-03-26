@@ -1,0 +1,447 @@
+================================================================
+MMEAN — KIS 브로커 API 함수 일람 및 사용 규칙
+================================================================
+최종 갱신: 2026-03-23
+이 문서는 채팅이 초기화되어도 브로커 명령어 구조를 즉시 파악할 수
+있도록 작성된 레퍼런스입니다. 코드 변경 시 이 문서도 함께 갱신하세요.
+
+================================================================
+1. 아키텍처 원칙
+================================================================
+
+[계층 구조]
+  엔진/라우트
+      │
+      ▼
+  order/order_executor.py   ← 주문 실행 유일 진입점
+      │
+      ├── order/kis_order_api.py    ← 주문·조회 REST
+      │       └── order/kis_auth_order.py  ← 토큰·헤더
+      │               └── order/kis_tr_catalog.py  ← TR 코드 등록
+      │
+      └── order/order_state.py     ← in-memory 포지션 관리
+
+  데이터 조회: core/kis_data_api.py  (주문 레이어와 완전 분리)
+
+[파일-역할 매핑]
+  파일                          역할
+  ─────────────────────────────────────────────────────────────
+  order/order_executor.py      주문 실행 엔진 (엔진의 유일 진입점)
+  order/kis_order_api.py       주문/취소/정정/잔고/내역 REST 함수
+  order/kis_auth_order.py      주문 계좌 토큰·헤더·AES 복호화
+  order/kis_tr_catalog.py      TR ID / URL / WS 코드 레지스트리
+  order/order_state.py         포지션 상태 관리 (WS 체결통보 기반)
+  order/kis_fill_ws.py         체결통보 WebSocket 클라이언트
+  core/kis_data_api.py         시세·투자자·외국인 데이터 REST 함수
+  core/kis_order_api.py        [DEPRECATED] 하위호환 stub만 남음
+
+[핵심 규칙]
+  ❌ 엔진/라우트에서 place_order() 직접 import·호출 금지
+  ❌ core/kis_order_api.py에서 import 금지
+  ✅ 주문 실행 → order.order_executor (execute_entry / execute_exit)
+  ✅ 조회 함수 → order.kis_order_api (라우트에서 직접 호출 가능)
+  ✅ 데이터 → core.kis_data_api
+
+[REST 호출 횟수 정책]
+  정상 거래 1사이클: REST 2회 (주문 1 + 청산 주문 1)
+  체결 확인:  WS 체결통보 (REST 0회)
+  포지션 확인: in-memory OrderStateManager (REST 0회)
+  잔고 조회:  프로세스 시작 1회 + WS 재연결 후만
+
+
+================================================================
+2. order/order_executor.py — 주문 실행 엔진 (유일 진입점)
+================================================================
+
+[ExecuteResult 데이터클래스]
+  ok          bool   True = 정상 체결 확인
+  ord_no      str    KIS 주문번호 (ODNO)
+  side        str    요청 side
+  req_qty     int    요청 수량
+  fill_price  float  체결단가 (0 = 미체결)
+  fill_qty    int    체결수량
+  cancelled   bool   취소 처리됨
+  refused     bool   KIS 거부
+  error       str    예외 메시지
+
+  is_terminal() → bool  # ok/cancelled/refused/error 중 하나 확정 시 True
+
+[함수]
+  execute_entry(runtime, side, qty=1, price=0.0, symbol=None, timeout=30.0)
+    → ExecuteResult
+    side: "LONG" (매수 진입) | "SHORT" (매도 진입)
+    price: 0.0 = 시장가
+    내부 흐름: place_order_and_track → wait_fill_detail(timeout)
+               타임아웃 시 cancel_order + remove_pending
+
+  execute_exit(runtime, qty=0, price=0.0, symbol=None, timeout=30.0)
+    → ExecuteResult
+    qty: 0 = 전량 청산
+    포지션 방향 자동 감지 (OrderStateManager.get_position())
+    FLAT 상태에서 호출 시 오류 반환
+
+[사용 예]
+  from order.order_executor import execute_entry, execute_exit
+
+  result = execute_entry(runtime, side="LONG", qty=1)
+  if result.ok:
+      print(f"체결: {result.fill_price} × {result.fill_qty}계약")
+
+  result = execute_exit(runtime)
+  if result.cancelled:
+      print("청산 타임아웃")
+
+
+================================================================
+3. order/kis_order_api.py — 주문·조회 REST 함수
+================================================================
+
+주의: place_order / place_order_and_track 은 order_executor 내부 전용
+      외부에서는 execute_entry / execute_exit 만 호출
+
+── 주문 실행 (order_executor 내부 전용) ────────────────────────
+
+  place_order(runtime, side, qty, price=0.0, symbol=None) → str
+    side: "LONG"|"SHORT"|"CLOSE_LONG"|"CLOSE_SHORT"
+    반환: 주문번호(ODNO)
+    ※ add_pending 누락 위험 — 직접 호출 금지
+
+  place_order_and_track(runtime, side, qty, price=0.0, symbol=None) → str
+    place_order + OrderStateManager.add_pending 원자적 실행
+    반환: 주문번호(ODNO)
+    ※ order_executor._execute()에서만 호출
+
+  cancel_order(runtime, org_ord_no, qty=0) → bool
+    qty=0 : 전량 취소
+    반환: 성공 True / 실패 False
+    ※ WS 체결통보 타임아웃(30s) 발생 시에만 호출
+
+  modify_order(runtime, org_ord_no, new_price, qty) → bool
+    주문 정정 (가격·수량 변경)
+    new_price=0.0 : 시장가 정정
+    반환: 성공 True / 실패 False
+
+── 조회 (라우트·서비스에서 직접 호출 가능) ─────────────────────
+
+  get_balance(runtime) → dict
+    선물 잔고 조회 (연속조회 자동 처리)
+    반환:
+      {
+        "positions": [  # output1 — 종목별
+          {
+            "shtn_pdno":        단축종목코드,
+            "prdt_name":        상품명,
+            "sll_buy_dvsn_name":매도/매수 구분,
+            "cblc_qty":         잔고수량,
+            "ccld_avg_unpr1":   체결평균단가,
+            "evlu_pfls_amt":    평가손익,
+            "lqd_psbl_qty":     청산가능수량
+          }, ...
+        ],
+        "summary": {    # output2 — 계좌 요약
+          "ord_psbl_cash":      주문가능현금,
+          "ord_psbl_tota":      주문가능총액,
+          "prsm_dpast":         추정예탁자산,
+          "futr_trad_pfls_amt": 선물실현손익,
+          "futr_evlu_pfls_amt": 선물평가손익,
+          "add_mgna_cash":      추가증거금
+        }
+      }
+    호출 시점: 프로세스 시작 1회 + WS 재연결 후만
+
+  get_orderable_qty(runtime, side="LONG", price=0.0, pdno="") → dict
+    주문가능 수량 조회
+    side: "LONG" | "SHORT"
+    price: 0.0 = 시장가
+    반환 주요 키:
+      tot_psbl_qty  : 총 가능 수량
+      lqd_psbl_qty1 : 청산 가능 수량
+      ord_psbl_qty  : 주문 가능 수량
+
+  get_order_history(runtime, start_dt="", end_dt="", side="ALL",
+                    filled="ALL", pdno="", sort="DS") → List[dict]
+    날짜 범위 주문체결내역 (연속조회 자동 처리)
+    start_dt / end_dt: YYYYMMDD (미입력 = 당일)
+    side:   ALL | LONG | SHORT
+    filled: ALL | FILLED | UNFILLED
+    sort:   DS=역순(최신순) | AS=정순
+    반환 항목 주요 키:
+      odno, ord_dt, sll_buy_dvsn_cd, pdno, prdt_name,
+      ord_qty, tot_ccld_qty, avg_idx, tot_ccld_amt, ord_tmd
+
+  get_fill_history_today(runtime) → List[dict]
+    오늘 체결내역 (예외·디버그 전용)
+    정상 운영에서는 WS 체결통보로 대체
+    반환: output1 rows (get_order_history와 동일 구조)
+
+
+================================================================
+4. order/kis_auth_order.py — 인증·헤더
+================================================================
+
+  order_base_url(runtime) → str
+    주문 REST base URL
+    ORDER_ENV=live   → https://openapi.koreainvestment.com:9443
+    ORDER_ENV=virtual → https://openapivts.koreainvestment.com:29443
+
+  order_ws_url(runtime) → str
+    주문 WebSocket URL
+    live    → ws://ops.koreainvestment.com:21000
+    virtual → ws://ops.koreainvestment.com:31000
+
+  get_order_token(runtime) → str
+    주문 계좌 access_token 반환
+    캐시: runtime.state_obj.order_token_cache
+    만료 5분 전 자동 갱신
+    키: .env.secrets KIS_ORDER_KEY / KIS_ORDER_SECRET
+
+  get_order_approval_key(runtime) → str
+    WS-2 체결통보 구독용 approval_key 발급
+    재연결마다 새로 발급
+
+  make_order_headers(runtime, tr_id, tr_cont="") → dict
+    주문 REST 공통 헤더 생성
+    content-type, authorization, appkey, appsecret, tr_id, custtype, tr_cont
+
+  aes_decrypt(cipher_b64, key, iv) → str
+    체결통보 AES-CBC 복호화
+    key / iv: 구독 성공 응답 output.key / output.iv
+    cipher_b64: 수신 메시지 '|' 구분 4번째 필드
+    requires: pip install pycryptodome
+
+
+================================================================
+5. order/kis_tr_catalog.py — TR 코드 레지스트리
+================================================================
+
+  get_tr_id(name, env) → str
+    env: "live" | "virtual"
+    모의 미지원 시 ValueError
+
+  get_url(name) → str
+    REST URL 경로 반환 (WS 전용이면 ValueError)
+
+  is_encrypted(name) → bool
+    AES 암호화 여부 (체결통보 등)
+
+[등록된 TR 목록]
+  이름                  real TR         virtual TR      URL
+  ─────────────────────────────────────────────────────────────────
+  ORDER_DAY             TTTO1101U       VTTO1101U       /trading/order
+  ORDER_NIGHT           STTN1101U       None(미지원)    /trading/order
+  ORDER_CANCEL_DAY      TTTO1103U       VTTO1103U       /trading/order-rvsecncl
+  ORDER_CANCEL_NIGHT    STTN1103U       None            /trading/order-rvsecncl
+  FILL_HISTORY          TTTO5201R       VTTO5201R       /trading/inquire-ccnl
+  BALANCE               CTFO6118R       VTFO6118R       /trading/inquire-balance
+  ORDERABLE             TTTO5105R       VTTO5105R       /trading/inquire-psbl-order
+  IDX_FUT_TICK          H0IFCNT0        H0IFCNT0        WS 전용
+  IDX_FUT_QUOTE         H0IFASP0        H0IFASP0        WS 전용
+  FILL_NOTICE_DAY       H0IFCNI0        H0IFCNI9        WS 전용 (AES)
+  KRX_NIGHT_TICK        H0MFCNT0        None            WS 전용
+  KRX_NIGHT_QUOTE       H0MFASP0        None            WS 전용
+  FILL_NOTICE_NIGHT     H0MFCNI0        None            WS 전용 (AES)
+  FUTURES_PRICE         FHKIF03010100   None            /quotations/inquire-price
+  INVESTOR_TIME         FHPTJ04030000   None            /quotations/inquire-investor-time-by-market
+  FOREIGN_INSTITUTION   FHPTJ04030000   None            /quotations/inquire-investor-time-by-market
+
+[신규 TR 추가 절차]
+  1. order/kis_tr_catalog.py TR_CATALOG dict에 항목 추가
+  2. order/kis_order_api.py 또는 core/kis_data_api.py 에 함수 구현
+  3. 이 문서 TR 목록 갱신
+
+
+================================================================
+6. order/order_state.py — in-memory 포지션 관리
+================================================================
+
+[PositionState 데이터클래스]
+  direction   int    1=LONG / -1=SHORT / 0=FLAT
+  qty         int    보유 계약 수
+  entry_price float  평균 진입단가
+  symbol      str    종목코드
+
+  is_flat() → bool   direction==0 or qty==0
+
+[OrderStateManager 메서드]
+  add_pending(ord_no, side, qty, price)
+    주문번호를 pending 목록에 등록
+    place_order_and_track()에서 자동 호출 — 수동 호출 금지
+
+  remove_pending(ord_no) → PendingOrder | None
+    pending에서 제거
+
+  on_fill_notice(fields)
+    WS 체결통보 수신 → 포지션 자동 업데이트
+    kis_fill_ws.py 에서 호출 — 직접 호출 금지
+
+  wait_fill(ord_no, timeout=30.0) → bool
+    체결 대기. True=체결 / False=타임아웃
+    간단한 boolean 결과만 필요할 때 사용
+
+  wait_fill_detail(ord_no, timeout=30.0) → tuple
+    (filled, fill_price, fill_qty, cancelled, refused)
+    order_executor 내부에서 사용
+
+  get_position() → PositionState
+    현재 포지션 스냅샷 반환 (복사본)
+
+  sync_from_balance(positions: list)
+    KIS 잔고 조회 결과로 포지션 초기화
+    프로세스 시작 시 1회 호출
+
+  daily_pnl   float  당일 실현 손익 (원)
+  trade_count int    당일 거래 횟수
+
+[PnL 계산 기준]
+  KOSPI 200 선물: 1포인트 = 250,000원 (FUTURES_MULTIPLIER)
+  LONG 청산 PnL = (청산가 - 진입가) × qty × 250,000
+  SHORT 청산 PnL = (진입가 - 청산가) × qty × 250,000
+
+
+================================================================
+7. core/kis_data_api.py — 시세·수급 데이터 REST 함수
+================================================================
+
+주의: 실계좌(KIS_DATA_ENV=live) 전용 — 모의 미지원
+      HTTP I/O만 담당. state 변경은 engine_runtime이 수행.
+
+  get_data_token(runtime) → str
+    데이터 계좌 access_token 반환 (캐시, 자동갱신)
+    키: .env.secrets KIS_APP_KEY / KIS_APP_SECRET
+
+  issue_approval_key(runtime) → str
+    데이터 WS 구독용 approval_key 발급
+
+  fetch_futures_price(runtime, pdno, session="day") → dict
+    선물 현재가 조회 (TR: FHMIF10000000)
+    pdno: 종목코드 (예: "A01606")
+    session: "day" | "night"
+    반환 주요 키: FUTS_PRPR(현재가), HTS_OTST_STPL_QTY(OI), MRKT_BASIS(베이시스)
+
+  fetch_investor_once(runtime) → dict
+    투자자 매매동향 단건 조회 (고정 market code)
+    settings의 INVESTOR_MARKET_CODE / INVESTOR_SUB_CODE 사용
+    레거시 함수 — 신규 코드는 fetch_investor_by_market 사용
+
+  fetch_investor_by_market(runtime, market_code, sub_code) → dict
+    시장코드·세부코드 지정 투자자 매매동향 조회 (범용)
+    market_code: K2I(선물) | KSP(KOSPI현물) | KSQ(코스닥) | MKI(미니선물)
+    sub_code   : F001(선물) | 2001(KOSPI200)
+    TR: FHPTJ04030000 — 실계좌 전용
+    반환 주요 필드:
+      stot_frgn_ntby_qty  외국인 순매수수량
+      stot_orgn_ntby_qty  기관 순매수수량
+      stot_prsn_ntby_qty  개인 순매수수량
+      opint_qty           미결제약정
+
+  fetch_foreign_flow_trend(runtime, iscd, iscd2="99999", mrkt_div="J")
+    → List[dict]
+    종목별 외국계 시간대별 순매수 추이
+    iscd: 종목코드 (예: "069500")
+    반환 항목 키: bsop_hour, stck_prpr, glob_ntby_qty, frgn_ntby_qty_icdc
+
+  fetch_investor_estimate(runtime, iscd) → List[dict]
+    외인·기관 추정 순매수 가집계 (TR: HHPTJ04160200)
+    업데이트 시각: 외국인 09:30/11:20/13:20/14:30, 기관 10:00/11:20/13:20/14:30
+    반환 항목 키: bsop_hour_gb(1~5), frgn_fake_ntby_qty, orgn_fake_ntby_qty
+
+
+================================================================
+8. 투자자 수급 state 키 일람
+================================================================
+
+engine_runtime.py가 매 틱 investor_cache → state 싱크
+
+  키                    설명                  업데이트 주기
+  ─────────────────────────────────────────────────────────
+  foreign_buy           외국인 선물 순매수     INVESTOR_POLL_SEC (기본 60s)
+  oi_value              미결제약정             동일
+  oi_delta              OI 변화량 (틱 간)      매 틱 계산
+  trade_strength        체결강도               INVESTOR_POLL_SEC
+  fut_fgn_buy           선물 외국인 절대값     INVESTOR_POLL_SEC
+  fut_inst_buy          선물 기관 절대값       동일
+  fut_indiv_buy         선물 개인 절대값       동일
+  fut_fgn_delta         선물 외국인 폴링간 변화 동일
+  fut_inst_delta        선물 기관 폴링간 변화   동일
+  fut_indiv_delta       선물 개인 폴링간 변화   동일
+  spot_fgn_buy          현물 외국인 절대값     INVESTOR_POLL_SEC
+  spot_inst_buy         현물 기관 절대값       동일
+  spot_indiv_buy        현물 개인 절대값       동일
+  spot_fgn_delta        현물 외국인 폴링간 변화 동일
+  spot_inst_delta       현물 기관 폴링간 변화   동일
+  spot_indiv_delta      현물 개인 폴링간 변화   동일
+
+[폴링 설정값 (.env.public)]
+  MMEAN_USE_INVESTOR=1                 투자자 수급 수집 활성화
+  MMEAN_INVESTOR_POLL_SEC=60           폴링 주기 (초)
+  MMEAN_INVESTOR_MARKET_CODE=K2I       선물 시장코드
+  MMEAN_INVESTOR_SUB_CODE=F001         선물 세부코드
+  MMEAN_SPOT_INVESTOR_MARKET_CODE=KSP  현물 시장코드
+  MMEAN_SPOT_INVESTOR_SUB_CODE=2001    현물 세부코드
+
+
+================================================================
+9. 환경 설정 (.env 키 요약)
+================================================================
+
+[.env.secrets — 절대 공개 금지]
+  KIS_APP_KEY          데이터 계좌 앱 키
+  KIS_APP_SECRET       데이터 계좌 앱 시크릿
+  KIS_ORDER_KEY        주문 계좌 앱 키
+  KIS_ORDER_SECRET     주문 계좌 앱 시크릿
+  KIS_ORDER_CANO       주문 계좌번호 10자리
+
+[.env.public — 계정 정보 없음]
+  KIS_DATA_ENV=live    데이터 계좌 환경 (고정 live)
+  KIS_ORDER_ENV=virtual 주문 계좌 환경 (virtual=모의 / live=실계좌)
+  MMEAN_EXECUTION_ENABLED=false  실주문 최종 게이트 (false=dry-run)
+
+[환경 전환 — 모의→실계좌]
+  .env.public: KIS_ORDER_ENV=virtual → live
+  .env.public: MMEAN_EXECUTION_ENABLED=false → true
+  나머지 코드 변경 없음
+
+
+================================================================
+10. 자주 쓰는 패턴 (빠른 참조)
+================================================================
+
+[진입]
+  from order.order_executor import execute_entry
+  result = execute_entry(runtime, side="LONG", qty=1)
+
+[청산]
+  from order.order_executor import execute_exit
+  result = execute_exit(runtime)          # 전량
+  result = execute_exit(runtime, qty=1)   # 일부
+
+[현재 포지션 확인]
+  pos = runtime.order_state.get_position()
+  if pos.is_flat(): ...
+  print(pos.direction, pos.qty, pos.entry_price)
+
+[잔고 조회]
+  from order.kis_order_api import get_balance
+  bal = get_balance(runtime)
+  summary = bal["summary"]
+
+[주문가능 수량]
+  from order.kis_order_api import get_orderable_qty
+  qty_info = get_orderable_qty(runtime, side="LONG")
+  print(qty_info["ord_psbl_qty"])
+
+[체결내역 조회]
+  from order.kis_order_api import get_order_history
+  rows = get_order_history(runtime, start_dt="20260301", end_dt="20260323")
+
+[투자자 수급 읽기]
+  state = runtime.state_obj.state
+  fut_fgn_delta  = state["fut_fgn_delta"]   # 선물 외국인 폴링간 변화
+  spot_inst_buy  = state["spot_inst_buy"]   # 현물 기관 절대값
+  foreign_buy    = state["foreign_buy"]     # 기존 호환 키 (= fut_fgn_buy)
+
+[선물 현재가 단건 조회]
+  from kis_data_api import fetch_futures_price
+  price_data = fetch_futures_price(runtime, pdno="A01606")
+
+================================================================

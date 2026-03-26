@@ -1,0 +1,122 @@
+================================================================================
+MMEAN SQL 명령어 모음
+DB: mmean.db / sim.db / pulse_sim.db / intraday.db
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+[sim.db] 특정 날짜 시뮬레이션 체결 건수
+  sim_trades: 백테스트 체결 이력 (손익·MFE·MAE·청산사유 포함)
+────────────────────────────────────────────────────────────────────────────────
+SELECT COUNT(*) FROM sim_trades WHERE session_date = '2026-03-25';
+
+────────────────────────────────────────────────────────────────────────────────
+[sim.db] 특정 날짜 시뮬레이션 탐색 run 건수
+  sim_runs: 파라미터 탐색 1회 = 1건
+────────────────────────────────────────────────────────────────────────────────
+SELECT COUNT(*) FROM sim_runs WHERE session_date = '2026-03-25';
+
+────────────────────────────────────────────────────────────────────────────────
+[pulse_sim.db] 특정 날짜 펄스 파라미터 탐색 건수
+  pulse_runs: pulse_sim 최적화 1루프 = 1건
+────────────────────────────────────────────────────────────────────────────────
+SELECT COUNT(*) FROM pulse_runs WHERE session_date = '2026-03-25';
+
+────────────────────────────────────────────────────────────────────────────────
+[mmean.db] 5분 전략 펄스(PulseEngine) 이력 조회
+  pulse_signals: PulseEngine 5분마다 저장 (방향·신뢰도·점수·채점결과 포함)
+────────────────────────────────────────────────────────────────────────────────
+SELECT datetime_full, direction, confidence, status,
+       score_direction, ema_fast_slope, flow_score, basis
+FROM pulse_signals
+WHERE date = '2026-03-26'
+ORDER BY datetime_full;
+
+────────────────────────────────────────────────────────────────────────────────
+[mmean.db] LLM 호출 이력 조회 (장전 파라미터·진입신호 등 레이어별)
+  llm_calls: 모든 LLM 호출 기록 (layer 컬럼으로 구분)
+  주요 layer값: market_analyst / pulse_validator / llm_pulse / intraday
+────────────────────────────────────────────────────────────────────────────────
+SELECT ts, layer, direction, opportunity_score, response_json
+FROM llm_calls
+WHERE session_date = '2026-03-26'
+  AND layer = 'market_analyst'
+ORDER BY ts;
+
+────────────────────────────────────────────────────────────────────────────────
+[intraday.db] MarketAnalyst 장중 상태 이력 조회
+  market_view_log: LLM 트리거마다 저장 (view·direction·reason·trigger)
+  언제든 삭제 가능한 휘발성 이력 DB
+────────────────────────────────────────────────────────────────────────────────
+SELECT ts, view, direction, confidence, reason, trigger,
+       ema_slope, flow_score
+FROM market_view_log
+WHERE session_date = '2026-03-26'
+ORDER BY ts;
+
+────────────────────────────────────────────────────────────────────────────────
+[mmean.db] trades 오늘 제외 전체 삭제
+  trades: SimEngine 실시간 가상 체결 이력 (open_ts 기준 날짜 필터)
+  ※ 실행 전 반드시 날짜 확인. VACUUM으로 용량 회수 권장.
+────────────────────────────────────────────────────────────────────────────────
+DELETE FROM trades WHERE date(open_ts) != date('now');
+VACUUM;
+
+────────────────────────────────────────────────────────────────────────────────
+[intraday.db] LLMCaller 호출 이력 조회
+  llm_caller_log: 진입신호 발생 시 LLM 호출 결과 (action/risk_view/weight_adjust)
+  언제든 삭제 가능한 휘발성 이력 DB
+────────────────────────────────────────────────────────────────────────────────
+SELECT ts, action, risk_view, confidence, weight_adjust,
+       entry_signal, futures_price, reason_main
+FROM llm_caller_log
+WHERE session_date = '2026-03-26'
+ORDER BY ts;
+
+────────────────────────────────────────────────────────────────────────────────
+[intraday.db] LLMPulse 10분 장세 판단 이력 조회
+  llm_pulse_log: LLMPulse 10분마다 저장 (방향·신뢰도·핵심근거·요약)
+  언제든 삭제 가능한 휘발성 이력 DB
+────────────────────────────────────────────────────────────────────────────────
+SELECT session_date, ts, direction, confidence, key_factor,
+       changed, flow_score, foreign_buy, futures_price, bias
+FROM llm_pulse_log
+WHERE session_date = '2026-03-26'
+ORDER BY ts;
+
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+[mmean.db] entry_snapshots — 진입 직전 스냅샷 조회
+  build_entry_snapshots.py 실행 후 생성
+  outcome_class: 1=SUCCESS / 0=NEUTRAL / -1=FAILURE
+────────────────────────────────────────────────────────────────────────────────
+-- 날짜별 outcome 분포
+SELECT session_date,
+       COUNT(*) total,
+       SUM(CASE WHEN outcome_class= 1 THEN 1 ELSE 0 END) success,
+       SUM(CASE WHEN outcome_class= 0 THEN 1 ELSE 0 END) neutral,
+       SUM(CASE WHEN outcome_class=-1 THEN 1 ELSE 0 END) failure,
+       ROUND(AVG(pnl_ticks),2) avg_pnl,
+       ROUND(AVG(max_adverse_excursion),2) avg_mae
+FROM entry_snapshots
+GROUP BY session_date
+ORDER BY session_date DESC;
+
+-- 피처 vs 결과 상관 힌트 (volume_burst 기준)
+SELECT outcome_class,
+       ROUND(AVG(vb_last),3)  avg_vb_last,
+       ROUND(AVG(vb_slope),5) avg_vb_slope,
+       ROUND(AVG(fs_slope),5) avg_fs_slope,
+       ROUND(AVG(ffgn_sum),1) avg_ffgn_sum
+FROM entry_snapshots
+GROUP BY outcome_class
+ORDER BY outcome_class DESC;
+
+-- 특정 날짜 진입 상세
+SELECT entry_ts, direction, session_phase,
+       pnl_ticks, max_adverse_excursion, exit_reason,
+       outcome_class, vb_last, vb_slope, fs_last, ffgn_sum
+FROM entry_snapshots
+WHERE session_date = '2026-03-26'
+ORDER BY entry_ts;
+
