@@ -1,0 +1,39 @@
+@echo off
+cd /d "%~dp0"
+color 0e
+
+set PROJ_DIR=%~dp0
+
+if "%~1"=="" (
+    echo.
+    echo  Usage: study.bat YYMMDD
+    echo  Example: study.bat 260401
+    echo.
+    pause
+    exit /b 1
+)
+
+set ARG=%~1
+set YEAR=20%ARG:~0,2%
+set MON=%ARG:~2,2%
+set DAY=%ARG:~4,2%
+set DATES=%YEAR%-%MON%-%DAY%
+
+echo.
+echo [STUDY] date  = %DATES%
+echo [STUDY] Launching 2 windows...
+echo.
+
+set SIM_TMP=%TEMP%\mmean_sim_%RANDOM%.bat
+(
+    echo @echo off
+    echo :LOOP
+    echo call "%PROJ_DIR%sim.bat" %ARG%
+    echo goto LOOP
+) > "%SIM_TMP%"
+start "MMEAN SIM [%DATES%]" cmd /k "%SIM_TMP%"
+
+start "MMEAN PULSE [%DATES%]" cmd /k "call \"%PROJ_DIR%pulse_sim.bat\" %ARG%"
+
+echo [STUDY] 2 windows started.
+echo.

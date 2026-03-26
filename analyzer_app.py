@@ -12,6 +12,7 @@ from app_bootstrap import build_runtime
 from engine_runtime import start_runtime
 from routes_analytics import register_analytics_routes
 from routes_core import register_core_routes
+from routes_webhook import register_webhook_routes
 
 def _startup_live_gate(runtime) -> bool:
     """
@@ -90,7 +91,13 @@ if _startup_live_gate(runtime):
 
 register_core_routes(app, runtime)
 register_analytics_routes(app=app, db_path=runtime.db_path, log=runtime.log)
+register_webhook_routes(app, runtime)
+
+@app.after_request
+def _close_connection(resp):
+    resp.headers["Connection"] = "close"
+    return resp
 
 if __name__ == "__main__":
     start_runtime(runtime)
-    app.run(host="0.0.0.0", port=runtime.settings["PORT"])
+    app.run(host="0.0.0.0", port=runtime.settings["PORT"], threaded=True)
